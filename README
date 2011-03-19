@@ -1,0 +1,26 @@
+The goal of this project is to evaluate whether it is feasible to implement a
+WebIDL-compliant HTML5 DOM in JavaScript. While a couple other self-hosted
+JavaScript DOM implementations exist, none of them are WebIDL-compliant
+(i.e. properties don't live on the prototype but directly on each node, for
+example). Also, all other implementations do not provide proper encapsulation.
+The details of the implementation leak through the API.
+
+For full WebIDL compliance the JavaScript engine has to support Proxies
+and weak maps. Firefox/SpiderMonkey support Proxies, but the current
+implementation as of Firefox 4 doesn't bind the receiver object to 'this' in
+handler traps. A series of patches is required to fix this:
+
+https://bugzilla.mozilla.org/show_bug.cgi?id=643101
+https://bugzilla.mozilla.org/show_bug.cgi?id=643100
+
+I am trying to coordinate with TC39 to get this change into the Harmony draft
+spec, and I will get the patches into Firefox 5 if that succeeds.
+
+The Harmony weak maps proposal is not currently implemented in any browser.
+I have a patch I will try to get into Firefox 5:
+
+https://bugzilla.mozilla.org/show_bug.cgi?id=547941
+
+dom.js is ridicilously incomplete. I am interested in correctness, performance,
+and code quality (in that order). Completeness is not a near or mid-term goal.
+This project is useless for anything but R&D of a self-hosted DOM.
