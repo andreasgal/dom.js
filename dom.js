@@ -58,6 +58,12 @@
 	return { get: get, set: set, configurable: true, enumerable: true };
     }
 
+    function TurnUndefinedIntoNull(v) {
+	if (typeof v == "undefined")
+	    return null;
+	return v;
+    }
+
     // Add a resolve hook for a global property. Many DOM classes are not used,
     // and it would needlessly slow down page loads to eagerly initialize all
     // of them. Instead we install a getter that will initialize class and then
@@ -77,7 +83,7 @@
     }
 
     AddResolveHook(global, "DOMException", function() {
-	var DOMException = function(code) {
+	function DOMException(code) {
 	    this.code = code;
 	}
 
@@ -112,18 +118,18 @@
     });
 
     AddResolveHook(global, "DOMStringList", function() {
-	var DOMStringListMap = new WeakMap();
+	var map = new WeakMap();
 
 	function $(obj) {
-	    return $$(DOMStringListMap, obj);
+	    return $$(map, obj);
 	}
 
-	var DOMStringList = function(strings) {
-	    DOMStringListMap.set(this, strings);
+	function DOMStringList(strings) {
+	    map.set(this, strings);
 	}
 
 	var funs = {
-	    item: function(index) { return $(this)[index]; },
+	    item: function(index) { return TurnUndefinedIntoNull($(this)[index]); },
 	    contains: function(str) { return $(this).some(function(e) { return e == str; }); },
 	    toString: function() { return "[object DOMStringList]"; }
 	};
@@ -189,5 +195,44 @@
 	});
 
 	return DOMStringList;
+    });
+
+    AddResolveHook(global, "NameList", function() {
+	var map = new WeakMap();
+
+	function $(obj) {
+	    return $$(map, obj);
+	}
+
+	function NameList(names, namespaces) {
+	    map.set(this, { names: names, namespaces: namespaces });
+	}
+
+	NameList.prototype = ({
+	    get length() {
+		return $(this).names.length;
+	    },
+	    getName: function(index) {
+		return TurnUndefinedIntoNull($(this).names[index]);
+	    },
+	    getNamespaceURI: function(index) {
+		return TurnUndefinedIntoNull($(this).namespaces[index]);
+	    },
+	    contains: function(str) {
+		return $(this).names.some(function(e) { return e == str; });
+	    },
+	    containsNS: function(namespace, name) {
+		var impl = $(this);
+		var names = impl.names;
+		var namespaces = impl.namespaces;
+		for (var i = 0; i < names.length; ++i) {
+		    if (namespaces[i] == namespace && names[i] == name)
+			return true;
+		}
+		return false;
+	    }
+	});
+
+	return NameList;
     });
 } (this));
