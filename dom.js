@@ -230,7 +230,8 @@
 			return true;
 		}
 		return false;
-	    }
+	    },
+	    toString: function() { return "[object NameList]"; }
 	});
 
 	return NameList;
