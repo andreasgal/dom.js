@@ -99,25 +99,13 @@
 	    DOMStringListMap.set(this, strings);
 	}
 
-	function item(index) {
-	    return $(this)[index];
-	}
-	function length() {
-	    return $(this).length;
-	}
-	function contains(str) {
-	    return $(this).some(function (e) { return e == str; });
-	}
-	function toString() {
-	    return "[object DOMStringList]";
-	}
 	var funs = {
-	    item: item,
-	    contains: contains,
-	    toString: toString
+	    item: function(index) { return $(this)[index]; },
+	    contains: function(str) { return $(this).some(function(e) { return e == str; }); },
+	    toString: function() { return "[object DOMStringList]"; }
 	};
 	var getters = {
-	    length: length
+	    length: function() { return $(this).length; }
 	};
 	var ownProps = {};
 	for (fun in funs)
