@@ -23,7 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-(function() {
+(function(global) {
     // Take a snapshot of all API functions we might call. Some of the code
     // below might run after initialization, at which point user code might
     // have redirected them.
@@ -43,19 +43,41 @@
 	throw new DOMException(DOMException.NOT_FOUND_ERR);
     }
 
-    // Make a data property
+    // Make a data property.
     function DATA(v) {
 	return { value: v, writable: true, configurable: true, enumerable: true };
     }
 
-    // Make an accessor property (read-only)
+    // Make an accessor property (read-only).
     function GET(get) {
 	return { get: get, configurable: true, enumerable: true };
     }
 
-    // DOMException
-    (function() {
-	DOMException = function(code) {
+    // Make an accessor property (read-write).
+    function GETSET(get, set) {
+	return { get: get, set: set, configurable: true, enumerable: true };
+    }
+
+    // Add a resolve hook for a global property. Many DOM classes are not used,
+    // and it would needlessly slow down page loads to eagerly initialize all
+    // of them. Instead we install a getter that will initialize class and then
+    // replaces itself with a data property for fast subsequent accesses.
+    function AddResolveHook(global, name, hook) {
+	function get() {
+	    var constructor = hook();
+	    Object.defineProperty(global, name, constructor);
+	    return constructor;
+	}
+	function set(value) {
+	    // The class is being overwritten without ever having been
+	    // resolved. Just blow away the resolve hook.
+	    Object.defineProperty(name, value);
+	}
+	Object.defineProperty(global, name, GETSET(get, set));
+    }
+
+    AddResolveHook(global, "DOMException", function() {
+	var DOMException = function(code) {
 	    this.code = code;
 	}
 
@@ -85,17 +107,18 @@
 	DOMException.prototype = {
 	    toString: function() { return "[object DOMException]"; },
 	}
-    } ());
 
-    // DOMStringList
-    (function() {
+	return DOMException;
+    });
+
+    AddResolveHook(global, "DOMStringList", function() {
 	var DOMStringListMap = new WeakMap();
 
 	function $(obj) {
 	    return $$(DOMStringListMap, obj);
 	}
 
-	DOMStringList = function(strings) {
+	var DOMStringList = function(strings) {
 	    DOMStringListMap.set(this, strings);
 	}
 
@@ -164,5 +187,7 @@
 	    enumerate: getOwnPropertyNames,
 	    keys: getOwnPropertyNames
 	});
-    } ());
-} ());
+
+	return DOMStringList;
+    });
+} (this));
