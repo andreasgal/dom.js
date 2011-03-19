@@ -29,6 +29,7 @@
     // have redirected them.
     var Object_prototype = Object.prototype;
     var Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+    var Object_keys = Object.keys;
 
     // Lookup the implementation object associated with an interface object.
     function $$(map, obj) {
@@ -107,30 +108,42 @@
 	function contains(str) {
 	    return $(this).some(function (e) { return e == str; });
 	}
+	function toString() {
+	    return "[object DOMStringList]";
+	}
+	var funs = {
+	    item: item,
+	    contains: contains,
+	    toString: toString
+	};
+	var getters = {
+	    length: length
+	};
+	var ownProps = {};
+	for (fun in funs)
+	    ownProps.push(DATA(fun));
+	for (getter in getters)
+	    ownProps.push(GET(getter));
+
 	function getOwnPropertyDescriptor(name) {
-	    if (name == "item")
-		return DATA(item);
-	    if (name == "length")
-		return GET(length);
-	    if (name == "contains")
-		return DATA(contains);
 	    var strings = $(this);
 	    if (name >= 0 && name < strings.length)
 		return GET(function () { return strings[name]; });
+	    var desc = ownProps[name];
+	    if (desc)
+		return desc;
 	}
 	function getOwnPropertyNames() {
 	    var strings = $(this);
 	    var result = [];
 	    for (var i = 0; i < strings.length; ++i)
 		result.push("" + i);
-	    return result.concat("item", "length", "contains");
+	    return result.concat(Object_keys(ownProps));
 	}
 	function hasOwn(name) {
 	    var strings = $(this);
 	    return (name >= 0 && name < strings.length) ||
-		name == "item" ||
-		name == "length" ||
-		name == "contains";
+		(name in ownProps);
 	}
 
 	DOMStringList.prototype = Proxy.create({
@@ -148,15 +161,15 @@
 		return hasOwn.call(this, name) || (name in Object_prototype);
 	    },
 	    get: function(receiver, name) {
-		if (name == "item")
-		    return item;
-		if (name == "length")
-		    return $(this).length;
-		if (name == "contains")
-		    return contains;
 		var strings = $(this);
 		if (name >= 0 && name < strings.length)
 		    return strings[name];
+		var getter = getters[name];
+		if (getter)
+		    return getter();
+		var fun = funs[name];
+		if (fun)
+		    return fun;
 		return Object_prototype[name];
 	    },
 	    set: function(receiver, name) {},
