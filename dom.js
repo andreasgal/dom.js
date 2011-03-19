@@ -48,7 +48,7 @@
 	return { value: v, writable: true, configurable: true, enumerable: true };
     }
 
-    // Make a accessor property (read-only)
+    // Make an accessor property (read-only)
     function GET(get) {
 	return { get: get, configurable: true, enumerable: true };
     }
@@ -108,10 +108,10 @@
 	    length: function() { return $(this).length; }
 	};
 	var ownProps = {};
-	for (fun in funs)
-	    ownProps.push(DATA(fun));
-	for (getter in getters)
-	    ownProps.push(GET(getter));
+	for (var fun in funs)
+	    ownProps[fun] = DATA(funs[fun]);
+	for (var getter in getters)
+	    ownProps[getter] = GET(getters[getter]);
 
 	function getOwnPropertyDescriptor(name) {
 	    var strings = $(this);
@@ -148,28 +148,21 @@
 	    has: function(name) {
 		return hasOwn.call(this, name) || (name in Object_prototype);
 	    },
-	    get: function(receiver, name) {
+	    get: function(name) {
 		var strings = $(this);
 		if (name >= 0 && name < strings.length)
 		    return strings[name];
 		var getter = getters[name];
 		if (getter)
-		    return getter();
+		    return getter.call(this);
 		var fun = funs[name];
 		if (fun)
 		    return fun;
 		return Object_prototype[name];
 	    },
-	    set: function(receiver, name) {},
+	    set: function(name, value) {},
 	    enumerate: getOwnPropertyNames,
 	    keys: getOwnPropertyNames
 	});
     } ());
 } ());
-
-var x = new DOMStringList(["foo", "bar"]);
-print(x.length);
-print(x.item(0));
-print(x[1]);
-print(x.contains("foo"));
-print(Object.getOwnPropertyNames(x).length); // should be 0
