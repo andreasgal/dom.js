@@ -28,6 +28,7 @@
     // below might run after initialization, at which point user code might
     // have redirected them.
     var Object_prototype = Object.prototype;
+    var Object_defineProperty = Object.defineProperty.
     var Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
     var Object_keys = Object.keys;
 
@@ -71,18 +72,18 @@
     function AddResolveHook(global, name, hook) {
 	function get() {
 	    var constructor = hook();
-	    Object.defineProperty(global, name, constructor);
+	    Object_defineProperty(global, name, constructor);
 	    return constructor;
 	}
 	function set(value) {
 	    // The class is being overwritten without ever having been
 	    // resolved. Just blow away the resolve hook.
-	    Object.defineProperty(name, value);
+	    Object_defineProperty(name, value);
 	}
-	Object.defineProperty(global, name, GETSET(get, set));
+	Object_defineProperty(global, name, GETSET(get, set));
     }
 
-    AddResolveHook(global, "DOMException", function() {
+    AddResolveHook("DOMException", function() {
 	function DOMException(code) {
 	    this.code = code;
 	}
@@ -117,7 +118,7 @@
 	return DOMException;
     });
 
-    AddResolveHook(global, "DOMStringList", function() {
+    AddResolveHook("DOMStringList", function() {
 	var map = new WeakMap();
 
 	function $(obj) {
@@ -197,7 +198,7 @@
 	return DOMStringList;
     });
 
-    AddResolveHook(global, "NameList", function() {
+    AddResolveHook("NameList", function() {
 	var map = new WeakMap();
 
 	function $(obj) {
