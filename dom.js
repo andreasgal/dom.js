@@ -28,19 +28,15 @@
     // below might run after initialization, at which point user code might
     // have redirected them.
     var Object_prototype = Object.prototype;
-    var Object_defineProperty = Object.defineProperty.
+    var Object_defineProperty = Object.defineProperty;
     var Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+    var Object_getPrototypeOf = Object.getPrototypeOf;
     var Object_keys = Object.keys;
 
     // Lookup the implementation object associated with an interface object.
     function $$(map, obj) {
-	function IsObject(v) {
-	    return v && typeof v == "object";
-	}
-
-	if (IsObject(obj) && IsObject(obj = map.get(obj)))
+	if (typeof obj == "object" && obj && (obj = map.get(obj)))
 	    return obj;
-
 	throw new DOMException(DOMException.NOT_FOUND_ERR);
     }
 
@@ -65,25 +61,45 @@
 	return v;
     }
 
-    // Add a resolve hook for a global property. Many DOM classes are not used,
-    // and it would needlessly slow down page loads to eagerly initialize all
-    // of them. Instead we install a getter that will initialize class and then
+    // Most DOM constructors are useless when called directly. We keep them in
+    // an internal list and install dummy constructors on the global object.
+    var constructors = {};
+
+    // Add a resolve hook for a DOM class. Many DOM classes are not used, and it
+    // would needlessly slow down page loads to eagerly initialize all of them.
+    // Instead we install a getter that will initialize the DOM class and then
     // replaces itself with a data property for fast subsequent accesses.
-    function AddResolveHook(global, name, hook) {
+    function AddResolveHook(obj, name, hook) {
 	function get() {
 	    var constructor = hook();
-	    Object_defineProperty(global, name, constructor);
+	    try {
+		Object_defineProperty(obj, name, constructor);
+	    } catch (e) {};
 	    return constructor;
 	}
 	function set(value) {
 	    // The class is being overwritten without ever having been
 	    // resolved. Just blow away the resolve hook.
-	    Object_defineProperty(name, value);
+	    try {
+		Object_defineProperty(obj, name, value);
+	    } catch (e) {};
 	}
-	Object_defineProperty(global, name, GETSET(get, set));
+
+	Object_defineProperty(obj, name, GETSET(get, set));
+
+	// If the resolve hook was set on the internal constructors object,
+	// install a dummy constructor on the global object.
+	if (obj == constructors) {
+	    function dummy() {
+		throw new DOMException(DOMException.WRONG_DOCUMENT_ERR);
+	    }
+
+	    dummy.prototype = Object_getPrototypeOf(hook);
+	    Object_defineProperty(obj, name, DATA(dummy));
+	}
     }
 
-    AddResolveHook("DOMException", function() {
+    AddResolveHook(global, "DOMException", function() {
 	function DOMException(code) {
 	    this.code = code;
 	}
@@ -118,7 +134,7 @@
 	return DOMException;
     });
 
-    AddResolveHook("DOMStringList", function() {
+    AddResolveHook(global, "DOMStringList", function() {
 	var map = new WeakMap();
 
 	function $(obj) {
@@ -198,7 +214,7 @@
 	return DOMStringList;
     });
 
-    AddResolveHook("NameList", function() {
+    AddResolveHook(global, "NameList", function() {
 	var map = new WeakMap();
 
 	function $(obj) {
