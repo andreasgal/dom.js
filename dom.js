@@ -134,6 +134,72 @@
 	return DOMException;
     });
 
+    function MakeArrayLikeObjectPrototype(map, getters, funs) {
+	function $(obj) {
+	    return $$(map, obj);
+	}
+
+	var ownProps = {};
+	for (var fun in funs)
+	    ownProps[fun] = DATA(funs[fun]);
+	for (var getter in getters)
+	    ownProps[getter] = GET(getters[getter]);
+
+	function getOwnPropertyDescriptor(name) {
+	    var items = $(this);
+	    if (name >= 0 && name < items.length)
+		return GET(function () { return items[name]; });
+	    var desc = ownProps[name];
+	    if (desc)
+		return desc;
+	}
+
+	function getOwnPropertyNames() {
+	    var items = $(this);
+	    var result = [];
+	    for (var i = 0; i < items.length; ++i)
+		result.push("" + i);
+	    return result.concat(Object_keys(ownProps));
+	}
+
+	function hasOwn(name) {
+	    var items = $(this);
+	    return (name >= 0 && name < items.length) ||
+		(name in ownProps);
+	}
+
+	return Proxy.create({
+	    getOwnPropertyDescriptor: getOwnPropertyDescriptor,
+	    getPropertyDescriptor: function(name) {
+		return getOwnPropertyDescriptor.call(this, name) ||
+		       Object_getOwnPropertyDescriptor(Object_prototype);
+	    },
+	    getOwnPropertyNames: getOwnPropertyNames,
+	    defineProperty: function(name, desc) {},
+	    delete: function(name) {},
+	    fix: function() {},
+	    hasOwn: hasOwn,
+	    has: function(name) {
+		return hasOwn.call(this, name) || (name in Object_prototype);
+	    },
+	    get: function(name) {
+		var items = $(this);
+		if (name >= 0 && name < items.length)
+		    return items[name];
+		var getter = getters[name];
+		if (getter)
+		    return getter.call(this);
+		var fun = funs[name];
+		if (fun)
+		    return fun;
+		return Object_prototype[name];
+	    },
+	    set: function(name, value) {},
+	    enumerate: getOwnPropertyNames,
+	    keys: getOwnPropertyNames
+	});
+    }
+
     AddResolveHook(global, "DOMStringList", function() {
 	var map = new WeakMap();
 
@@ -153,64 +219,8 @@
 	var getters = {
 	    length: function() { return $(this).length; }
 	};
-	var ownProps = {};
-	for (var fun in funs)
-	    ownProps[fun] = DATA(funs[fun]);
-	for (var getter in getters)
-	    ownProps[getter] = GET(getters[getter]);
 
-	function getOwnPropertyDescriptor(name) {
-	    var strings = $(this);
-	    if (name >= 0 && name < strings.length)
-		return GET(function () { return strings[name]; });
-	    var desc = ownProps[name];
-	    if (desc)
-		return desc;
-	}
-	function getOwnPropertyNames() {
-	    var strings = $(this);
-	    var result = [];
-	    for (var i = 0; i < strings.length; ++i)
-		result.push("" + i);
-	    return result.concat(Object_keys(ownProps));
-	}
-	function hasOwn(name) {
-	    var strings = $(this);
-	    return (name >= 0 && name < strings.length) ||
-		(name in ownProps);
-	}
-
-	DOMStringList.prototype = Proxy.create({
-	    getOwnPropertyDescriptor: getOwnPropertyDescriptor,
-	    getPropertyDescriptor: function(name) {
-		return getOwnPropertyDescriptor.call(this, name) ||
-		       Object_getOwnPropertyDescriptor(Object_prototype);
-	    },
-	    getOwnPropertyNames: getOwnPropertyNames,
-	    defineProperty: function(name, desc) {},
-	    delete: function(name) {},
-	    fix: function() {},
-	    hasOwn: hasOwn,
-	    has: function(name) {
-		return hasOwn.call(this, name) || (name in Object_prototype);
-	    },
-	    get: function(name) {
-		var strings = $(this);
-		if (name >= 0 && name < strings.length)
-		    return strings[name];
-		var getter = getters[name];
-		if (getter)
-		    return getter.call(this);
-		var fun = funs[name];
-		if (fun)
-		    return fun;
-		return Object_prototype[name];
-	    },
-	    set: function(name, value) {},
-	    enumerate: getOwnPropertyNames,
-	    keys: getOwnPropertyNames,
-	    toString: function() { return "[object DOMStringList]"; }
-	});
+	DOMStringList.prototype = MakeArrayLikeObjectPrototype(map, getters, funs);
 
 	return DOMStringList;
     });
