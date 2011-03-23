@@ -208,7 +208,8 @@
 	    },
 	    set: function(name, value) {},
 	    enumerate: getOwnPropertyNames,
-	    keys: getOwnPropertyNames
+	    keys: getOwnPropertyNames,
+	    toString: function() { return "[object DOMStringList]"; }
 	});
 
 	return DOMStringList;
