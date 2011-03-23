@@ -287,4 +287,85 @@
 
 	return DOMStringList;
     });
+
+    AddResolveHook(global, "DOMImplementationSource", function() {
+	var map = new WeakMap();
+
+	function $(obj) {
+	    return $$(map, obj);
+	}
+
+	function DOMImplementationSource(list) {
+	    map.set(this, list);
+	}
+
+	function ParseFeatures(string) {
+	    var array = [];
+	    for (s in string.split(" ")) {
+		var version = Number(s);
+		if (isNaN(version)) {
+		    if (array.length > 0)
+			array[array.length - 1].version += version;
+		} else {
+		    array.push({ feature: s, version: "" });
+		}
+	    }
+	    return array;
+	}
+
+	function MatchFeatures(parsed, implementation) {
+	    for (var p in parsed) {
+		if (!i.hasFeature(p.feature, p.version))
+		    return false;
+	    }
+	    return true;
+	}
+
+	DOMImplementationSource.prototype = ({
+	    getDOMImplementation: function(features) {
+		var parsed = ParseFeatures(features);
+		for (var i in $(this)) {
+		    if (MatchFeatures(parsed, i))
+			return i;
+		}
+		return null;
+	    },
+	    getDOMImplementationList: function(feature) {
+		var array = [];
+		var parsed = ParseFeatures(features);
+		for (var i in $(this)) {
+		    if (MatchFeatures(parsed, i))
+			array.push(i);
+		}
+		return new DOMImplementationList(array);
+	    }
+	});
+    });
+
+    AddResolveHook(global, "DOMImplementation", function() {
+	var map = new WeakMap();
+
+	function $(obj) {
+	    return $$(map, obj);
+	}
+
+	function DOMImplementation(impl) {
+	    map.set(this, impl);
+	}
+
+	DOMImplementationSource.prototype = ({
+	    hasFeature: function(feature, version) {
+		return impl.hasFeature(feature, version);
+	    },
+	    createDocumentType: function(qualifiedName, publicId, systemId) {
+		return impl.createDocumentType(qualifiedName, publicId, systemId);
+	    },
+	    createDocument: function(namespaceURI, qualifiedName, doctype) {
+		return impl.createDocument(namespaceURI, qualifiedName, doctype);
+	    },
+	    getFeature: function(feature, version) {
+		return impl.getFeature(feature, version);
+	    }
+	});
+    });
 } (this));
