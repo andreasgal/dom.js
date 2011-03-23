@@ -29,9 +29,44 @@
     // have redirected them.
     var Object_prototype = Object.prototype;
     var Object_defineProperty = Object.defineProperty;
+    var Object_freeze = Object.freeze;
     var Object_getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-    var Object_getPrototypeOf = Object.getPrototypeOf;
     var Object_keys = Object.keys;
+
+    function DOMException(code) {
+	this.code = code;
+    }
+
+    // DOM Level 1
+    DOMException.INDEX_SIZE_ERR                 = 1;
+    DOMException.DOMSTRING_SIZE_ERR             = 2;
+    DOMException.HIERARCHY_REQUEST_ERR          = 3;
+    DOMException.WRONG_DOCUMENT_ERR             = 4;
+    DOMException.INVALID_CHARACTER_ERR          = 5;
+    DOMException.NO_DATA_ALLOWED_ERR            = 6;
+    DOMException.NO_MODIFICATION_ALLOWED_ERR    = 7;
+    DOMException.NOT_FOUND_ERR                  = 8;
+    DOMException.NOT_SUPPORTED_ERR              = 9;
+    DOMException.INUSE_ATTRIBUTE_ERR            = 10;
+
+    // DOM Level 2
+    DOMException.INVALID_STATE_ERR              = 11;
+    DOMException.SYNTAX_ERR                     = 12;
+    DOMException.INVALID_MODIFICATION_ERR       = 13;
+    DOMException.NAMESPACE_ERR                  = 14;
+    DOMException.INVALID_ACCESS_ERR             = 15;
+
+    // DOM Level 3
+    DOMException.VALIDATION_ERR                 = 16;
+    DOMException.TYPE_MISMATCH_ERR              = 17;
+
+    DOMException.prototype = {
+	toString: function() { return "[object DOMException]"; },
+    }
+
+    // In contrast to all other constructors, we permit DOMExceptions to be
+    // constructed manually.
+    global.DOMException = DOMException;
 
     // Lookup the implementation object associated with an interface object.
     function $$(map, obj) {
@@ -59,6 +94,10 @@
 	if (typeof v == "undefined")
 	    return null;
 	return v;
+    }
+
+    function IsNull(v) {
+	return (typeof v == "undefined") && !v;
     }
 
     // Most DOM constructors are useless when called directly. We keep them in
@@ -100,45 +139,14 @@
 		throw new DOMException(DOMException.WRONG_DOCUMENT_ERR);
 	    }
 
-	    dummy.prototype = Object_getPrototypeOf(hook);
+	    // If any properties were defined on the constructor, copy them
+	    // onto the dummy constructor as well.
+	    for (i in hook)
+		dummy[i] = hook[i];
+
 	    Object_defineProperty(global, name, DATA(dummy));
 	}
     }
-
-    AddResolveHook("DOMException", function() {
-	function DOMException(code) {
-	    this.code = code;
-	}
-
-	// DOM Level 1
-	DOMException.INDEX_SIZE_ERR                 = 1;
-	DOMException.DOMSTRING_SIZE_ERR             = 2;
-	DOMException.HIERARCHY_REQUEST_ERR          = 3;
-	DOMException.WRONG_DOCUMENT_ERR             = 4;
-	DOMException.INVALID_CHARACTER_ERR          = 5;
-	DOMException.NO_DATA_ALLOWED_ERR            = 6;
-	DOMException.NO_MODIFICATION_ALLOWED_ERR    = 7;
-	DOMException.NOT_FOUND_ERR                  = 8;
-	DOMException.NOT_SUPPORTED_ERR              = 9;
-	DOMException.INUSE_ATTRIBUTE_ERR            = 10;
-
-	// DOM Level 2
-	DOMException.INVALID_STATE_ERR              = 11;
-	DOMException.SYNTAX_ERR                     = 12;
-	DOMException.INVALID_MODIFICATION_ERR       = 13;
-	DOMException.NAMESPACE_ERR                  = 14;
-	DOMException.INVALID_ACCESS_ERR             = 15;
-
-	// DOM Level 3
-	DOMException.VALIDATION_ERR                 = 16;
-	DOMException.TYPE_MISMATCH_ERR              = 17;
-
-	DOMException.prototype = {
-	    toString: function() { return "[object DOMException]"; },
-	}
-
-	return DOMException;
-    });
 
     function MakeArrayLikeObjectPrototype(map, getters, funs) {
 	function $(obj) {
@@ -218,12 +226,22 @@
 	}
 
 	var funs = {
-	    item: function(index) { return TurnUndefinedIntoNull($(this)[index]); },
-	    contains: function(str) { return $(this).some(function(e) { return e == str; }); },
-	    toString: function() { return "[object DOMStringList]"; }
+	    item: function(index) {
+		return TurnUndefinedIntoNull($(this)[index]);
+	    },
+	    contains: function(str) {
+		return $(this).some(function(e) {
+			                return e == str;
+		                    });
+	    },
+	    toString: function() {
+		return "[object DOMStringList]";
+	    }
 	};
 	var getters = {
-	    length: function() { return $(this).length; }
+	    length: function() {
+		return $(this).length;
+	    }
 	};
 
 	DOMStringList.prototype = MakeArrayLikeObjectPrototype(map, getters, funs);
@@ -242,7 +260,7 @@
 	    map.set(this, { names: names, namespaces: namespaces });
 	}
 
-	NameList.prototype = ({
+	NameList.prototype = {
 	    get length() {
 		return $(this).names.length;
 	    },
@@ -266,7 +284,7 @@
 		return false;
 	    },
 	    toString: function() { return "[object NameList]"; }
-	});
+	};
 
 	return NameList;
     });
@@ -283,10 +301,14 @@
 	}
 
 	var funs = {
-	    item: function(index) { return TurnUndefinedIntoNull($(this)[index]); },
+	    item: function(index) {
+		return TurnUndefinedIntoNull($(this)[index]);
+	    },
 	};
 	var getters = {
-	    length: function() { return $(this).length; }
+	    length: function() {
+		return $(this).length;
+	    }
 	};
 
 	DOMImplementationList.prototype = MakeArrayLikeObjectPrototype(map, getters, funs);
@@ -327,7 +349,7 @@
 	    return true;
 	}
 
-	DOMImplementationSource.prototype = ({
+	DOMImplementationSource.prototype = {
 	    getDOMImplementation: function(features) {
 		var parsed = ParseFeatures(features);
 		for (var i in $(this)) {
@@ -345,7 +367,7 @@
 		}
 		return new constructors.DOMImplementationList(array);
 	    }
-	});
+	};
 
 	return DOMImplementationSource;
     });
@@ -361,7 +383,7 @@
 	    map.set(this, impl);
 	}
 
-	DOMImplementation.prototype = ({
+	DOMImplementation.prototype = {
 	    hasFeature: function(feature, version) {
 		return impl.hasFeature(feature, version);
 	    },
@@ -374,7 +396,7 @@
 	    getFeature: function(feature, version) {
 		return impl.getFeature(feature, version);
 	    }
-	});
+	};
 
 	return DOMImplementation;
     });
@@ -401,6 +423,145 @@
 		}
 		return new constructors.DOMImplementationList(array);
 	    }
+	};
+    });
+
+    AddResolveHook("NodeList", function() {
+	var map = new WeakMap();
+
+	function $(obj) {
+	    return $$(map, obj);
+	}
+
+	function NodeList(items) {
+	    map.set(this, items);
+	}
+
+	var funs = {
+	    item: function(index) {
+		return TurnUndefinedIntoNull($(this)[index]);
+	    },
+	};
+	var getters = {
+	    length: function() {
+		return $(this).length;
+	    }
+	};
+
+	NodeList.prototype = MakeArrayLikeObjectPrototype(map, getters, funs);
+
+	return NodeList;
+    });
+
+    AddResolveHook("Node", function() {
+	var map = new WeakMap();
+
+	function $(obj) {
+	    return $$(map, obj);
+	}
+
+	function search(array, element) {
+	    for (var i = 0; i < array.length; ++i)
+		if (array[i] == element)
+		    return i;
+	    return -1;
+	}
+
+	// Return the previous or next sibling of a node by looking into the
+	// parent's childNodes. The index of the current node within childNodes
+	// is cached in the node, and is verified (and updated, if necessary).
+	function sibling(node, step) {
+	    var impl = $(node);
+	    var parent = impl.parent;
+	    if (parent) {
+		var parentImpl = $(parent);
+		var childNodes = parentImpl.childNodes;
+		if (childNodes) {
+		    var index = impl.cachedChildIndex;
+		    if (childNodes[index] != this)
+			index = impl.cachedChildIndex = search(childNodes, this);
+		    index += step;
+		    if (index >= 0 && index < childNodes.length)
+			return childNodes[index];
+		}
+	    }
+	    return null;
+	}
+
+	function Node(impl) {
+	    map.set(this, impl);
+	}
+
+	Node.ELEMENT_NODE                = 1;
+	Node.ATTRIBUTE_NODE              = 2;
+	Node.TEXT_NODE                   = 3;
+	Node.CDATA_SECTION_NODE          = 4;
+	Node.ENTITY_REFERENCE_NODE       = 5;
+	Node.ENTITY_NODE                 = 6;
+	Node.PROCESSING_INSTRUCTION_NODE = 7;
+	Node.COMMENT_NODE                = 8;
+	Node.DOCUMENT_NODE               = 9;
+	Node.DOCUMENT_TYPE_NODE          = 10;
+	Node.DOCUMENT_FRAGMENT_NODE      = 11;
+	Node.NOTATION_NODE               = 12;
+	Node.NAMESPACE_NODE              = 13;
+
+	Node.DOCUMENT_POSITION_EQUAL                   = 0x00;
+	Node.DOCUMENT_POSITION_DISCONNECTED            = 0x01;
+	Node.DOCUMENT_POSITION_PRECEDING               = 0x02;
+	Node.DOCUMENT_POSITION_FOLLOWING               = 0x04;
+	Node.DOCUMENT_POSITION_CONTAINS                = 0x08;
+	Node.DOCUMENT_POSITION_CONTAINED_BY            = 0x10;
+	Node.DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20;
+
+	Node.prototype = {
+	    get nodeName() {
+		return $(this).nodeName;
+	    },
+	    get nodeValue() {
+		return TurnUndefinedIntoNull($(this).nodeValue);
+	    },
+	    set nodeValue(newValue) {
+		if (!IsNull(newValue)) {
+		    var impl = $(this);
+		    if (impl.readonly)
+			throw new DOMException(DOMException.NO_MODIFICATION_ALLOWED_ERR);
+		    impl.nodeValue = newValue;
+		}
+	    },
+	    get nodeType() {
+		return $(this).nodeType,
+	    },
+	    get parentNode() {
+		return TurnUndefinedIntoNull($(this).parentNode);
+	    },
+	    get childNodes() {
+		var impl = $(this);
+		if (impl.cachedChildNodes)
+		    return impl.cachedChildNodes;
+		if (!impl.childNodes)
+		    impl.childNodes = [];
+		return impl.cachedChildNodes = constructors.NodeList(impl.childNodes);
+	    },
+	    get firstChild() {
+		var childNodes = $(this).childNodes;
+		if (childNodes && childNodes.length > 0)
+		    return childNodes[0];
+		return null;
+	    },
+	    get lastChild() {
+		var childNodes = $(this).childNodes;
+		if (childNodes && childNodes.length > 0)
+		    return childNodes[childNodes.length-1];
+		return null;
+	    },
+	    get previousSibling() {
+		return sibling(this, -1);
+	    },
+	    get nextSibling() {
+		return sibling(this, 1);
+	    }
+	    /* TODO */
 	};
     });
 } (this));
