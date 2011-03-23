@@ -18,3 +18,7 @@ assertEq(x.length, 2);
 assertEq(x.getName(0), "foo");
 assertEq(x.contains("foo"), true);
 assertEq(x.containsNS("fooNS", "foo"), true);
+
+var x = new DOMImplementationList(["foo", "bar"]);
+assertEq(x.length, 2);
+assertEq(x[1], "bar");

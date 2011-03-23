@@ -207,8 +207,8 @@
 	    return $$(map, obj);
 	}
 
-	function DOMStringList(strings) {
-	    map.set(this, strings);
+	function DOMStringList(items) {
+	    map.set(this, items);
 	}
 
 	var funs = {
@@ -263,5 +263,28 @@
 	});
 
 	return NameList;
+    });
+
+    AddResolveHook(global, "DOMImplementationList", function() {
+	var map = new WeakMap();
+
+	function $(obj) {
+	    return $$(map, obj);
+	}
+
+	function DOMImplementationList(items) {
+	    map.set(this, items);
+	}
+
+	var funs = {
+	    item: function(index) { return TurnUndefinedIntoNull($(this)[index]); },
+	};
+	var getters = {
+	    length: function() { return $(this).length; }
+	};
+
+	DOMImplementationList.prototype = MakeArrayLikeObjectPrototype(map, getters, funs);
+
+	return DOMStringList;
     });
 } (this));
