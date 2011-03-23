@@ -69,7 +69,11 @@
     // would needlessly slow down page loads to eagerly initialize all of them.
     // Instead we install a getter that will initialize the DOM class and then
     // replaces itself with a data property for fast subsequent accesses.
-    function AddResolveHook(obj, name, hook) {
+    function AddResolveHook(name, hook) {
+	// All resolve hooks are created on 'constructors', except for the
+	// DOMImplementationRegistry object.
+	var obj = (name == "DOMImplementationRegistry") ? global : constructors;
+
 	function get() {
 	    var constructor = hook();
 	    try {
@@ -87,19 +91,21 @@
 
 	Object_defineProperty(obj, name, GETSET(get, set));
 
-	// If the resolve hook was set on the internal constructors object,
-	// install a dummy constructor on the global object.
 	if (obj == constructors) {
+	    // For each constructor, define a dummy constructor on the global
+	    // object. WebIDL says this is an object, but then allows it to be used
+	    // on the RHS of instanceof. We make it a function instead, and throw
+	    // if it is called.
 	    function dummy() {
 		throw new DOMException(DOMException.WRONG_DOCUMENT_ERR);
 	    }
 
 	    dummy.prototype = Object_getPrototypeOf(hook);
-	    Object_defineProperty(obj, name, DATA(dummy));
+	    Object_defineProperty(global, name, DATA(dummy));
 	}
     }
 
-    AddResolveHook(global, "DOMException", function() {
+    AddResolveHook("DOMException", function() {
 	function DOMException(code) {
 	    this.code = code;
 	}
@@ -200,7 +206,7 @@
 	});
     }
 
-    AddResolveHook(global, "DOMStringList", function() {
+    AddResolveHook("DOMStringList", function() {
 	var map = new WeakMap();
 
 	function $(obj) {
@@ -225,7 +231,7 @@
 	return DOMStringList;
     });
 
-    AddResolveHook(global, "NameList", function() {
+    AddResolveHook("NameList", function() {
 	var map = new WeakMap();
 
 	function $(obj) {
@@ -265,7 +271,7 @@
 	return NameList;
     });
 
-    AddResolveHook(global, "DOMImplementationList", function() {
+    AddResolveHook("DOMImplementationList", function() {
 	var map = new WeakMap();
 
 	function $(obj) {
@@ -288,15 +294,15 @@
 	return DOMStringList;
     });
 
-    AddResolveHook(global, "DOMImplementationSource", function() {
+    AddResolveHook("DOMImplementationSource", function() {
 	var map = new WeakMap();
 
 	function $(obj) {
 	    return $$(map, obj);
 	}
 
-	function DOMImplementationSource(list) {
-	    map.set(this, list);
+	function DOMImplementationSource(implementations) {
+	    map.set(this, implementations);
 	}
 
 	function ParseFeatures(string) {
@@ -337,12 +343,14 @@
 		    if (MatchFeatures(parsed, i))
 			array.push(i);
 		}
-		return new DOMImplementationList(array);
+		return new constructors.DOMImplementationList(array);
 	    }
 	});
+
+	return DOMImplementationSource;
     });
 
-    AddResolveHook(global, "DOMImplementation", function() {
+    AddResolveHook("DOMImplementation", function() {
 	var map = new WeakMap();
 
 	function $(obj) {
@@ -353,7 +361,7 @@
 	    map.set(this, impl);
 	}
 
-	DOMImplementationSource.prototype = ({
+	DOMImplementation.prototype = ({
 	    hasFeature: function(feature, version) {
 		return impl.hasFeature(feature, version);
 	    },
@@ -367,5 +375,32 @@
 		return impl.getFeature(feature, version);
 	    }
 	});
+
+	return DOMImplementation;
+    });
+
+    // We populate this below.
+    var DOMImplementationSources = [];
+
+    AddResolveHook("DOMImplementationRegistry", function() {
+	return {
+	    getDOMImplementation: function(features) {
+		for (var s in DOMImplementationSources) {
+		    var i = s.getDOMImplementation(features);
+		    if (i != null)
+			return i;
+		}
+		return null;
+	    },
+	    getDOMImplementationList: function(feature) {
+		var array = [];
+		for (var s in DOMImplementationSources) {
+		    var list = s.getDOMImplementationList(features);
+		    for (var n = 0; n < list.length; ++n)
+			array.push(list[n]);
+		}
+		return new constructors.DOMImplementationList(array);
+	    }
+	};
     });
 } (this));
