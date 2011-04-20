@@ -148,38 +148,21 @@
 	}
     }
 
-    function MakeArrayLikeObjectPrototype(map, getters, funs) {
-	function $(obj) {
-	    return $$(map, obj);
-	}
-
-	var ownProps = {};
-	for (var fun in funs)
-	    ownProps[fun] = DATA(funs[fun]);
-	for (var getter in getters)
-	    ownProps[getter] = GET(getters[getter]);
-
+    function MakeArrayLikeObject(items) {
 	function getOwnPropertyDescriptor(name) {
-	    var items = $(this);
 	    if (name >= 0 && name < items.length)
 		return GET(function () { return items[name]; });
-	    var desc = ownProps[name];
-	    if (desc)
-		return desc;
 	}
 
 	function getOwnPropertyNames() {
-	    var items = $(this);
 	    var result = [];
 	    for (var i = 0; i < items.length; ++i)
 		result.push("" + i);
-	    return result.concat(Object_keys(ownProps));
+	    return result;
 	}
 
 	function hasOwn(name) {
-	    var items = $(this);
-	    return (name >= 0 && name < items.length) ||
-		(name in ownProps);
+	    return name >= 0 && name < items.length;
 	}
 
 	return Proxy.create({
@@ -197,15 +180,8 @@
 		return hasOwn.call(this, name) || (name in Object_prototype);
 	    },
 	    get: function(name) {
-		var items = $(this);
 		if (name >= 0 && name < items.length)
 		    return items[name];
-		var getter = getters[name];
-		if (getter)
-		    return getter.call(this);
-		var fun = funs[name];
-		if (fun)
-		    return fun;
 		return Object_prototype[name];
 	    },
 	    set: function(name, value) {},
@@ -222,10 +198,15 @@
 	}
 
 	function DOMStringList(items) {
-	    map.set(this, items);
+	    var obj = MakeArrayLikeObject(items);
+	    map.set(obj, items);
+	    return obj;
 	}
 
-	var funs = {
+	DOMStringList.prototype = {
+	    get length() {
+		return $(this).length;
+	    },
 	    item: function(index) {
 		return TurnUndefinedIntoNull($(this)[index]);
 	    },
@@ -237,14 +218,7 @@
 	    toString: function() {
 		return "[object DOMStringList]";
 	    }
-	};
-	var getters = {
-	    length: function() {
-		return $(this).length;
-	    }
-	};
-
-	DOMStringList.prototype = MakeArrayLikeObjectPrototype(map, getters, funs);
+	}
 
 	return DOMStringList;
     });
@@ -283,7 +257,9 @@
 		}
 		return false;
 	    },
-	    toString: function() { return "[object NameList]"; }
+	    toString: function() {
+		return "[object NameList]";
+	    }
 	};
 
 	return NameList;
@@ -297,21 +273,19 @@
 	}
 
 	function DOMImplementationList(items) {
-	    map.set(this, items);
+	    var obj = MakeArrayLikeObject(items);
+	    map.set(obj, items);
+	    return obj;
 	}
 
-	var funs = {
+	DOMImplementationList.prototype = {
+	    get length() {
+		return $(this).length;
+	    },
 	    item: function(index) {
 		return TurnUndefinedIntoNull($(this)[index]);
 	    },
 	};
-	var getters = {
-	    length: function() {
-		return $(this).length;
-	    }
-	};
-
-	DOMImplementationList.prototype = MakeArrayLikeObjectPrototype(map, getters, funs);
 
 	return DOMStringList;
     });
@@ -434,21 +408,19 @@
 	}
 
 	function NodeList(items) {
-	    map.set(this, items);
+	    var obj = MakeArrayLikeObject(items);
+	    map.set(obj, items);
+	    return obj;
 	}
 
-	var funs = {
+	NodeList.prototype = {
+	    get length() {
+		return $(this).length;
+	    },
 	    item: function(index) {
 		return TurnUndefinedIntoNull($(this)[index]);
-	    },
-	};
-	var getters = {
-	    length: function() {
-		return $(this).length;
 	    }
 	};
-
-	NodeList.prototype = MakeArrayLikeObjectPrototype(map, getters, funs);
 
 	return NodeList;
     });
@@ -530,7 +502,7 @@
 		}
 	    },
 	    get nodeType() {
-		return $(this).nodeType,
+		return $(this).nodeType;
 	    },
 	    get parentNode() {
 		return TurnUndefinedIntoNull($(this).parentNode);
@@ -541,7 +513,7 @@
 		    return impl.cachedChildNodes;
 		if (!impl.childNodes)
 		    impl.childNodes = [];
-		return impl.cachedChildNodes = constructors.NodeList(impl.childNodes);
+		return impl.cachedChildNodes = new constructors.NodeList(impl.childNodes);
 	    },
 	    get firstChild() {
 		var childNodes = $(this).childNodes;
@@ -560,8 +532,20 @@
 	    },
 	    get nextSibling() {
 		return sibling(this, 1);
-	    }
-	    /* TODO */
+	    },
+	    get attributes() {
+		var attributes = $(this).attributes;
+		if (!attributes)
+		    return null;
+		/* TODO */
+	    },
+	    get ownerDocument() {
+		var node = this;
+		var parent;
+		while (parent = $(node).parentNode)
+		    node = parent;
+		return TurnUndefinedIntoNull($(node).ownerDocument);
+	    },
 	};
     });
 } (this));
