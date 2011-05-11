@@ -287,7 +287,7 @@
 	    },
 	};
 
-	return DOMStringList;
+	return DOMImplementationList;
     });
 
     AddResolveHook("DOMImplementationSource", function() {
@@ -359,16 +359,16 @@
 
 	DOMImplementation.prototype = {
 	    hasFeature: function(feature, version) {
-		return impl.hasFeature(feature, version);
+		return $(this).hasFeature(feature, version);
 	    },
 	    createDocumentType: function(qualifiedName, publicId, systemId) {
-		return impl.createDocumentType(qualifiedName, publicId, systemId);
+		return $(this).createDocumentType(qualifiedName, publicId, systemId);
 	    },
 	    createDocument: function(namespaceURI, qualifiedName, doctype) {
-		return impl.createDocument(namespaceURI, qualifiedName, doctype);
+		return $(this).createDocument(namespaceURI, qualifiedName, doctype);
 	    },
 	    getFeature: function(feature, version) {
-		return impl.getFeature(feature, version);
+		return $(this).getFeature(feature, version);
 	    }
 	};
 
