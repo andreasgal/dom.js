@@ -1,0 +1,48 @@
+<h1>Pipelined Parsing, Tree Building and Rendering</h1>
+<p>
+This demo has a simple HTML parser running in a WebWorker, a tree
+builder running in this window, and a fake renderer running in the
+iframe below.
+<p>
+The parser sends messages to this window, where they are used to build a
+simple tree that models the document structure.  This is the underlying
+tree that dom.js will be wrapped around.  
+<p>
+All changes to the tree generate mutation events that are sent
+asynchronously to the iframe, which simulates an HTML+CSS renderer by
+using them them to construct a DOM tree.
+<p>
+Note that script and style tags are not correctly handled
+yet. Eventually, scripts will be processed in this window and will use
+dom.js to allow scripted modifications to the tree.
+<p>
+<p>
+Select a static HTML file to display: <input type="file" onchange="loadfile(this.files[0])">
+<p>
+<iframe id="renderer" src="renderer.html"
+        style="width:90%; height:50%">
+</iframe>
+
+<script src="Constants.js" type="application/javascript; version=1.8"/></script>
+<script src="Tree.js" type="application/javascript; version=1.8"/></script>
+<script src="MutationSerializer.js" type="application/javascript; version=1.8"/></script>
+<script src="TreeBuilder.js" type="application/javascript; version=1.8"/></script>
+<script type="application/javascript; version=1.8">
+function loadfile(f) {
+    let renderer = document.getElementById("renderer").contentWindow;
+    let serializer = new MutationSerializer(function(events) {
+        renderer.postMessage(events, "*");
+    });
+    let tree = new Tree(serializer);
+    let builder = new TreeBuilder(tree);
+    let parser = new Worker("parser.js");
+    parser.onmessage = function(e) { builder.parse(e.data);  };
+
+    let reader = new FileReader();
+    reader.readAsText(f);
+    reader.onload = function() {
+        // Send the file contents to the parser
+        parser.postMessage(reader.result);
+    }
+}
+</script>

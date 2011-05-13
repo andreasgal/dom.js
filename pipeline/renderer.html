@@ -1,0 +1,17 @@
+<!-- 
+This file is to be loaded into the iframe that serves as our dummy renderer
+-->
+<script src="Constants.js" type="application/javascript; version=1.8"></script>
+<script src="DOMRenderer.js" type="application/javascript; version=1.8"></script>
+<script>
+// For now, we're going to render everything into the body of the
+// document so that we don't have to deal with the special case stuff
+// for <html> and <head> tags.  This means that the test files we
+// use should not have <html>, <head>, or <body> tags in them.
+window.onload = function() {
+    var dombuilder = new DOMRenderer(document, document.body);
+    window.addEventListener("message", function(e) {
+        dombuilder.parse(e.data);
+    }, false);
+};
+</script>
