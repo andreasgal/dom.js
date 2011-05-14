@@ -5,7 +5,7 @@
 // complicated than what is here.
 
 // This code runs in a worker
-importScripts("Constants.js", "htmlparser.js");
+importScripts("../tree/Constants.js", "../tree/htmlparser.js");
 
 onmessage = function(e) { parse(e.data, this); }
 
