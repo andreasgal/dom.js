@@ -4,7 +4,7 @@
 // a matching DOM tree.
 const DOMRenderer = (function() {
 
-    function DOMRenderer(document, eventsource) {
+    function DOMRenderer(document, root) {
         this.doc = document;
 
         // Map node ids to nodes.
@@ -15,28 +15,8 @@ const DOMRenderer = (function() {
         // XXX I shouldn't have to hardcode this here.
         // Perhaps the protocol should include an opcode for starting
         // a new document.
-        this.map(1, doc);
-
-        eventsource.addEventListener("message",
-                                     function(e) { this.parse(e.data); });
+        this.map(1, root);
     }
-
-    // XXX These constants are copied from Mutation.js.
-    // I ought to figure out the right way to share them between 
-    // these two classes.
-
-    const FS1 = '\x01';  // Separates one event from the next, if concatenated
-    const FS2 = '\x02';  // Separates events fields from each other
-    const FS3 = '\x03';  // Separates attribute names and values
-
-    // opcodes
-    const APPEND = 'A';  // Append a new node
-    const INSERT = 'I';  // Insert a new node
-    const MOVEA = 'M';   // Move a node, appending it to another
-    const MOVEI = 'B';   // Move a node, inserting it Before another
-    const REMOVE = 'R';  // Remove a node
-    const TEXT = 'T';    // Set node text
-    const SETATTR = 'S'; // Set or remove an attribute
 
     DOMRenderer.prototype = {
         constructor: DOMRenderer,
@@ -44,6 +24,7 @@ const DOMRenderer = (function() {
             if (!s) return;
             let operations = s.split(FS1);
             operations.forEach(function(op) {
+                if (!op) return;
                 let fields = op.split(FS2);
                 switch(fields[0]) {  // first field is the opcode
                 case INSERT: this.insert(fields); break;
@@ -51,10 +32,10 @@ const DOMRenderer = (function() {
                 case MOVEA: this.moveAppend(fields); break;
                 case MOVEI: this.moveInsert(fields); break;
                 case REMOVE: this.remove(fields); break;
-                case TEXT: this.text(fields); break;
+                case SETTEXT: this.text(fields); break;
                 case SETATTR: this.setattr(fields); break;
                 }
-            });
+            }, this);
         },
 
         append: function(fields) {
@@ -101,26 +82,27 @@ const DOMRenderer = (function() {
                 node,
                 attrs;
             switch(type) {
-            case Tree.TEXT:
-                node = this.document.createTextNode(value);
+            case TEXT:
+                node = this.doc.createTextNode(value);
                 break;
-            case Tree.COMMENT:
+            case COMMENT:
                 // omit the content of the comment
-                node = this.document.createComment("");
+                node = this.doc.createComment("");
                 break;
-            case Tree.PROCESSING_INSTRUCTION:
+/*
+            case PROCESSING_INSTRUCTION:
                 let parts = value.split(" ", 2);
-                node = this.document.createProcessingInstruction(
+                node = this.doc.createProcessingInstruction(
                     parts[0], parts[1]);
                 break;
-            case Tree.DOCTYPE:
+            case DOCTYPE:
                 // XXX Do I ever really do this?
                 // Am I using attrs for public id and systemid?
                 // node = tree.doctype(value);
-                console.log("Omitting doctype node");
                 break;
-            case Tree.ELEMENT:
-                node = document.createElement(value);
+*/
+            case ELEMENT:
+                node = this.doc.createElement(value);
                 attrs = parseAttrs(fields[5]);
                 for(let a in attrs) node.setAttribute(a, attrs[a]);
                 break;
@@ -149,6 +131,7 @@ const DOMRenderer = (function() {
 
     // convert n1+FS3+v1+FS3+n2+FS3+v2 to {n1:v1,n2:v2}
     function parseAttrs(s) {
+        if (!s) return {};
         let a = s.split(FS3), attrs = {}, i = 0;
         while(i < a.length) {
             attrs[a[i]] = a[i+1];

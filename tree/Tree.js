@@ -47,19 +47,13 @@ let Tree = (function() {
         if (!expr) throw new Error("Assertion failed");
     }
 
-    // Node types.  These match DOM constants
-    const ELEMENT = 1;
-    const TEXT = 3;
-    const PROCESSING_INSTRUCTION = 7;
-    const COMMENT = 8;
-    const DOCUMENT = 9;
-    const DOCTYPE = 10;
-
     // Dummy functions for handling for mutations
     const nullMutationHandler = {
-        insert: function(node, parent, position) {},
-        move: function(oldparent, oldpos, newparent, newpos) {},
-        remove: function(node, parent, position) {},
+        append: function(node, parent) {},
+        insert: function(node, target) {},
+        moveAppend: function(node, parent) {},
+        moveInsert: function(node, target) {},
+        remove: function(node) {},
         setText: function(node, text) {},
         setAttribute: function(node, name, value) {}
     };
@@ -67,7 +61,7 @@ let Tree = (function() {
     function Tree(mutationHandler) {
         // The handler object has functions that forward mutations
         // If we don't get one, then use a stub.
-        this.handler = mutationHandler || nullMutationHandler;
+        this.mutation = mutationHandler || nullMutationHandler;
         this.document = {
             type:DOCUMENT,  // Node type
             kids:[],        // Node children
@@ -97,21 +91,98 @@ let Tree = (function() {
         setAttribute: function setAttribute(node, name, value) {
             assert(node.type === ELEMENT);
             node.attrs[name] = value;
-            if (rooted(node)) this.handler.setAttribute(node, name, value);
+            if (rooted(node)) this.mutation.setAttribute(node, name, value);
         },
         deleteAttribute: function deleteAttribute(node, name) {
             assert(node.type === ELEMENT);
             delete node.attrs[name];
-            if (rooted(node)) this.handler.setAttribute(node, name);
+            if (rooted(node)) this.mutation.setAttribute(node, name);
         },
         setText: function setText(node, text) {
             assert(node.type === TEXT ||
                    node.type === COMMENT || 
                    node.type === PROCESSING_INSTRUCTION);
             node.value = text;
-            if (rooted(node)) this.handler.setText(node, text);
+            if (rooted(node)) this.mutation.setText(node, text);
         },
 
+        // Append node as the last child of parent. If node is
+        // already in the tree, it will be moved from its current location.
+        append: function append(node, parent) {
+            assert(parent.type === ELEMENT || parent.type === DOCUMENT);
+
+            if (node.parent) {
+                // The node is already inserted into the tree, so we're
+                // moving it, not inserting it.  If both node and parent
+                // are rooted, then we have to generate different
+                // mutation events to transplant the node without uprooting
+                // it.  
+                if (rooted(node) && rooted(parent)) {
+                    let pos = node.parent.kids.indexOf(node);
+                    curpar.kids.splice(pos, 1);
+                    node.parent = parent;
+                    parent.kids.push(node);
+                    
+                    this.mutation.moveAppend(node, parent);
+                    return; // Don't fall through
+                }
+                else {
+                    // The node is not rooted, or the parent is not rooted,
+                    // so just remove it from its current location
+                    // and then fall through to the insertion code below.
+                    // This will uproot or root the node as needed.
+                    this.remove(node);
+                }
+            }
+
+            // append node to parent
+            node.parent = parent;
+            parent.kids.push(node);
+            
+            // If the parent is rooted, root the child
+            if (rooted(parent)) this.rootAppend(node, parent);
+        },
+
+        // like DOM insertBefore
+        insert: function insert(node, target) {
+            assert(target.parent);
+
+            // If the node is already in the tree
+            if (node.parent) {
+                // If we're transplanting the node
+                if (rooted(node) && rooted(target)) {
+                    let oldpar = node.parent, 
+                        oldpos = oldpar.kids.indexOf(node),
+                        newpar = target.parent,
+                        newpos = newpar.kids.indexOf(target);
+                    
+                    node.parent = newpar;
+                    oldpar.kids.splice(oldpos, 1);
+                    newpar.kids.splice(newpos, 0, node);
+                    
+                    this.mutation.moveInsert(node, target);
+                    return; // Don't fall through to the insertion code
+                }
+                // Otherwise, we'll just remove the node and then insert
+                // it again, uprooting or rooting it as needed
+                else {
+                    this.remove(node);
+                    // fall through to the insertion code below.
+                }
+            }
+
+            // 
+            let parent = target.parent, pos = parent.kids.indexOf(target);
+            assert(pos !== -1);
+            node.parent = parent;
+            parent.kids.splice(pos, 0, node);
+
+            // If the parent is rooted, root the child
+            if (rooted(parent)) this.rootBefore(node, target);
+        },
+
+
+/*
         // Insert node into the tree as a child of the parent, at the specified
         // position within the parent's array of children
         insert: function insert(node, parent, position) {
@@ -132,18 +203,19 @@ let Tree = (function() {
             // If the parent is rooted, root the child
             if (rooted(parent)) this.root(node, parent, position);
         },
+*/
 
         // Remove the specified child of the specified node
-        remove: function remove(parent, position) {
-            assert(parent.type === ELEMENT || parent.type === DOCUMENT);
-            assert(position >= 0 && position < parent.kids.length);
-
-            let n = parent.kids[position];
+        remove: function remove(n) {
+            assert(n.parent);
+            let parent = n.parent, kids = parent.kids, pos = kids.indexOf(n);
+            assert(pos !== -1)
             delete n.parent;
-            parent.kids.splice(position, 1);
-            if (rooted(n)) this.uproot(n, parent, position);
+            kids.splice(pos, 1);
+            if (rooted(n)) this.uproot(n);
         },
 
+/*
         // Move a node from one position in the tree to another
         move: function move(oldparent, oldpos, newparent, newpos) {
             assert(oldparent.type === ELEMENT || oldparent.type === DOCUMENT);
@@ -159,39 +231,54 @@ let Tree = (function() {
             // Generate mutation events if this move roots or unroots the node
             // And also if a rooted node remains rooted.
             if (rooted(oldparent)) {
-                if (!rooted(newparent)) this.uproot(n,oldparent,oldpos);
-                else this.handler.move(oldparent, oldpos, newparent, newpos);
+                if (!rooted(newparent)) this.uproot(n);
+                else this.mutation.move(oldparent, oldpos, newparent, newpos);
             }
             else {
                 if (rooted(newparent)) this.root(n, newparent, newpos);
             }
         },
-
+*/
         // The node n has just been connected to the document
         // root. This means that insertion events must be generated
         // for it and all of its descendants
-        root: function root(node, parent, position) {
+        rootAppend: function rootAppend(node, parent) {
             assert(!rooted(node));
             
             node.nid = this.nextid++; // mark it as rooted by assigning an id
-            this.handler.insert(node, parent, position);
+            this.mutation.append(node, parent);
             
             // Now recurse to root each of the descendant nodes
             if (node.kids)
-                node.kids.forEach(function(k,i) { this.root(k, node, i); });
+                node.kids.forEach(function(k) { this.rootAppend(k, node); });
         },
 
-        uproot: function uproot(node, parent, position) {
+        rootBefore: function rootBefore(node, target) {
+            assert(!rooted(node));
+            
+            node.nid = this.nextid++; // mark it as rooted by assigning an id
+            this.mutation.insert(node, target);
+            
+            // Now recurse to root each of the descendant nodes
+            // Note that we switch to rootAppend for the recursion
+            if (node.kids)
+                node.kids.forEach(function(k) { this.rootAppend(k, node); });
+        },
+
+        uproot: function uproot(node) {
             assert(rooted(node));
 
-            this.handler.remove(parent, position);
-            delete node.nid; // remove the nid prop that marks node as rooted
+            // Generate the mutation event to uproot this node
+            this.mutation.remove(node);
 
-            // Now recurse to uproot each of the descendant nodes
-            if (node.kids)
-                node.kids.forEach(function(k,i) { this.uproot(k, node, i); });
+            // Recursively delete the nid prop that marks this node and
+            // its descendants as rooted.
+            function delnid(n) {
+                delete n.nid;
+                if (n.kids) n.kids.forEach(delnid);
+            }
+            delnid(node);
         }
-
     }
 
     // A node is rooted iff it has a nid property 
@@ -199,4 +286,3 @@ let Tree = (function() {
 
     return Tree;
 }());
-

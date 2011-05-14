@@ -23,10 +23,14 @@ Select a static HTML file to display: <input type="file" onchange="loadfile(this
         style="width:90%; height:50%">
 </iframe>
 
-<script src="Constants.js" type="application/javascript; version=1.8"/></script>
-<script src="Tree.js" type="application/javascript; version=1.8"/></script>
-<script src="MutationSerializer.js" type="application/javascript; version=1.8"/></script>
-<script src="TreeBuilder.js" type="application/javascript; version=1.8"/></script>
+<script src="../tree/Constants.js"
+        type="application/javascript; version=1.8"/></script>
+<script src="../tree/Tree.js"
+        type="application/javascript; version=1.8"/></script>
+<script src="../tree/MutationSerializer.js"
+        type="application/javascript; version=1.8"/></script>
+<script src="../tree/TreeBuilder.js"
+        type="application/javascript; version=1.8"/></script>
 <script type="application/javascript; version=1.8">
 function loadfile(f) {
     let renderer = document.getElementById("renderer").contentWindow;
