@@ -1,0 +1,11 @@
+This is a list of areas areas where dom.js does not conform to the DOM
+or WebIDL specifications.
+
+1) The [[Class]] property of dom.js objects do not match those required
+by WebIDL.  There is no way in core JS to set this property
+
+2) In the host DOM and spec, typeof Node === "object" and
+document.body instanceof Node.  But native JS objects can't be used with
+instanceof, only functions can be on the rhs of that operator.  So in
+dom.js, DOM types like Node and Element are functions rather than
+objects so that instanceof works correctly.
