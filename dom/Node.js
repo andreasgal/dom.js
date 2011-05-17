@@ -1,56 +1,140 @@
+// DOM node type constants
+const ELEMENT_NODE = 1;
+const TEXT_NODE = 3;
+const PROCESSING_INSTRUCTION_NODE = 7;
+const COMMENT_NODE = 8;
+const DOCUMENT_NODE = 9;
+const DOCUMENT_TYPE_NODE = 10;
+const DOCUMENT_FRAGMENT_NODE = 11;
+
+// Constants used in the return value of compareDocumentPosition
+const DOCUMENT_POSITION_DISCONNECTED = 0x01;
+const DOCUMENT_POSITION_PRECEDING = 0x02;
+const DOCUMENT_POSITION_FOLLOWING = 0x04;
+const DOCUMENT_POSITION_CONTAINS = 0x08;
+const DOCUMENT_POSITION_CONTAINED_BY = 0x10;
+const DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20;
+
+defineLazyProperty(global, "Node", function() {
+    return DOM.Node.interface;
+}, true);
+
+defineLazyProperty(DOM, "Node", function() {
+    return implementIDLInterface({
+        name: "Node",
+        superclass: DOM.EventTarget,
+        init: function(impl) { nyi(); },
+        constants: {
+            ELEMENT_NODE: ELEMENT_NODE,
+            ATTRIBUTE_NODE: 2,         // historical
+            TEXT_NODE: TEXT_NODE,
+            CDATA_SECTION_NODE: 4,     // historical
+            ENTITY_REFERENCE_NODE: 5,  // historical
+            ENTITY_NODE: 6,            // historical
+            PROCESSING_INSTRUCTION_NODE: PROCESSING_INSTRUCTION_NODE,
+            COMMENT_NODE: COMMENT_NODE,
+            DOCUMENT_NODE: DOCUMENT_NODE,
+            DOCUMENT_TYPE_NODE: DOCUMENT_TYPE_NODE,
+            DOCUMENT_FRAGMENT_NODE: DOCUMENT_FRAGMENT_NODE,
+            NOTATION_NODE: 12,         // historical
+
+            DOCUMENT_POSITION_DISCONNECTED: DOCUMENT_POSITION_DISCONNECTED,
+            DOCUMENT_POSITION_PRECEDING: DOCUMENT_POSITION_PRECEDING,
+            DOCUMENT_POSITION_FOLLOWING: DOCUMENT_POSITION_FOLLOWING,
+            DOCUMENT_POSITION_CONTAINS: DOCUMENT_POSITION_CONTAINS,
+            DOCUMENT_POSITION_CONTAINED_BY: DOCUMENT_POSITION_CONTAINED_BY,
+            DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC:
+               DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC,
+        },
+        members: {
+            // readonly attribute unsigned short nodeType;
+            get nodeType() { nyi(); },
+
+            // readonly attribute DOMString nodeName;
+            get nodeName() { nyi(); },
+
+            // readonly attribute DOMString baseURI;
+            get baseURI() { nyi(); },
+
+            // readonly attribute Document ownerDocument;
+            get ownerDocument() { nyi(); },
+
+            // readonly attribute Node parentNode;
+            get parentNode() { nyi(); },
+
+            // readonly attribute Element parentElement;
+            get parentElement() { nyi(); },
+
+            // boolean hasChildNodes();
+            hasChildNodes: function hasChildNodes() { nyi() },
+
+            // readonly attribute NodeList childNodes;
+            get childNodes() { nyi(); },
+
+            // readonly attribute Node firstChild;
+            get firstChild() { nyi(); },
+
+            // readonly attribute Node lastChild;
+            get lastChild() { nyi(); },
+
+            // readonly attribute Node previousSibling;
+            get previousSibling() { nyi(); },
+            
+            // readonly attribute Node nextSibling;
+            get nextSibling() { nyi(); },
+
+            // unsigned short compareDocumentPosition(Node other);
+            compareDocumentPosition: function compareDocumentPosition(other) {
+                nyi();
+            },
+
+
+            // attribute DOMString nodeValue;
+            get nodeValue() { nyi(); },
+            set nodeValue(newval) { nyi(); },
+
+            // attribute DOMString textContent;
+            get textContent() { nyi(); },
+            set textContent() { nyi(); },
+
+            // Node insertBefore([NoNull] Node newChild, Node refChild);
+            insertBefore: function insertBefore(newChild, refChild) {
+                nyi();
+            },
+
+            // Node replaceChild([NoNull] Node newChild,[NoNull] Node oldChild);
+            replaceChild: function replaceChild(newchild, oldChild) {
+                nyi();
+            },
+
+            // Node removeChild([NoNull] Node oldChild);
+            removeChild: function removeChild(oldChild) { nyi(); },
+
+            // Node appendChild([NoNull] Node newChild);
+            appendchild: function appendChild(newChild) { nyi(); },
+
+            // Node cloneNode(boolean deep);
+            cloneNode: function cloneNode(deep) { nyi(); },
+
+            // boolean isSameNode(Node node);
+            isSameNode: function isSameNode(node) { nyi(); },
+
+            // boolean isEqualNode(Node node);
+            isEqualNode: function isEqualNode(node) { nyi(); },
+
+            // DOMString lookupPrefix([TreatNullAs=EmptyString] DOMString namespace);
+            lookupPrefix: function lookupPrefix(namespace) { nyi(); },
+
+            // DOMString lookupNamespaceURI(DOMString? prefix);
+            lookupNamespaceURI: function lookupNamespaceURI(prefix) { nyi(); },
+
+            // boolean isDefaultNamespace([TreatNullAs=EmptyString] DOMString namespace);
+            isDefaultNamespace: function isDefaultNamespace(namespace) {nyi();},
+        }
+    });
+});
+
 /*
-
-interface Node : EventTarget {
-  const unsigned short ELEMENT_NODE = 1;
-  const unsigned short ATTRIBUTE_NODE = 2; // historical
-  const unsigned short TEXT_NODE = 3;
-  const unsigned short CDATA_SECTION_NODE = 4; // historical
-  const unsigned short ENTITY_REFERENCE_NODE = 5; // historical
-  const unsigned short ENTITY_NODE = 6; // historical
-  const unsigned short PROCESSING_INSTRUCTION_NODE = 7;
-  const unsigned short COMMENT_NODE = 8;
-  const unsigned short DOCUMENT_NODE = 9;
-  const unsigned short DOCUMENT_TYPE_NODE = 10;
-  const unsigned short DOCUMENT_FRAGMENT_NODE = 11;
-  const unsigned short NOTATION_NODE = 12; // historical
-  readonly attribute unsigned short nodeType;
-  readonly attribute DOMString nodeName;
-
-  readonly attribute DOMString baseURI;
-
-  readonly attribute Document ownerDocument;
-  readonly attribute Node parentNode;
-  readonly attribute Element parentElement;
-  boolean hasChildNodes();
-  readonly attribute NodeList childNodes;
-  readonly attribute Node firstChild;
-  readonly attribute Node lastChild;
-  readonly attribute Node previousSibling;
-  readonly attribute Node nextSibling;
-
-  const unsigned short DOCUMENT_POSITION_DISCONNECTED = 0x01;
-  const unsigned short DOCUMENT_POSITION_PRECEDING = 0x02;
-  const unsigned short DOCUMENT_POSITION_FOLLOWING = 0x04;
-  const unsigned short DOCUMENT_POSITION_CONTAINS = 0x08;
-  const unsigned short DOCUMENT_POSITION_CONTAINED_BY = 0x10;
-  const unsigned short DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20;
-  unsigned short compareDocumentPosition(Node other);
-
-           attribute DOMString nodeValue;
-           attribute DOMString textContent;
-  Node insertBefore([NoNull] Node newChild, Node refChild);
-  Node replaceChild([NoNull] Node newChild, [NoNull] Node oldChild);
-  Node removeChild([NoNull] Node oldChild);
-  Node appendChild([NoNull] Node newChild);
-
-  Node cloneNode(boolean deep);
-  boolean isSameNode(Node node);
-  boolean isEqualNode(Node node);
-
-  DOMString lookupPrefix([TreatNullAs=EmptyString] DOMString namespace);
-  DOMString lookupNamespaceURI(DOMString? prefix);
-  boolean isDefaultNamespace([TreatNullAs=EmptyString] DOMString namespace);
-};
 
 The nodeType attribute must return the type of the node, which must be one of the following:
 
@@ -314,11 +398,3 @@ The isDefaultNamespace(namespace) method must run these steps:
 
     Return true if defaultNamespace is namespace, or false otherwise. 
 */
-
-defineLazyProperty(DOM, "Node", function() {
-    function Node(impl) {
-        EventTarget(impl);
-    }
-
-    Node.prototype = Object.create(EventTarget.prototype)
-});
