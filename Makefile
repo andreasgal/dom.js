@@ -1,10 +1,20 @@
+# We need a version of JavaScript that supports WeakMap, Proxy, const and let.
+# Build your own:
+# https://developer.mozilla.org/En/SpiderMonkey/Build_Documentation
+JS = /usr/local/bin/js
+
 MODULES = \
 	dom/utils.js \
 	dom/DOMException.js \
 	dom/EventTarget.js \
-	dom/Node.js
+	dom/Node.js \
+	dom/CharacterData.js \
+	dom/Comment.js \
+	dom/Text.js \
+	dom/ProcessingInstruction.js
 
-DOM.js: ${MODULES} LICENSE
+
+dom.js: ${MODULES} LICENSE
 # Output preamble
 	@echo '// This file was automatically generated; DO NOT EDIT.' > $@
 	@echo '/************************************************************************' >> $@
@@ -12,6 +22,7 @@ DOM.js: ${MODULES} LICENSE
 	@echo '************************************************************************/' >> $@
 
 # Output function wrapper
+	@echo '"use strict";' >> $@
 	@echo '(function closure(global) {' >> $@
 
 # Append each of the module files
@@ -27,4 +38,4 @@ DOM.js: ${MODULES} LICENSE
 
 # Close the function wrapper
 	@echo '}(this));' >> $@
-	@echo 'Created DOM.js'
+	@echo 'Created dom.js'
