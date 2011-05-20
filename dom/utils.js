@@ -209,19 +209,6 @@ function implementIDLInterface(o) {
     return constructor;
 }
 
-// This WeakMap maps Node objects to the internal implementation objects
-// (see tree/Tree.js) that hold their state.  We have to do this because the
-// DOM API does not allow any internal properties to be exposed, even as
-// non-enumerable properties.
-const nodeToImplMap = new WeakMap();
-
-// Credit Andreas for this nice function name.
-function $(node) {
-    let impl = nodeToImplMap.get(node);
-    assert(impl);
-    return impl;
-}
-
 
 // WebIDL requires value conversions in various places.
 

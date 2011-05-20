@@ -2,8 +2,9 @@
 // a DOM-like, DOM-lite representation for HTML and XML documents.
 // The Tree class encapsulates a single document and defines methods
 // for creating, inserting, and manipulating nodes.  The nodes
-// themselves are just plain objects and do not themselves have
-// methods. This module defines an internal API and doesn't do error
+// themselves are just plain objects that do not define methods.
+//
+// This module defines an internal API and doesn't do error
 // checking. It assumes that the parser code and public API code that
 // calls it are doing the right thing.
 // 
@@ -21,10 +22,11 @@
 //
 // Processing Instructions are treated like Comment nodes, except with
 // a different type constant.  No parsing of target vs. command.
+// XXX: change this to give them target and data
 // 
 // Doctype nodes are like Element nodes (except with a different
 // type), and the public and system ids are stored as if they were
-// attributes.
+// attributes.  XXX: really?
 //     
 // We need nomenclature for the two kinds of insertion in this tree
 // abstraction.  Nodes can be in 3 states.  When first created they

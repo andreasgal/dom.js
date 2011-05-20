@@ -62,7 +62,13 @@ defineLazyProperty(DOM, "Node", function() {
 	    //     DOCUMENT_TYPE_NODE (10);
 	    //     DOCUMENT_FRAGMENT_NODE (11);
 	    //     NOTATION_NODE (12, historical). 
-            get nodeType() { abstractMethod(); },
+            get nodeType() {
+		// In order to avoid looking up the implementation object
+		// in the weak map, I could based this on the constructor
+		// property. But WebIDL says that property is writable, so
+		// that is not a safe optimization.
+		return unwrap(this).type;
+	    },
 
             // readonly attribute DOMString nodeName;
 	    // The nodeName attribute must return the following,
@@ -82,9 +88,25 @@ defineLazyProperty(DOM, "Node", function() {
 	    // DocumentFragment
 	    //     "#document-fragment". 
 	    //
-	    // Make this abstract here and implement it 
-	    // in the subtypes
-            get nodeName() { abstractMethod(); },
+            get nodeName() {
+		let impl = unwrap(this);
+		switch(impl.type) {  // Cases roughly in order of frequency
+		case ELEMENT_NODE:
+		    return impl.value;
+		case TEXT_NODE:
+		    return "#text";
+		case DOCUMENT_NODE:
+		    return "#document";
+		case COMMENT_NODE:
+		    return "#comment";
+		case DOCUMENT_TYPE_NODE:
+		    return impl.value;  // XXX?
+		case DOCUMENT_FRAGMENT_NODE:
+		    return "#document-fragment";
+		case PROCESSING_INSTRUCTION_NODE:
+		    return impl.target;
+		}
+	    },
 
             // readonly attribute DOMString baseURI;
             get baseURI() { nyi(); },
@@ -97,16 +119,27 @@ defineLazyProperty(DOM, "Node", function() {
 
             // readonly attribute Node parentNode;
 	    // The parentNode attribute must return the parent.
-            get parentNode() { nyi(); },
+            get parentNode() {
+		let parent = unwrap(this).parent;
+		return parent ? wrap(parent) : null;
+	    },
 
             // readonly attribute Element parentElement;
 	    // The parentElement attribute must return the parent element.
-            get parentElement() { nyi(); },
+            get parentElement() { 
+		let parent = unwrap(this).parent;
+		return (parent && parent.type === ELEMENT_NODE) ?
+		    wrap(parent) :
+		    null;
+	    },
 
             // boolean hasChildNodes();
 	    // The hasChildNodes() method must return false if the
 	    // context object has no children, or true otherwise.
-            hasChildNodes: function hasChildNodes() { nyi() },
+            hasChildNodes: function hasChildNodes() { 
+		let impl = unwrap(this);
+		return !!(impl.kids && impl.kids.length);
+	    },
 
             // readonly attribute NodeList childNodes;
 	    // The childNodes attribute must return a NodeList rooted
@@ -116,24 +149,47 @@ defineLazyProperty(DOM, "Node", function() {
             // readonly attribute Node firstChild; 
 	    // The firstChild attribute must return the first child of
 	    // the context object, or null if there is none.
-            get firstChild() { nyi(); },
+            get firstChild() {
+		let kids = unwrap(this).kids;
+		if (kids && kids.length > 0) return wrap(kids[0]);
+		else return null;
+	    },
 
             // readonly attribute Node lastChild;
 	    // The lastChild attribute must return the last child of
 	    // the context object, or null if there is none.
-            get lastChild() { nyi(); },
+            get lastChild() {
+		let kids = unwrap(this).kids;
+		if (kids && kids.length > 0) return wrap(kids[kids.length-1]);
+		else return null;
+	    },
 
             // readonly attribute Node previousSibling;
 	    // The previousSibling attribute must return the first
 	    // previous sibling of the context object, or null if
 	    // there is none.
-            get previousSibling() { nyi(); },
+            get previousSibling() { 
+		let impl = unwrap(this);
+		if (impl.parent) {
+		    let index = impl.index();
+		    if (index > 0) return wrap(impl.parent.kids[index-1]);
+		}
+		return null;
+	    },
             
             // readonly attribute Node nextSibling;
 	    // The nextSibling attribute must return the first next
 	    // sibling of the context object, or null if there is
 	    // none.
-            get nextSibling() { nyi(); },
+            get nextSibling() {
+		let impl = unwrap(this);
+		if (impl.parent) {
+		    let index = impl.index();
+		    if (index < impl.parent.kids.length-1)
+			return wrap(impl.parent.kids[index+1]);
+		}
+		return null;
+	    },
 
             // unsigned short compareDocumentPosition(Node other);
 	    // 
@@ -158,6 +214,18 @@ defineLazyProperty(DOM, "Node", function() {
 	    //     The context object's textContent attribute. 
 	    // Any other node
 	    //     Null. 
+            get nodeValue() {
+		let impl = unwrap(this);
+		switch(impl.type) {
+		case TEXT_NODE:
+		case COMMENT_NODE:
+		case PROCESSING_INSTRUCTION_NODE:
+		    return impl.value;
+		default:
+		    return null;
+		}
+	    },
+
 	    // Setting the nodeValue attribute must do as described
 	    // below, depending on the context object:
 	    // Text
@@ -167,8 +235,16 @@ defineLazyProperty(DOM, "Node", function() {
 	    //     the given value. 
 	    // Any other node
 	    //     Do nothing. 
-            get nodeValue() { nyi(); },
-            set nodeValue(newval) { nyi(); },
+            set nodeValue(newval) {
+		let impl = unwrap(this);
+		newval = String(newval);
+		switch(impl.type) {
+		case TEXT_NODE:
+		case COMMENT_NODE:
+		case PROCESSING_INSTRUCTION_NODE:
+		    impl.setText(newval);
+		}
+	    },
 
             // attribute DOMString textContent;
 
@@ -190,6 +266,22 @@ defineLazyProperty(DOM, "Node", function() {
 	    // Any other node
 	    //     Null. 
 	    // 
+            get textContent() {
+		let impl = unwrap(this);
+		switch(impl.type) {
+		case TEXT_NODE:
+		case COMMENT_NODE:
+		case PROCESSING_INSTRUCTION_NODE:
+		    return impl.value;
+		case ELEMENT_NODE:
+		case DOCUMENT_FRAGMENT_NODE:
+		    nyi();
+		default:
+		    return null;
+		}
+	    },
+
+
 	    // Setting the textContent attribute must do as described
 	    // below, depending on the context object:
 	    // 
@@ -210,8 +302,20 @@ defineLazyProperty(DOM, "Node", function() {
 	    //
 	    // Any other node
 	    //     Do nothing. 
-            get textContent() { nyi(); },
-            set textContent(newval) { nyi(); },
+            set textContent(newval) { 
+		let impl = unwrap(this);
+		newval = String(newval);
+		switch(impl.type) {
+		case TEXT_NODE:
+		case COMMENT_NODE:
+		case PROCESSING_INSTRUCTION_NODE:
+		    impl.setText(newval);
+		    return;
+		case ELEMENT_NODE:
+		case DOCUMENT_FRAGMENT_NODE:
+		    nyi();
+		}
+	    },
 
             // Node insertBefore([NoNull] Node newChild, Node refChild);
 	    // 
@@ -256,7 +360,6 @@ defineLazyProperty(DOM, "Node", function() {
 	    //
 	    //     Return newChild. 
             insertBefore: function insertBefore(newChild, refChild) {
-                nyi();
             },
 
             // Node replaceChild([NoNull] Node newChild,[NoNull] Node oldChild);

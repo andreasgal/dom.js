@@ -11,15 +11,15 @@ defineLazyProperty(DOM, "CharacterData", function() {
 	    // [TreatNullAs=EmptyString] attribute DOMString data;
 	    // The data attribute must return the data of the node, and on
 	    // setting, must change the node's data to the new value.
-	    get data() { return $(this).data; },
+	    get data() { return unwrap(this).value; },
 	    set data(newval) {
-		$(this).data = newval === null ? "" : String(newval);
+		unwrap(this).setText(newval === null ? "" : String(newval));
 	    },
 
 	    // readonly attribute unsigned long length;
 	    // The length attribute must return the number of UTF-16 code units
 	    // represented by the node's data.
-	    get length() { return $(this).data.length; },
+	    get length() { return unwrap(this).value.length; },
 
 	    // DOMString substringData(unsigned long offset,
 	    //                         unsigned long count);
@@ -40,7 +40,7 @@ defineLazyProperty(DOM, "CharacterData", function() {
 	    substringData: function substringData(offset, count) {
 		offset = toULong(offset);
 		count = toULong(count);
-		let data = $(this).data, length = data.length;
+		let data = unwrap(this).value, length = data.length;
 
 		if (offset > length) throw new DOM.DOMException(INDEX_SIZE_ERR);
 		if (offset + count > length)
@@ -90,33 +90,6 @@ defineLazyProperty(DOM, "CharacterData", function() {
 	    // with offset and data as arguments and re-throw any
 	    // exceptions these methods might have thrown.
 	    replaceData: function replaceData(offset, count, data) { nyi(); },
-
-	    // CharacterData is the superclass of Text and Comment nodes which
-	    // never have children, so there are a number of Node methods that
-	    // we can override here.
-
-
-	    hasChildNodes: function hasChildNodes() { return false; },
-
-	    // These properties will be automatically made read-only by
-	    // implementIDLInterface()
-	    firstChild: null,
-	    lastChild: null,
-	    childNodes: DOM.emptyNodeList, 
-
-	    // These methods do nothing but throw
-            insertBefore: hierarchyRequestError,
-            replaceChild: hierarchyRequestError,
-            removeChild: hierarchyRequestError,
-            appendChild: hierarchyRequestError,
-
-	    // These are some Node methods that behave differently for
-	    // different types of nodes.  Implement specialized versions here
-            get nodeValue() { nyi(); },
-            set nodeValue(newval) { nyi(); },
-            get textContent() { nyi(); },
-            set textContent(newval) { nyi(); },
-
 	}
     });
 });

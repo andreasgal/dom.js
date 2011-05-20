@@ -11,9 +11,6 @@ defineLazyProperty(DOM, "Text", function() {
         superclass: DOM.CharacterData,
 	init: function(impl) { nyi(); },
 	members: {
-	    nodeType: TEXT_NODE,
-	    nodeName: "#text",
-
 	    // Text splitText(unsigned long offset);
 	    //
 	    // The splitText(offset) method must run the following
