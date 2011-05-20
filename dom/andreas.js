@@ -154,12 +154,12 @@
 	    has: function(name) {
 		return hasOwn.call(this, name) || (name in Object_prototype);
 	    },
-	    get: function(name) {
+	    get: function(receiver, name) {
 		if (name >= 0 && name < items.length)
 		    return items[name];
 		return Object_prototype[name];
 	    },
-	    set: function(name, value) {},
+	    set: function(receiver, name, value) {},
 	    enumerate: getOwnPropertyNames,
 	    keys: getOwnPropertyNames
 	});
@@ -523,4 +523,7 @@
 	    },
 	};
     });
+
+    global.NL = constructors.NodeList;
+
 } (this));
