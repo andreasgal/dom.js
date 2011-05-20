@@ -169,6 +169,11 @@ node.prototype = {
 
     // Append node as the last child of parent. If node is
     // already in the tree, it will be moved from its current location.
+    // Note that this method is called on the child node unlike the
+    // DOM appendChild() function that is called on the parent.
+    // 
+    // XXX: add adoptNode() functionality to deal with multiple documents
+    // 
     append: function append(parent) {
         assert(parent.type === ELEMENT_NODE || parent.type === DOCUMENT_NODE);
 
@@ -205,7 +210,10 @@ node.prototype = {
         if (parent.rooted()) this.doc.rootAppend(node, parent);
     },
 
-    // like DOM insertBefore
+    // like DOM insertBefore, but called on the node that is being inserted
+    // 
+    // XXX: add adoptNode() functionality to deal with multiple documents
+    // 
     insert: function insert(target) {
         assert(target.parent);
 
@@ -237,6 +245,8 @@ node.prototype = {
         assert(pos !== -1);
         this.parent = parent;
         parent.kids.splice(pos, 0, this);
+        // An optimization for repeated calls to insert with the same target.
+        target.idx++;
 
         // If the parent is rooted, root the child
         if (parent.rooted()) this.doc.rootBefore(this, target);
@@ -258,12 +268,22 @@ node.prototype = {
     // Return the index of this node in its parent.
     // Throw if no parent, or if this node is not a child of its parent
     index: function() {
+        // XXX if this method changes, also change the optimization in
+        // the insert() method.
 	assert(this.parent);
 	if (this.idx == null || this.parent.kids[this.idx] != this) {
 	    this.idx = this.parent.kids.indexOf(this);
 	    assert(this.idx != -1);
 	}
 	return this.idx;
+    },
+
+    // Return true if this is equal to or is an ancestor of that
+    isAncestor: function(that) {
+        for(let e = this; e; e = e.parent) {
+            if (e === that) return true;
+        }
+        return false;
     }
 };
 

@@ -49,7 +49,6 @@ function unwrap(n) {
 // creating it if necessary
 function wrap(n) {
     if (!n.dom) {
-
 	switch(n.type) {
 	case ELEMENT_NODE:
 	    n.dom = new DOM.Element(n);

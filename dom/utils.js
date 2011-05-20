@@ -8,6 +8,7 @@ let create = Object.create;
 let defineProperty = Object.defineProperty;
 let freeze = Object.freeze;
 let getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+let getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
 let keys = Object.keys;
 
 function assert(expr, msg) {
@@ -138,13 +139,20 @@ function implementIDLInterface(o) {
     if (superclass) {                            // If there is a superclass
         constructor = function() {  
             superclass.apply(this, arguments);           // constructor chain
-            if (init) init.apply(this, arguments);
+            if (init) {
+                let result = init.apply(this, arguments);
+                if (result !== undefined) return result;
+            }
         };
         prototype = create(superclass.prototype); // special prototype
     }
     else {                                       // Otherwise
         constructor = function() {                       // simple constructor
-            if (init) init.apply(this, arguments);
+            if (init) {
+                let result = init.apply(this, arguments);
+                // We need this return for NodeList
+                if (result !== undefined) return result;
+            }
         };
         prototype = {};                                  // and prototype.
     }

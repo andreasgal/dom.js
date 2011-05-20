@@ -23,7 +23,7 @@ defineLazyProperty(DOM, "Node", function() {
     return implementIDLInterface({
         name: "Node",
         superclass: DOM.EventTarget,
-        init: function(impl) { nyi(); },
+        init: function(impl) { },
         constants: {
             ELEMENT_NODE: ELEMENT_NODE,
             ATTRIBUTE_NODE: 2,         // historical
@@ -115,7 +115,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    // The ownerDocument attribute must return the Document
 	    // node that the context object is associated with, or
 	    // null if there is none.
-            get ownerDocument() { nyi(); },
+            get ownerDocument() { return wrap(unwrap(this).doc); },
 
             // readonly attribute Node parentNode;
 	    // The parentNode attribute must return the parent.
@@ -360,10 +360,55 @@ defineLazyProperty(DOM, "Node", function() {
 	    //
 	    //     Return newChild. 
             insertBefore: function insertBefore(newChild, refChild) {
+                if (refChild == null) // Also treat undefined as null
+                    return this.appendChild(newChild);
+
+                let parent = unwrap(this);
+
+                if (parent.type !== ELEMENT_NODE &&
+                    parent.type !== DOCUMENT_NODE &&
+                    parent.type !== DOCUMENT_FRAGMENT_NODE)
+                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
+
+                let target = unwrap(refChild);
+                if (target.parent !== parent)
+                    throw new DOM.DOMException(NOT_FOUND_ERR);
+
+                let child = unwrap(newChild);
+
+                if (child.isAncestor(parent))
+                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
+                    
+                // XXX: how can this happen?
+                // Check the doctype creation functions
+                if (child.type == DOCUMENT_TYPE_NODE) {
+                    if (child.doc != null) 
+                        throw new DOM.DOMException(NOT_SUPPORTED_ERR);
+                    else 
+                        child.doc = parent.doc;
+                }
+
+                if (child.type == DOCUMENT_FRAGMENT_NODE) {
+                    for(let i = 0; i < child.kids.length; i++) {
+                        let k = child.kids[i];
+                        // Simplify the insertion by first removing the
+                        // kid from the fragment
+                        k.parent = null; 
+                        k.insert(target);
+                    }
+                    // And remove all the kids from the fragment
+                    child.kids.length = 0; 
+                }
+                else {
+                    // This method handles the adoptNode details when needed
+                    child.insert(target);
+                }
+
+                return newChild;
             },
 
             // Node replaceChild([NoNull] Node newChild,[NoNull] Node oldChild);
-
+            //
 	    // The replaceChild(newChild, oldChild) method must run these steps:
 	    //
 	    //     If the context object is not a Document,
@@ -399,8 +444,12 @@ defineLazyProperty(DOM, "Node", function() {
 	    //     insertBefore method with newChild and refChild as
 	    //     arguments.
 	    //
-            replaceChild: function replaceChild(newchild, oldChild) {
-                nyi();
+            replaceChild: function replaceChild(newChild, oldChild) {
+                // The error checking steps above seem to be performed
+                // by the methods called below.
+                let refChild = oldChild.nextSibling;
+                this.removeChild(oldChild);
+                return this.insertBefore(newChild, refChild);
             },
 
             // Node removeChild([NoNull] Node oldChild);
@@ -419,7 +468,21 @@ defineLazyProperty(DOM, "Node", function() {
 	    //
 	    //     Return oldChild.
 	    //
-            removeChild: function removeChild(oldChild) { nyi(); },
+            removeChild: function removeChild(oldChild) {
+                let parent = unwrap(this);
+                if (parent.type !== ELEMENT_NODE &&
+                    parent.type !== DOCUMENT_NODE &&
+                    parent.type !== DOCUMENT_FRAGMENT_NODE)
+                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
+
+                let child = unwrap(oldChild);
+                if (child.parent !== parent)
+                    throw new DOM.DOMException(NOT_FOUND_ERR);
+
+                child.remove();
+
+                return oldChild;
+            },
 
             // Node appendChild([NoNull] Node newChild);
 	    // The appendChild(newChild) method must run these steps:
@@ -448,7 +511,46 @@ defineLazyProperty(DOM, "Node", function() {
 	    //     Append newChild to the context object.
 	    //
 	    //     Return newChild.
-            appendChild: function appendChild(newChild) { nyi(); },
+            appendChild: function appendChild(newChild) { 
+                let parent = unwrap(this);
+
+                if (parent.type !== ELEMENT_NODE &&
+                    parent.type !== DOCUMENT_NODE &&
+                    parent.type !== DOCUMENT_FRAGMENT_NODE)
+                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
+
+                let child = unwrap(newChild);
+
+                if (child.isAncestor(parent))
+                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
+                    
+                // XXX: how can this happen?
+                // Check the doctype creation functions
+                if (child.type == DOCUMENT_TYPE_NODE) {
+                    if (child.doc != null) 
+                        throw new DOM.DOMException(NOT_SUPPORTED_ERR);
+                    else 
+                        child.doc = parent.doc;
+                }
+
+                if (child.type == DOCUMENT_FRAGMENT_NODE) {
+                    for(let i = 0; i < child.kids.length; i++) {
+                        let k = child.kids[i];
+                        // Simplify the insertion by first removing the
+                        // kid from the fragment
+                        k.parent = null; 
+                        k.append(parent);
+                    }
+                    // And remove all the kids from the fragment
+                    child.kids.length = 0; 
+                }
+                else {
+                    // This method handles the adoptNode details when needed
+                    child.append(parent);
+                }
+
+                return newChild;
+            },
 
             // Node cloneNode(boolean deep);
 	    //
