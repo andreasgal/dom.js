@@ -4,9 +4,10 @@
 JS = /usr/local/bin/js
 
 MODULES = \
+	dom/snapshot.js \
+	dom/utils.js \
 	dom/interface.js \
 	dom/map.js \
-	dom/utils.js \
 	dom/nodeimpl.js \
 	dom/DOMException.js \
 	dom/EventTarget.js \
