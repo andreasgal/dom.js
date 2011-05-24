@@ -28,6 +28,7 @@ let A = snapshot(Array), Ap = snapshot(Array.prototype);
 let S = snapshot(String), Sp = snapshot(String.prototype);
 let Fp = snapshot(Function.prototype);
 let Rp = snapshot(RegExp.prototype);
+let WMp = snapshot(WeakMap.prototype);
 
 // Some function primitives
 let call = Fp.call.bind(Fp.call);   // call(f, o, args...)
@@ -35,8 +36,24 @@ let apply = Fp.call.bind(Fp.apply); // apply(f, o, [args])
 let bind = Fp.call.bind(Fp.bind);   // bind(f, o)
 
 // Array generics I'm likely to use a lot
+// XXX: double check that these Array generics never use this
+// and don't need to be bound to Array
 let foreach = A.forEach, map = A.map;
 let push = A.push, pop = A.pop;
+
+// WeakMap get/set methods
+function wmget(m, k) { return call(WMp.get, m, k); }
+function wmset (m, k, v) { return call(WMp.set, m, k, v); }
+
+// XXX: check that all the global constructors themselves are 
+// not patchable.  I can still use Number, String etc. as conversion
+// funcs, can't I?
+
+// Math methods (don't need to be bound to Math, do they?)
+let round = Math.round;
+
+// Object methods
+function hasOwnProperty(o, p) { return call(Op.hasOwnProperty, o, p); }
 
 
 // As a testing measure, monkeypatch all the builtin methods to issue
@@ -61,4 +78,4 @@ patch("Object", "Object.prototype", "Array", "Array.prototype",
       "String", "String.prototype", "Function", "Function.prototype",
       "RegExp", "RegExp.prototype", "Date", "Date.prototype",
       "Number", "Number.prototype", "Error", "Error.prototype",
-      "Math", "JSON");
+      "WeakMap.prototype", "Math", "JSON");

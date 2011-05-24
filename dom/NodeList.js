@@ -16,13 +16,19 @@ NodeList.prototype = {
     // prototype. We can't implement it in the proxy along with the array
     // index properties, even though that would be must simpler.
     get length() {
-	return nodeListToArrayMap.get(this).length;
+        return wmget(nodeListToArraymap, this).length;
     },
     // WebIDL also mandates that this method be here.  
     item: function(index) {
-	// XXX: which of these is more efficient?
-	let r = this[index];  // back through the proxy?
-	// let r = nodeListToArrayMap.get(this)[index];  // Or through the map?
+        /*
+         * This function can do this[index] to get the item without
+         * having to do the WeakMap lookup. But then simulating array
+         * bounds checking is required.  I don't know which would be
+         * more efficient: going through the proxy again or going
+         * through the weak map. For simplicity, we just go through
+         * the weak map
+         */
+        let r = wmget(nodeListToArrayMap, this)[index];
 	if (r === undefined) return null;
 	return r;
     }
@@ -32,27 +38,26 @@ NodeList.prototype = {
 // Return a NodeList object based on the array a
 // This is a factory method, not a constructor
 function ArrayNodeList(a) {
-
     // NodeList objects must be extensible. If properties are added, they're
     // stored in this object.
-    let localprops = Object.create(NodeList.prototype);
+    let localprops = O.create(NodeList.prototype);
 
     // Map this local object to the array for the benefit of the 
     // NodeList.prototype.length getter function.  Surprisingly, that getter
     // is called on the localprops object instead of on the proxy object
-    nodeListToArrayMap.set(localprops, a);
+    wmset(nodeListToArrayMap, localprops, a);
 
     // If the specified property name is an integer index, and is in
     // the correct range for our array, then return that property name
     // as an integer.  Otherwise, return null.
     function index(name) {
-	let n = Number(name), i = Math.round(n);
+	let n = Number(name), i = round(n);
 	if (i === n && i >= 0 && i < a.length) return i;
 	return null;
     }
 
     function hasOwn(name) {
-	return index(name) !== null || localprops.hasOwnProperty(name);
+	return index(name) !== null || hasOwnProperty(localprops, name);
     }
 
     function getOwnPropDesc(name) {
@@ -64,23 +69,23 @@ function ArrayNodeList(a) {
 		configurable: false
 	    };
 	}
-	else return Object.getOwnPropertyDescriptor(localprops, name);
+	else return O.getOwnPropertyDescriptor(localprops, name);
     }
 
     return Proxy.create({
 	getOwnPropertyDescriptor: getOwnPropDesc,
 	getPropertyDescriptor: function(name) {
-	    return getOwnPropDesc.call(this, name) ||
-		Object.getOwnPropertyDescriptor(NodeList.prototype) ||
-		Object.getOwnPropertyDescriptor(Object.prototype);
+	    return call(getOwnPropDesc, this, name) ||
+		O.getOwnPropertyDescriptor(NodeList.prototype) ||
+		O.getOwnPropertyDescriptor(Object.prototype);
 	},
 	getOwnPropertyNames: function getOwnPropertyNames() {
 	    let r = [];
-	    for (let i = 0; i < a.length; ++i) r.push(String(i));
-	    return r.concat(Object.getOwnPropertyNames(localprops));
+	    for (let i = 0; i < a.length; ++i) push(r, String(i));
+	    return A.concat(r, O.getOwnPropertyNames(localprops));
 	},
 	defineProperty: function(name, desc) {
-	    Object.defineProperty(localprops, name, desc);
+	    O.defineProperty(localprops, name, desc);
 	},
 	delete: function(name) {
 	    return delete localprops[name];
@@ -92,7 +97,7 @@ function ArrayNodeList(a) {
 	hasOwn: hasOwn,
 
 	has: function(name) {
-	    return hasOwn.call(this, name) || (name in localprops);
+	    return call(hasOwn, this, name) || (name in localprops);
 	},
 
 	get: function(receiver, name) {
@@ -107,17 +112,17 @@ function ArrayNodeList(a) {
 	// Get all enumerable properties
 	enumerate: function() {
 	    let r = [];
-	    for (let i = 0; i < a.length; ++i) r.push(String(i));
-	    for(name in localprops) r.push(name);
+	    for (let i = 0; i < a.length; ++i) push(r, String(i));
+	    for(name in localprops) push(r, name);
 	    return r;
 	},
 
 	// Get own properties that are also enumerable
 	keys: function() {
 	    let r = [];
-	    for (let i = 0; i < a.length; ++i) r.push(String(i));
+	    for (let i = 0; i < a.length; ++i) push(r, String(i));
 	    for(name in localprops) {
-		if (Object.hasOwnProperty(name)) r.push(name);
+		if (O.hasOwnProperty(name)) push(r, name);
 	    }
 	    return r;
 	},
