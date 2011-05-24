@@ -72,7 +72,7 @@ function ArrayNodeList(a) {
 	else return O.getOwnPropertyDescriptor(localprops, name);
     }
 
-    return Proxy.create({
+    return createProxy({
 	getOwnPropertyDescriptor: getOwnPropDesc,
 	getPropertyDescriptor: function(name) {
 	    return call(getOwnPropDesc, this, name) ||

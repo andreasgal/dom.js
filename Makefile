@@ -18,7 +18,7 @@ MODULES = \
 	dom/ProcessingInstruction.js
 
 
-dom.js: ${MODULES} LICENSE
+dom.js: LICENSE ${MODULES} dom/monkey.js
 # Output preamble
 	@echo '// This file was automatically generated; DO NOT EDIT.' > $@
 	@echo '/************************************************************************' >> $@
@@ -26,8 +26,8 @@ dom.js: ${MODULES} LICENSE
 	@echo '************************************************************************/' >> $@
 
 # Output function wrapper
-	@echo '"use strict";' >> $@
 	@echo '(function closure(global) {' >> $@
+	@echo '"use strict";' >> $@
 
 # Append each of the module files
 	@for f in ${MODULES} ;\
@@ -42,4 +42,8 @@ dom.js: ${MODULES} LICENSE
 
 # Close the function wrapper
 	@echo '}(this));' >> $@
+
+# Output code that monkey patches everything to test that we don't use it
+	@cat dom/monkey.js >> $@
+
 	@echo 'Created dom.js'

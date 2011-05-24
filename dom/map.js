@@ -27,7 +27,7 @@ function unwrap(n) {
     if (node === lastkey) return lastvalue;
 
     try {
-	let impl = nodes.get(node);
+	let impl = wmget(nodes, node);
 
 	// This happens if someone passes a bogus object to 
 	// appendChild, for example. 
@@ -71,7 +71,7 @@ function wrap(n) {
 	    assert(false, "unexpected bare node");
 	}
 
-	nodes.set(n, n.dom);
+	wmset(nodes, n, n.dom);
     }
 
     return n.dom;

@@ -41,18 +41,18 @@ function implementIDLInterface(o) {
     // Set up the constructor function and the prototype object
     if (superclass) {                            // If there is a superclass
         constructor = function() {  
-            superclass.apply(this, arguments);           // constructor chain
+	    apply(superclass, this, arguments);  // constructor chain
             if (init) {
-                let result = init.apply(this, arguments);
+                let result = apply(init, this, arguments);
                 if (result !== undefined) return result;
             }
         };
-        prototype = create(superclass.prototype); // special prototype
+        prototype = O.create(superclass.prototype); // special prototype
     }
     else {                                       // Otherwise
         constructor = function() {                       // simple constructor
             if (init) {
-                let result = init.apply(this, arguments);
+                let result = apply(init, this, arguments);
                 // We need this return for NodeList
                 if (result !== undefined) return result;
             }

@@ -263,7 +263,7 @@ node.prototype = {
     },
 
     // A node is rooted iff it has a nid property 
-    rooted: function() { return "nid" in this; }
+    rooted: function() { return "nid" in this; },
 
     // Return the index of this node in its parent.
     // Throw if no parent, or if this node is not a child of its parent
