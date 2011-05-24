@@ -448,6 +448,11 @@ defineLazyProperty(DOM, "Node", function() {
                 // The error checking steps above seem to be performed
                 // by the methods called below.
                 let refChild = oldChild.nextSibling;
+
+		// XXX: if these methods have been monkeypatched on
+		// Node.prototype do I call the patched ones or an internal
+		// copy of the originals? Spec doesn't say, I don't think.
+
                 this.removeChild(oldChild);
                 return this.insertBefore(newChild, refChild);
             },
