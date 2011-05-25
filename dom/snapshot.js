@@ -10,7 +10,12 @@
  * The utilities defined here use a functional syntax rather than the
  * OO syntax of the JS builtins.  Instead of a.map(f), we call map(a, f)
  * for example.
+ * 
+ * See monkey.js for code that patches all the built-in functions and methods
+ * to test whether we avoid using them.
  */
+
+
 // XXX
 // For now, we just snapshot everything that seems like it might be
 // important. Later, we might come back and optimize this to just take
@@ -41,7 +46,7 @@ const
     TypeError = global.TypeError,
     WeakMap = global.WeakMap,
 
-    // Some global functions
+    // Some global functions.
     // Note that in strict mode we're not allowed to create new identifiers
     // named eval.  But if we give eval any other name then it does a
     // global eval instead of a local eval. I shouldn't ever need to use it,
@@ -69,37 +74,26 @@ const
     // define very many.
     now = Date.now,
 
-    // Take snapshots of the built-in prototype objects, omitting those
-    // that don't have useful methods. The trailing P is a naming convention
-    // for these prototype copies.
-    ArrayP = shallow_frozen_copy(Array.prototype),
-    DateP = shallow_frozen_copy(Date.prototype),
-    FunctionP = shallow_frozen_copy(Function.prototype),
-    NumberP = shallow_frozen_copy(Number.prototype),
-    ObjectP = shallow_frozen_copy(Object.prototype),
-    RegExpP = shallow_frozen_copy(RegExp.prototype),
-    StringP = shallow_frozen_copy(String.prototype),
-    WeakMapP = shallow_frozen_copy(WeakMap.prototype),
-
-    // And now define utility functions that invoke the methods of those
-    // prototypes.  Note that it is never safe to invoke a method of a
-    // built-in object except in code that is going to run right now.  The
-    // functions defined below provide a safe alternative, but mandate a
-    // functional style of programming rather than an OO style.
+    // Note that it is never safe to invoke a method of a built-in
+    // object except in code that is going to run right now. The
+    // functions defined below provide a safe alternative, but mandate
+    // a functional style of programming rather than an OO style.
 
     // Functions
-    call = FunctionP.call.bind(FunctionP.call),   // call(f, o, args...)
-    apply = FunctionP.call.bind(FunctionP.apply), // apply(f, o, [args])
-    bind = FunctionP.call.bind(FunctionP.bind),   // bind(f, o)
+    // call(f, o, args...)
+    call = Function.prototype.call.bind(Function.prototype.call),
+    // apply(f, o, [args])
+    apply = Function.prototype.call.bind(Function.prototype.apply),
+    // bind(f, o)
+    bind = Function.prototype.call.bind(Function.prototype.bind),   
 
     // WeakMap functions
-    wmget = function(m, k) { return call(WeakMapP.get, m, k); },
-    wmset = function(m, k, v) { return call(WeakMapP.set, m, k, v); },
+    wmget = Function.prototype.call.bind(WeakMap.prototype.get),
+    wmset = Function.prototype.call.bind(WeakMap.prototype.set),
 
     // Object functions
-    hasOwnProperty = function(o, p) {
-	return call(ObjectP.hasOwnProperty, o, p);
-    },
+    hasOwnProperty =
+      Function.prototype.call.bind(Object.prototype.hasOwnProperty),
 
     // Array functions are all defined as generics like A.pop, but its
     // convenient to give the most commonly-used ones unqualified
@@ -128,6 +122,7 @@ const
     trim = S.trim,
 
     // RegExp functions, too
-    exec = function(r,s) { return call(RegExpP.exec, r, s); }, 
-    test = function(r,s) { return call(RegExpP.test, r, s); }
+    exec = Function.prototype.call.bind(RegExp.prototype.exec),
+    test = Function.prototype.call.bind(RegExp.prototype.test)
+
     ;

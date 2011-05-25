@@ -1,6 +1,4 @@
-// The Text interface is a subtype of CharacterData.  It adds three
-// methods and we also define concrete versions of abstract Node
-// attributes here.
+// The Text interface is a subtype of CharacterData.  It adds three methods.
 defineLazyProperty(global, "Text", function() {
     return DOM.Text.interface;
 }, true);

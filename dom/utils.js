@@ -1,16 +1,5 @@
 // Utility functions and other globals used throughout dom.js
 
-// Take a snapshot of all API functions we might call. Some of the code
-// below might run after initialization, at which point user code might
-// have redirected them.
-let Object_prototype = Object.prototype;
-let create = Object.create;
-let defineProperty = Object.defineProperty;
-let freeze = Object.freeze;
-let getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-let getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-let keys = Object.keys;
-
 function assert(expr, msg) {
     if (!expr) throw new Error("Assertion failed " + (msg||""));
 }
@@ -36,25 +25,25 @@ const hiddenConstantPropDesc = {
 // Set o.p to v, but make the property read-only
 function defineReadonlyProp(o,p,v) {
     hiddenPropDesc.value = v;
-    defineProperty(o, p, readonlyPropDesc);
+    O.defineProperty(o, p, readonlyPropDesc);
 }
 
 // Set o.p to v, but make the property non-enumerable
 function defineHiddenProp(o,p,v) {
     hiddenPropDesc.value = v;
-    defineProperty(o, p, hiddenPropDesc);
+    O.defineProperty(o, p, hiddenPropDesc);
 }
 
 // Set o.p to v, and make it constant
 function defineConstantProp(o,p,v) {
     constantPropDesc.value = v;
-    defineProperty(o, p, constantPropDesc);
+    O.defineProperty(o, p, constantPropDesc);
 }
 
 // Set o.p to v, and make it constant and non-enumerable
 function defineHiddenConstantProp(o,p,v) {
     hiddenConstantPropDesc.value = v;
-    defineProperty(o, p, hiddenConstantPropDesc);
+    O.defineProperty(o, p, hiddenConstantPropDesc);
 }
 
 //
@@ -66,17 +55,17 @@ function defineHiddenConstantProp(o,p,v) {
 // Based on Andreas's AddResolveHook function.
 // 
 function defineLazyProperty(o, p, f, hidden, readonly) {
-    defineProperty(o, p, {
-        get: function() {        // When the property is first retrieved
-            let realval = f();   // compute its actual value
-            defineProperty(o, p, // Store that value, keeping the other
+    O.defineProperty(o, p, {
+        get: function() {          // When the property is first retrieved
+            let realval = f();     // compute its actual value
+            O.defineProperty(o, p, // Store that value, keeping the other
                            { value: realval }); // attributes unchanged
-            return realval;      // And return the computed value
+            return realval;        // And return the computed value
         },
         set: readonly ? undefined : function(newval) {
             // If the property is writable and is set before being read,
             // just replace the value and f() will never be invoked
-            defineProperty(o, p, { value: newval });
+            O.defineProperty(o, p, { value: newval });
         },
         enumerable: !hidden,
         configurable: true
@@ -89,6 +78,9 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
 // like the internal versions of constructors: DOM.Element() etc.
 let DOM = {};
 
+/*
+ * This would be nice and efficient, but it doesn't conform to
+ * WebIDL, which says the properties must be on the NodeList.prototype
 // DOM.emptyNodeList will be an object that is an instanceof NodeList
 // and is always empty. Note that it inherits its length and item properties
 // from an intermediate prototype rather than defining them directly
@@ -101,7 +93,7 @@ defineLazyProperty(DOM, "emptyNodeList", function() {
 	    item: function() { return null; }
 	}));
 });
-
+*/
 
 // WebIDL requires value conversions in various places.
 

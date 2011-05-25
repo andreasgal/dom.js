@@ -39,9 +39,9 @@ function implementIDLInterface(o) {
     // the initialization will be on the implementation constructors, right?
 
     // Set up the constructor function and the prototype object
-    if (superclass) {                            // If there is a superclass
+    if (superclass) {                               // If there is a superclass
         constructor = function() {  
-	    apply(superclass, this, arguments);  // constructor chain
+	    apply(superclass, this, arguments);     // constructor chain
             if (init) {
                 let result = apply(init, this, arguments);
                 if (result !== undefined) return result;
@@ -49,15 +49,15 @@ function implementIDLInterface(o) {
         };
         prototype = O.create(superclass.prototype); // special prototype
     }
-    else {                                       // Otherwise
-        constructor = function() {                       // simple constructor
+    else {                                          // Otherwise
+        constructor = function() {                  // simple constructor
             if (init) {
                 let result = apply(init, this, arguments);
                 // We need this return for NodeList
                 if (result !== undefined) return result;
             }
         };
-        prototype = {};                                  // and prototype.
+        prototype = {};                             // and prototype.
     }
 
     // The interface object is supposed to work with instanceof, but is 

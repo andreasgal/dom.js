@@ -110,7 +110,7 @@ document.prototype = {
         
         // Now recurse to root each of the descendant nodes
         if (node.kids)
-            node.kids.forEach(function(k) { this.rootAppend(k, node); });
+            foreach(node.kids, function(k) { this.rootAppend(k, node); });
     },
 
     rootBefore: function rootBefore(node, target) {
@@ -122,7 +122,7 @@ document.prototype = {
         // Now recurse to root each of the descendant nodes
         // Note that we switch to rootAppend for the recursion
         if (node.kids)
-            node.kids.forEach(function(k) { this.rootAppend(k, node); });
+            foreach(node.kids, function(k) { this.rootAppend(k, node); });
     },
 
     uproot: function uproot(node) {
@@ -135,7 +135,7 @@ document.prototype = {
         // its descendants as rooted.
         function delnid(n) {
             delete n.nid;
-            if (n.kids) n.kids.forEach(delnid);
+            if (n.kids) foreach(n.kids, delnid);
         }
         delnid(node);
     }
@@ -186,9 +186,9 @@ node.prototype = {
             if (this.rooted() && parent.rooted()) {
 		let curpar = this.parent;
                 let pos = this.index();
-                curpar.kids.splice(pos, 1);
+                splice(curpar.kids, pos, 1);
                 this.parent = parent;
-                parent.kids.push(this);
+                push(parent.kids, this);
                 
                 this.doc.mutation.moveAppend(this, parent);
                 return; // Don't fall through
@@ -204,7 +204,7 @@ node.prototype = {
 
         // append node to parent
         this.parent = parent;
-        parent.kids.push(this);
+        push(parent.kids, this);
         
         // If the parent is rooted, root the child
         if (parent.rooted()) this.doc.rootAppend(node, parent);
@@ -227,8 +227,8 @@ node.prototype = {
                 newpos = target.index();
                 
                 this.parent = newpar;
-                oldpar.kids.splice(oldpos, 1);
-                newpar.kids.splice(newpos, 0, this);
+                splice(oldpar.kids, oldpos, 1);
+                splice(newpar.kids, newpos, 0, this);
                 
                 this.doc.mutation.moveInsert(this, target);
                 return; // Don't fall through to the insertion code
@@ -244,7 +244,7 @@ node.prototype = {
         let parent = target.parent, pos = target.index();
         assert(pos !== -1);
         this.parent = parent;
-        parent.kids.splice(pos, 0, this);
+        splice(parent.kids, pos, 0, this);
         // An optimization for repeated calls to insert with the same target.
         target.idx++;
 
@@ -258,7 +258,7 @@ node.prototype = {
         let parent = this.parent, kids = parent.kids, pos = this.index();
         assert(pos !== -1)
         delete this.parent;
-        kids.splice(pos, 1);
+        splice(kids, pos, 1);
         if (this.rooted()) this.doc.uproot(this);
     },
 
@@ -272,7 +272,7 @@ node.prototype = {
         // the insert() method.
 	assert(this.parent);
 	if (this.idx == null || this.parent.kids[this.idx] != this) {
-	    this.idx = this.parent.kids.indexOf(this);
+	    this.idx = A.indexOf(this.parent.kids, this);
 	    assert(this.idx != -1);
 	}
 	return this.idx;

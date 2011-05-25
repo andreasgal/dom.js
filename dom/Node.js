@@ -452,6 +452,7 @@ defineLazyProperty(DOM, "Node", function() {
 		// XXX: if these methods have been monkeypatched on
 		// Node.prototype do I call the patched ones or an internal
 		// copy of the originals? Spec doesn't say, I don't think.
+                // Spec does say: I have to call pristine original copies.
 
                 this.removeChild(oldChild);
                 return this.insertBefore(newChild, refChild);
