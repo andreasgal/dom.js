@@ -51,19 +51,21 @@ function wrap(n) {
     if (!n.dom) {
 	switch(n.type) {
 	case ELEMENT_NODE:
-	    n.dom = new DOM.Element(n);
+	    n.dom = new DOM.Element();
 	    break;
 	case TEXT_NODE:
-	    n.dom = new DOM.Text(n);
+	    n.dom = new DOM.Text();
 	    break;
 	case COMMENT_NODE:
-	    n.dom = new DOM.Comment(n);
+	    n.dom = new DOM.Comment();
 	    break;
 	case PROCESSING_INSTRUCTION_NODE:
-	    n.dom = new DOM.ProcessingInstruction(n);
+	    n.dom = new DOM.ProcessingInstruction();
+	    break;
+	case DOCUMENT_NODE:
+	    n.dom = new DOM.Document();
 	    break;
 	case DOCUMENT_FRAGMENT_NODE:
-	case DOCUMENT_NODE:
 	case DOCUMENT_TYPE_NODE:
 	    // This should never occur.
 	    // Nodes of these types are only created through the DOM and 

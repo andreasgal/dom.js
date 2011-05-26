@@ -8,15 +8,20 @@ MODULES = \
 	dom/utils.js \
 	dom/interface.js \
 	dom/map.js \
-	dom/nodeimpl.js \
+	dom/Tree.js \
 	dom/DOMException.js \
 	dom/EventTarget.js \
 	dom/Node.js \
+	dom/Element.js \
+	dom/Document.js \
+	dom/DOMImplementation.js \
 	dom/CharacterData.js \
 	dom/Comment.js \
 	dom/Text.js \
-	dom/ProcessingInstruction.js
-
+	dom/ProcessingInstruction.js \
+	dom/NodeList.js \
+	dom/boot.js \
+	dom/peek.js
 
 dom.js: LICENSE ${MODULES} dom/monkey.js
 # Output preamble
@@ -44,6 +49,6 @@ dom.js: LICENSE ${MODULES} dom/monkey.js
 	@echo '}(this));' >> $@
 
 # Output code that monkey patches everything to test that we don't use it
-	@cat dom/monkey.js >> $@
+#	@cat dom/monkey.js >> $@
 
 	@echo 'Created dom.js'

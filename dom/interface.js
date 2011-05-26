@@ -33,32 +33,26 @@ function implementIDLInterface(o) {
     let constants = o.constants || {};
     let members = o.members || {};
 
-    // XXX Do we even need the initialization function?
-    // And do we really need to chain the constructors?
-    // If all the properties are on the impl object, then all
-    // the initialization will be on the implementation constructors, right?
+    // Set up the constructor function
+    constructor = function() {  
+	// XXX Do we even need the initialization function?
+	// If all the properties are on the impl object, then all
+	// the initialization will be on the implementation constructors, right?
+	// NodeList currently uses its init function.
+	
+	// DOMException requires superclass chaining
+	// XXX: or maybe it doesn't
+	//	if (superclass)
+	//	    apply(superclass, this, arguments);     // constructor chain
 
-    // Set up the constructor function and the prototype object
-    if (superclass) {                               // If there is a superclass
-        constructor = function() {  
-	    apply(superclass, this, arguments);     // constructor chain
-            if (init) {
-                let result = apply(init, this, arguments);
-                if (result !== undefined) return result;
-            }
-        };
-        prototype = O.create(superclass.prototype); // special prototype
-    }
-    else {                                          // Otherwise
-        constructor = function() {                  // simple constructor
-            if (init) {
-                let result = apply(init, this, arguments);
-                // We need this return for NodeList
-                if (result !== undefined) return result;
-            }
-        };
-        prototype = {};                             // and prototype.
-    }
+        if (init) {
+            let result = apply(init, this, arguments);
+            if (result !== undefined) return result;
+        }
+    };
+
+    // Set up the prototype object
+    prototype = superclass ? O.create(superclass.prototype) : {};
 
     // The interface object is supposed to work with instanceof, but is 
     // not supposed to be callable.  We can't conform to both requirements
@@ -98,13 +92,13 @@ function implementIDLInterface(o) {
     constructor.members = {}
     for(let m in members) {
 	// Get the property descriptor of the member
-	let desc = getOwnPropertyDescriptor(members, m);
+	let desc = O.getOwnPropertyDescriptor(members, m);
 
 	// Now copy the property to the prototype object
-        defineProperty(prototype, m, desc);
+        O.defineProperty(prototype, m, desc);
 
 	// And to the constructor.members object
-	defineProperty(constructor.members, m, desc);
+	O.defineProperty(constructor.members, m, desc);
     }
 
     // Finally, return the constructor

@@ -37,6 +37,7 @@ defineLazyProperty(global, "DOMException", function() {
 
 defineLazyProperty(DOM, "DOMException", function() {
     const names = [
+	null,  // No error with code 0
         "INDEX_SIZE_ERR",
         null, // historical
         "HIERARCHY_REQUEST_ERR",
@@ -70,6 +71,7 @@ defineLazyProperty(DOM, "DOMException", function() {
     // Used under the terms of the W3C Document License:
     // http://www.w3.org/Consortium/Legal/2002/copyright-documents-20021231
     const messages = [
+	null,  // No error with code 0
         "INDEX_SIZE_ERR (1): the index is not in the allowed range",
         null,
         "HIERARCHY_REQUEST_ERR (3): the operation would yield an incorrect nodes model",
@@ -101,7 +103,13 @@ defineLazyProperty(DOM, "DOMException", function() {
         name: "DOMException",
         superclass: Error,
         init: function DOMException(code) {
-            defineReadonlyProperty(this, "code", code);
+            defineReadonlyProp(this, "code", code);
+	    // XXX
+	    // This is a hack to attempt to enable backtraces on DOMExceptions
+	    // I don't know how to properly subclass Error and still get good
+	    // debugging functionality from it.  I don't think that WebIDL
+	    // allows us to just throw Error for DOMException, though.
+	    this.stack = new Error().stack;
         },
         members: {
             get name() { return names[this.code]; },

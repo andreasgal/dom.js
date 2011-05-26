@@ -9,3 +9,8 @@ document.body instanceof Node.  But native JS objects can't be used with
 instanceof, only functions can be on the rhs of that operator.  So in
 dom.js, DOM types like Node and Element are functions rather than
 objects so that instanceof works correctly.
+
+3) Proxy objects are required to report their properties as
+configurable. But WebIDL says that indexed properties that do not have
+an indexed deleter (like NodeList) should be non-configurable.
+

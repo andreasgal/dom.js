@@ -449,13 +449,18 @@ defineLazyProperty(DOM, "Node", function() {
                 // by the methods called below.
                 let refChild = oldChild.nextSibling;
 
-		// XXX: if these methods have been monkeypatched on
-		// Node.prototype do I call the patched ones or an internal
-		// copy of the originals? Spec doesn't say, I don't think.
-                // Spec does say: I have to call pristine original copies.
-
-                this.removeChild(oldChild);
-                return this.insertBefore(newChild, refChild);
+		// Our methods may be monkey patched, so invoke the 
+		// original clean versions.  From DOM Core: 
+		//
+		// "When a method or an attribute is said to call
+		// another method or attribute, the user agent must
+		// invoke its internal API for that attribute or
+		// method so that e.g. the author can't change the
+		// behavior by overriding attributes or methods with
+		// custom properties or functions in ECMAScript."
+		DOM.Node.members.removeChild.call(this, oldChild);
+		return DOM.Node.members.insertBefore.call(this,
+							  newChild, refChild);
             },
 
             // Node removeChild([NoNull] Node oldChild);

@@ -5,15 +5,7 @@ function assert(expr, msg) {
 }
 
 // For stuff that I haven't implemented yet
-function nyi() { throw "Not Yet Implemented"; }
-
-// Use this for interface members that will be implemented by subclasses
-function abstractMethod() { throw "Abstract Member"; }
-
-// Use this for things like the appendChild method of Text nodes
-function hierarchyRequestError() {
-    throw new DOM.DOMException(HIERARCHY_REQUEST_ERROR);
-}
+function nyi() { throw new Error("Not Yet Implemented"); }
 
 const readonlyPropDesc = {writable:false,enumerable:true,configurable: true};
 const hiddenPropDesc = {writable: true,enumerable: false,configurable: true};
@@ -24,7 +16,7 @@ const hiddenConstantPropDesc = {
 
 // Set o.p to v, but make the property read-only
 function defineReadonlyProp(o,p,v) {
-    hiddenPropDesc.value = v;
+    readonlyPropDesc.value = v;
     O.defineProperty(o, p, readonlyPropDesc);
 }
 

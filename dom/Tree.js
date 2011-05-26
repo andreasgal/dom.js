@@ -1,8 +1,11 @@
 // A basic set of tree construction and mutation primitives to enable
 // a DOM-like, DOM-lite representation for HTML and XML documents.
-// The Tree class encapsulates a single document and defines methods
-// for creating, inserting, and manipulating nodes.  The nodes
-// themselves are just plain objects that do not define methods.
+// 
+// The Tree class encapsulates a single document and its root node and
+// defines methods for creating, inserting, and manipulating nodes.
+// Nodes are instances of the node class.  (The node() constructor has
+// a lowercase name to emphasize that it creates internal objects and
+// to distinguish it from the external Node.)
 //
 // This module defines an internal API and doesn't do error
 // checking. It assumes that the parser code and public API code that
@@ -63,18 +66,18 @@ const nullMutationHandler = {
     setAttribute: function(node, name, value) {}
 };
 
-function document(mutationHandler) {
+function Tree(mutationHandler) {
     // The handler object has functions that forward mutations
     // If we don't get one, then use a stub.
     this.mutation = mutationHandler || nullMutationHandler;
-    this.document = new node(this, DOCUMENT_NODE, null);
-    this.document.kids = [];
-    this.document.nid = 1;
+    this.root = new node(this, DOCUMENT_NODE, null);
+    this.root.kids = [];
+    this.root.nid = 1;
     this.nextid = 2;    // id for next node to become rooted
 }
 
-document.prototype = {
-    constructor: document,
+Tree.prototype = {
+    constructor: Tree,
     text: function text(t) {
 	return new node(this, TEXT_NODE, t);
     },
@@ -142,8 +145,8 @@ document.prototype = {
 
 };
 
-function node(doc, type, value) {
-    this.doc = doc;
+function node(tree, type, value) {
+    this.tree = tree;
     this.type = type;
     this.value = value;
 }
@@ -152,19 +155,19 @@ node.prototype = {
     setAttribute: function setAttribute(name, value) {
         assert(this.type === ELEMENT_NODE);
         this.attrs[name] = value;
-        if (this.rooted()) this.doc.mutation.setAttribute(this, name, value);
+        if (this.rooted()) this.tree.mutation.setAttribute(this, name, value);
     },
     deleteAttribute: function deleteAttribute(name) {
         assert(this.type === ELEMENT_NODE);
         delete this.attrs[name];
-        if (this.rooted()) this.doc.mutation.setAttribute(this, name);
+        if (this.rooted()) this.tree.mutation.setAttribute(this, name);
     },
     setText: function setText(text) {
         assert(this.type === TEXT_NODE ||
                this.type === COMMENT_NODE || 
                this.type === PROCESSING_INSTRUCTION_NODE);
         this.value = text;
-        if (this.rooted()) this.doc.mutation.setText(this, text);
+        if (this.rooted()) this.tree.mutation.setText(this, text);
     },
 
     // Append node as the last child of parent. If node is
@@ -190,7 +193,7 @@ node.prototype = {
                 this.parent = parent;
                 push(parent.kids, this);
                 
-                this.doc.mutation.moveAppend(this, parent);
+                this.tree.mutation.moveAppend(this, parent);
                 return; // Don't fall through
             }
             else {
@@ -198,7 +201,7 @@ node.prototype = {
                 // so just remove it from its current location
                 // and then fall through to the insertion code below.
                 // This will uproot or root the node as needed.
-                this.doc.remove(this);
+                this.tree.remove(this);
             }
         }
 
@@ -207,7 +210,7 @@ node.prototype = {
         push(parent.kids, this);
         
         // If the parent is rooted, root the child
-        if (parent.rooted()) this.doc.rootAppend(node, parent);
+        if (parent.rooted()) this.tree.rootAppend(node, parent);
     },
 
     // like DOM insertBefore, but called on the node that is being inserted
@@ -230,7 +233,7 @@ node.prototype = {
                 splice(oldpar.kids, oldpos, 1);
                 splice(newpar.kids, newpos, 0, this);
                 
-                this.doc.mutation.moveInsert(this, target);
+                this.tree.mutation.moveInsert(this, target);
                 return; // Don't fall through to the insertion code
             }
             // Otherwise, we'll just remove the node and then insert
@@ -249,7 +252,7 @@ node.prototype = {
         target.idx++;
 
         // If the parent is rooted, root the child
-        if (parent.rooted()) this.doc.rootBefore(this, target);
+        if (parent.rooted()) this.tree.rootBefore(this, target);
     },
 
     // Remove the specified child of the specified node
@@ -259,7 +262,7 @@ node.prototype = {
         assert(pos !== -1)
         delete this.parent;
         splice(kids, pos, 1);
-        if (this.rooted()) this.doc.uproot(this);
+        if (this.rooted()) this.tree.uproot(this);
     },
 
     // A node is rooted iff it has a nid property 

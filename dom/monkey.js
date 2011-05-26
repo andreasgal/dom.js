@@ -4,9 +4,12 @@
 // This code is designed to run outside the big function that encloses
 // the rest of dom.js.
 (function(global) {
+    global.debug = true;  // Unset this to turn off annoying warning
+
     const
         Error = global.Error,
         split = String.split,
+        substring = String.substring,
 	getOwnPropNames = Object.getOwnPropertyNames,
         foreach = Array.forEach,
 	fpCall = Function.prototype.call,
@@ -14,8 +17,15 @@
 	apply = fpCall.bind(fpApply);
 
     function warn(n) {
+	if (!global.debug) return;
 	let debug = global.print || console.log;
 	let where = split(new Error().stack, '\n')[2];
+
+	// Don't issue warnings if the call came direct from the console
+	// We still get warnings from indirect ones
+	if (substring(where, 0, 7) === "@typein") return;
+
+
 	debug("WARNING: Interceptable call to " + n + "() from " + where);
     }
 

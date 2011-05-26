@@ -5,7 +5,7 @@ defineLazyProperty(global, "EventTarget", function() {
 defineLazyProperty(DOM, "EventTarget", function() {
     return implementIDLInterface({
         name: "EventTarget",
-        init: function EventTarget(impl) { nyi(); },
+        init: function EventTarget(impl) {},
         members: {
             /*
              * void addEventListener(DOMString type,
