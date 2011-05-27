@@ -7,7 +7,6 @@ defineLazyProperty(DOM, "Text", function() {
     return implementIDLInterface({
         name: "Text",
         superclass: DOM.CharacterData,
-	init: function(impl) { },
 	members: {
 	    // Text splitText(unsigned long offset);
 	    //

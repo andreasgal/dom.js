@@ -6,7 +6,7 @@ defineLazyProperty(DOM, "ProcessingInstruction", function() {
     return implementIDLInterface({
         name: "ProcessingInstruction",
         superclass: DOM.Node,
-	init: function(impl) {},
+	constructor: function ProcessingInstruction() {},
 	members: {
 	    // readonly attribute DOMString target
 	    get target() { return unwrap(this).target },

@@ -23,7 +23,6 @@ defineLazyProperty(DOM, "Node", function() {
     return implementIDLInterface({
         name: "Node",
         superclass: DOM.EventTarget,
-        init: function(impl) { },
         constants: {
             ELEMENT_NODE: ELEMENT_NODE,
             ATTRIBUTE_NODE: 2,         // historical
@@ -115,7 +114,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    // The ownerDocument attribute must return the Document
 	    // node that the context object is associated with, or
 	    // null if there is none.
-            get ownerDocument() { return wrap(unwrap(this).doc); },
+            get ownerDocument() { return wrap(unwrap(this).tree.root); },
 
             // readonly attribute Node parentNode;
 	    // The parentNode attribute must return the parent.
@@ -144,7 +143,18 @@ defineLazyProperty(DOM, "Node", function() {
             // readonly attribute NodeList childNodes;
 	    // The childNodes attribute must return a NodeList rooted
 	    // at the context object matching only children.
-            get childNodes() { nyi(); },
+            get childNodes() {
+		// This attribute has to return the same value each time
+		// it is accessed, so we must cache. And, it is supposed
+		// to return a valid (empty) NodeList even for nodes that
+		// can never have kids
+		let impl = unwrap(this);
+		if (!impl.nodelist) {
+		    if (!impl.kids) impl.kids = [];
+		    impl.nodelist = new DOM.NodeList(impl.kids);
+		}
+		return impl.nodelist
+	    },
 
             // readonly attribute Node firstChild; 
 	    // The firstChild attribute must return the first child of
@@ -361,7 +371,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    //     Return newChild. 
             insertBefore: function insertBefore(newChild, refChild) {
                 if (refChild == null) // Also treat undefined as null
-                    return this.appendChild(newChild);
+		    return call(DOM.Node.members.appendChild, this, newChild);
 
                 let parent = unwrap(this);
 
@@ -458,9 +468,9 @@ defineLazyProperty(DOM, "Node", function() {
 		// method so that e.g. the author can't change the
 		// behavior by overriding attributes or methods with
 		// custom properties or functions in ECMAScript."
-		DOM.Node.members.removeChild.call(this, oldChild);
-		return DOM.Node.members.insertBefore.call(this,
-							  newChild, refChild);
+		call(DOM.Node.members.removeChild, this, oldChild);
+		return call(DOM.Node.members.insertBefore,
+			    this, newChild, refChild);
             },
 
             // Node removeChild([NoNull] Node oldChild);

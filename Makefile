@@ -7,7 +7,8 @@ MODULES = \
 	dom/snapshot.js \
 	dom/utils.js \
 	dom/interface.js \
-	dom/map.js \
+	dom/wrapmap.js \
+	dom/namespace.js \
 	dom/Tree.js \
 	dom/DOMException.js \
 	dom/EventTarget.js \
@@ -25,7 +26,8 @@ MODULES = \
 
 dom.js: LICENSE ${MODULES} dom/monkey.js
 # Output preamble
-	@echo '// This file was automatically generated; DO NOT EDIT.' > $@
+	@rm -f $@;
+	@echo '// This file was automatically generated; DO NOT EDIT.' >> $@
 	@echo '/************************************************************************' >> $@
 	@cat LICENSE >> $@
 	@echo '************************************************************************/' >> $@
@@ -38,6 +40,8 @@ dom.js: LICENSE ${MODULES} dom/monkey.js
 	@for f in ${MODULES} ;\
 	do \
 		echo >> $@ ;\
+		echo >> $@ ;\
+		echo >> $@ ;\
 		echo '/************************************************************************' >> $@;\
 		echo ' * ' $$f >> $@ ;\
 		echo ' ************************************************************************/' >> $@;\
@@ -49,6 +53,7 @@ dom.js: LICENSE ${MODULES} dom/monkey.js
 	@echo '}(this));' >> $@
 
 # Output code that monkey patches everything to test that we don't use it
-#	@cat dom/monkey.js >> $@
+	@cat dom/monkey.js >> $@
 
-	@echo 'Created dom.js'
+	@chmod 444 $@
+	@echo "Created $@"

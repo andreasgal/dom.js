@@ -5,7 +5,6 @@ defineLazyProperty(global, "DOMImplementation", function() {
 defineLazyProperty(DOM, "DOMImplementation", function() {
     return implementIDLInterface({
         name: "DOMImplementation",
-        init: function(impl) { },
 	members: {
 	    //  boolean hasFeature(DOMString feature,
 	    //                     [TreatNullAs=EmptyString] DOMString version);
@@ -26,7 +25,7 @@ defineLazyProperty(DOM, "DOMImplementation", function() {
 	    //             DocumentType? doctype);
 	    createDocument: function createDocument(ns, qname, doctype){nyi();},
 
-	    //  Document createHTMLDocument(DOMString title);	    
+	    // Document createHTMLDocument(DOMString title);	    
 	    //
 	    // The createHTMLDocument(title) method, when invoked,
 	    // must run the following steps:
@@ -58,7 +57,7 @@ defineLazyProperty(DOM, "DOMImplementation", function() {
 	    // it to the html element created in the earlier step.
 	    //
 	    // Return doc.
-	    createHTMLDocument: function createHTMLDocument(title) {
+	    createHTMLDocument: function createHTMLDocument(titleText) {
 		let tree = new Tree();  // Internal document object
 		let root = tree.root;   // Internal node
 		let doc = wrap(root);   // External Document object
@@ -69,13 +68,13 @@ defineLazyProperty(DOM, "DOMImplementation", function() {
 		    head = doc.createElement("head"),
 		    title = doc.createElement("title"),
 		    body = doc.createElement("body"),
-		    text = doc.createTextNode(title);
+		    text = doc.createTextNode(titleText);
     
 		title.appendChild(text);
 		head.appendChild(title);
 		html.appendChild(head);
 		html.appendChild(body);
-		doc.appendChild(head);
+		doc.appendChild(html);
 
 		return doc;
 	    },

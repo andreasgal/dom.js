@@ -6,7 +6,6 @@ defineLazyProperty(DOM, "CharacterData", function() {
     return implementIDLInterface({
         name: "CharacterData",
         superclass: DOM.Node,
-	init: function(impl) {},
 	members: {
 	    // [TreatNullAs=EmptyString] attribute DOMString data;
 	    // The data attribute must return the data of the node, and on

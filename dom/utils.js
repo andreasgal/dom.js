@@ -87,6 +87,10 @@ defineLazyProperty(DOM, "emptyNodeList", function() {
 });
 */
 
+function undef2null(x) { return x === undefined ? null : x; }
+
+
+
 // WebIDL requires value conversions in various places.
 
 // Convert x to an unsigned long and return it
@@ -112,3 +116,16 @@ defineLazyProperty(DOM, "emptyNodeList", function() {
 function toULong(x) {
     nyi();
 }
+
+
+// Return true if node is an HTML element and if its owner document is
+// and HTML document.  Returns false otherwise.  Note that the argument
+// is an internal node implementation object, not a DOM Node.
+function isHTML(node) {
+    // XXX: implement this
+    return true;
+}
+
+//XXX Stubbed out function for testing the validity of XML attribute names
+function validName(s) { return true; }
+function validQName(s) { return true;}

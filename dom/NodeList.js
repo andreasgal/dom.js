@@ -19,8 +19,7 @@ defineLazyProperty(DOM, "NodeList", function() {
     const nodeListToArrayMap = new WeakMap();
 
     // Return a NodeList object based on the array a
-    // This is a factory method, not a constructor.
-    // It is passed as the init property to implementIDLInterface below
+    // It is passed as the constructor property to implementIDLInterface below
     function ArrayNodeList(a) {
 	// NodeList objects must be extensible. If properties are
 	// added, they're stored in this object.
@@ -66,11 +65,21 @@ defineLazyProperty(DOM, "NodeList", function() {
 		return concat(r, O.getOwnPropertyNames(localprops));
 	    },
 	    defineProperty: function(name, desc) {
+		// XXX Perhaps this should throw for any integer property name
+		// Not just those that are in-bounds currently.
 		if (index(name) !== null) 
 		    throw new TypeError(
-			"can't redefine non-configurable property '" +
+			"can't redefine an indexed property '" +
 			    name + "'");
 
+		// If the property does not already exist and is not 
+		// configurable, then throw, since proxies don't allow
+		// non-configurable properties
+		if (!localprops[name] && !desc.configurable)
+		    throw new TypeError(
+			"can't define a non-configurable property " + name);
+
+		if (!desc.configurable)
 		O.defineProperty(localprops, name, desc);
 	    },
 	    delete: function(name) {
@@ -96,7 +105,7 @@ defineLazyProperty(DOM, "NodeList", function() {
 
 	    get: function(receiver, name) {
 		let idx = index(name);
-		if (idx !== null) return a[idx];
+		if (idx !== null) return wrap(a[idx]);
 		return localprops[name];
 	    },
 
@@ -163,7 +172,7 @@ defineLazyProperty(DOM, "NodeList", function() {
 		 */
 		let r = wmget(nodeListToArrayMap, this)[index];
 		if (r === undefined) return null;
-		return r;
+		return wrap(r);
 	    }
 	}
     });

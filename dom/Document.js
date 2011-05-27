@@ -6,7 +6,6 @@ defineLazyProperty(DOM, "Document", function() {
     return implementIDLInterface({
         name: "Document",
         superclass: DOM.Node,
-        init: function() { },
 	members: {
 	    // readonly attribute DOMImplementation implementation;
 	    get implementation() { nyi(); },
@@ -44,10 +43,7 @@ defineLazyProperty(DOM, "Document", function() {
 	    // Element createElement([TreatNullAs=EmptyString]
 	    //                       DOMString localName);
 	    createElement: function createElement(lname) {
-		let root = unwrap(this);
-		let tree = root.tree;
-		let node = tree.element(lname);
-		return wrap(node);
+		return wrap(unwrap(this).tree.element(lname));
 	    },
 	    
 	    // Element createElementNS(DOMString namespace,
@@ -60,19 +56,19 @@ defineLazyProperty(DOM, "Document", function() {
 
 	    // Text createTextNode(DOMString data);
 	    createTextNode: function createTextNode(data) {
-		let tree = unwrap(this);
-		let node = tree.text(data);
-		return wrap(node);
+		return wrap(unwrap(this).tree.text(data));
 	    },
 
 	    // Comment createComment(DOMString data);
-	    createComment: function createComment(data) { nyi(); },
+	    createComment: function createComment(data) { 
+		return wrap(unwrap(this).tree.comment(data));
+	    },
 
 	    // ProcessingInstruction createProcessingInstruction(
 	    //                            DOMString target, DOMString data);
 	    createProcessingInstruction:
 	      function createProcessingInstruction(target, data) {
-		nyi();
+		  return wrap(unwrap(this).tree.pi(target, data));
 	    },
 
 	    // Node importNode(Node node, boolean deep);

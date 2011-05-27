@@ -24,16 +24,16 @@ let lastkey = {}, lastvalue = undefined;
 function unwrap(n) {
     // Simple optimization
     // If I ever remove or alter mappings, then this won't be valid anymore.
-    if (node === lastkey) return lastvalue;
+    if (n === lastkey) return lastvalue;
 
     try {
-	let impl = wmget(nodes, node);
+	let impl = wmget(nodes, n);
 
 	// This happens if someone passes a bogus object to 
 	// appendChild, for example. 
 	if (!impl) throw new DOM.DOMException(NOT_FOUND_ERR);
 
-	lastkey = node;
+	lastkey = n;
 	lastvalue = impl;
 	return impl;
     }
@@ -73,7 +73,7 @@ function wrap(n) {
 	    assert(false, "unexpected bare node");
 	}
 
-	wmset(nodes, n, n.dom);
+	wmset(nodes, n.dom, n);
     }
 
     return n.dom;

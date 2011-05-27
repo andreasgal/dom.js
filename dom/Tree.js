@@ -12,7 +12,7 @@
 // calls it are doing the right thing.
 // 
 // node objects have the following properties:
-//   doc: the containing document object
+//   tree: the containing Tree object
 //   type: node type: uses DOM Node type constants
 //   value: tag name for elements, text content for Text, Comment, and PI nodes
 //   target: for PI nodes only
@@ -25,6 +25,7 @@
 //    nid: an integer nodeid for communicating with a mutation handler
 //    idx: probable index of the node within its parent, computed as needed
 //      and cached
+//    nodelist: a cached NodeList of the node's children
 // 
 // This tree representation does nothing special for elements and attributes
 // that use namespaces. The qname (with prefix and colon) is used as the name.
@@ -89,10 +90,10 @@ Tree.prototype = {
 	n.target = target;
 	return n;
     },
-    element: function element(tagname, attrs) {
+    element: function element(tagname) {
 	var n = new node(this, ELEMENT_NODE, tagname);
 	n.kids = [];
-	n.attrs = attrs || {};
+	n.attrs = O.create(null);  // No inherited methods
 	return n;
     },
     doctype: function doctype(root, pubid, sysid) {
@@ -102,18 +103,20 @@ Tree.prototype = {
 	return n;
     },
 
-    // The node n has just been connected to the document
+    // The node has just been connected to the document
     // root. This means that insertion events must be generated
     // for it and all of its descendants
     rootAppend: function rootAppend(node, parent) {
-        assert(node.rooted());
+        assert(!node.rooted());
         
         node.nid = this.nextid++; // mark it as rooted by assigning an id
         this.mutation.append(node, parent);
         
         // Now recurse to root each of the descendant nodes
-        if (node.kids)
-            foreach(node.kids, function(k) { this.rootAppend(k, node); });
+        if (node.kids) {
+	    let tree = this;
+            foreach(node.kids, function(k) { tree.rootAppend(k, node); });
+	}
     },
 
     rootBefore: function rootBefore(node, target) {
@@ -124,8 +127,10 @@ Tree.prototype = {
         
         // Now recurse to root each of the descendant nodes
         // Note that we switch to rootAppend for the recursion
-        if (node.kids)
-            foreach(node.kids, function(k) { this.rootAppend(k, node); });
+        if (node.kids) {
+	    let tree = this;
+            foreach(node.kids, function(k) { tree.rootAppend(k, node); });
+	}
     },
 
     uproot: function uproot(node) {
@@ -170,7 +175,7 @@ node.prototype = {
         if (this.rooted()) this.tree.mutation.setText(this, text);
     },
 
-    // Append node as the last child of parent. If node is
+    // Append this node as the last child of parent. If this node is
     // already in the tree, it will be moved from its current location.
     // Note that this method is called on the child node unlike the
     // DOM appendChild() function that is called on the parent.
@@ -201,7 +206,7 @@ node.prototype = {
                 // so just remove it from its current location
                 // and then fall through to the insertion code below.
                 // This will uproot or root the node as needed.
-                this.tree.remove(this);
+                this.remove();
             }
         }
 
@@ -210,7 +215,7 @@ node.prototype = {
         push(parent.kids, this);
         
         // If the parent is rooted, root the child
-        if (parent.rooted()) this.tree.rootAppend(node, parent);
+        if (parent.rooted()) this.tree.rootAppend(this, parent);
     },
 
     // like DOM insertBefore, but called on the node that is being inserted
@@ -255,7 +260,7 @@ node.prototype = {
         if (parent.rooted()) this.tree.rootBefore(this, target);
     },
 
-    // Remove the specified child of the specified node
+    // Remove this node from its parent
     remove: function remove() {
         assert(this.parent);
         let parent = this.parent, kids = parent.kids, pos = this.index();
@@ -291,3 +296,91 @@ node.prototype = {
 };
 
 
+function attribute(localName, value, prefix, namespace) {
+    this.lname = this.qname = localName;
+    this.value = value;
+    if (prefix) {
+	this.prefix = prefix;
+	this.namespace = namespace;
+	this.qname = prefix + ":" + localName
+    }
+}
+
+function attributes() {
+    // XXX: I could optimize this by using an object to map names to values
+    // But probably only in the case where the qname has no colon in it.
+    this.a = [];
+}
+
+attributes.prototype = {
+    get: function(qname) {
+	for(let i = 0, n = this.a.length; i < n; i++) {
+	    let attr = this.a[i];
+	    if (attr.qname === qname) return attr;
+	}
+	return null;
+    },
+    getNS: function(namespace, lname) {
+	for(let i = 0, n = this.a.length; i < n; i++) {
+	    let attr = this.a[i];
+	    if (attr.namespace === namespace &&	attr.lname === lname)
+		return attr;
+	}
+	return null;
+    },
+    set: function(qname, value) {
+	for(let i = 0, n = this.a.length; i < n; i++) {
+	    let attr = this.a[i];
+	    if (attr.qname === qname) {
+		attr.value = value;
+		return;
+	    }
+	}
+	push(this.a, new attribute(qname, value));
+    },
+    setNS: function(namespace, prefix, lname, value) {
+	for(let i = 0, n = this.a.length; i < n; i++) {
+	    let attr = this.a[i];
+	    if (attr.namespace === namespace && attr.lname == lname) {
+		attr.prefix = prefix;
+		attr.value = value;
+		return;
+	    }
+	}
+	push(this.a, new attribute(lname, value, prefix, namespace));
+    },
+    remove: function(qname) {
+	for(let i = 0, n = this.a.length; i < n; i++) {
+	    let attr = this.a[i];
+	    if (attr.qname === qname) {
+		splice(this.a, i, 1);
+		return;
+	    }
+	}
+    },
+    removeNS: function(namespace, lname) {
+	for(let i = 0, n = this.a.length; i < n; i++) {
+	    let attr = this.a[i];
+	    if (attr.namespace === namespace &&	attr.lname === lname) {
+		splice(this.a, i, 1);
+		return;
+	    }
+	}
+    },
+    has: function(qname) {
+	for(let i = 0, n = this.a.length; i < n; i++) {
+	    let attr = this.a[i];
+	    if (attr.qname === qname) return true;
+	}
+	return false;
+    },
+    hasNS: function(namespace, lname) {
+	for(let i = 0, n = this.a.length; i < n; i++) {
+	    let attr = this.a[i];
+	    if (attr.namespace === namespace &&	attr.lname === lname) {
+		return true;
+	    }
+	}
+	return false;
+    }
+}

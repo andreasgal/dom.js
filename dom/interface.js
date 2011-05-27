@@ -26,30 +26,12 @@
 // e.g. DOM.Node.members.removeChild.call(this,...); 
 // 
 function implementIDLInterface(o) {
-    let constructor, prototype, interfaceObject;
     let name = o.name || "";
     let superclass = o.superclass;
-    let init = o.init;
+    let constructor = o.init || function() {};
     let constants = o.constants || {};
     let members = o.members || {};
-
-    // Set up the constructor function
-    constructor = function() {  
-	// XXX Do we even need the initialization function?
-	// If all the properties are on the impl object, then all
-	// the initialization will be on the implementation constructors, right?
-	// NodeList currently uses its init function.
-	
-	// DOMException requires superclass chaining
-	// XXX: or maybe it doesn't
-	//	if (superclass)
-	//	    apply(superclass, this, arguments);     // constructor chain
-
-        if (init) {
-            let result = apply(init, this, arguments);
-            if (result !== undefined) return result;
-        }
-    };
+    let prototype, interfaceObject;
 
     // Set up the prototype object
     prototype = superclass ? O.create(superclass.prototype) : {};
@@ -99,6 +81,13 @@ function implementIDLInterface(o) {
 
 	// And to the constructor.members object
 	O.defineProperty(constructor.members, m, desc);
+    }
+
+    // If the interface does not already define a toString method, add one.
+    // This will help to make debugging easier.
+    // XXX: I'm not sure if this is legal according to WebIDL and DOM Core.
+    if (!hasOwnProperty(members, "toString")) {
+	prototype.toString = function() { return "[object " + name + "]"; };
     }
 
     // Finally, return the constructor
