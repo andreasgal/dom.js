@@ -8,7 +8,6 @@ MODULES = \
 	dom/utils.js \
 	dom/interface.js \
 	dom/wrapmap.js \
-	dom/namespace.js \
 	dom/Tree.js \
 	dom/DOMException.js \
 	dom/EventTarget.js \
