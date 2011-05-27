@@ -7,6 +7,11 @@
 // a lowercase name to emphasize that it creates internal objects and
 // to distinguish it from the external Node.)
 //
+// Element nodes have a list of attributes represented by an
+// attributes object that contains attribute objects.  Again,
+// lowercase constructor names to distinguish these from the external
+// DOM apis
+//
 // This module defines an internal API and doesn't do error
 // checking. It assumes that the parser code and public API code that
 // calls it are doing the right thing.
@@ -18,7 +23,7 @@
 //   target: for PI nodes only
 //   kids: an array of child nodes
 //   parent: the parent node only exists once the node is inserted
-//   attrs: an object mapping attribute names to values.
+//   attrs: an attributes object
 //   publicId, systemId: for doctype nodes only
 // 
 // Implementation-specific properties include:
@@ -32,14 +37,6 @@
 // The higher-level DOM API can split this as needed, and also search for
 // the xmlns attributes that map prefixes to URIs.
 //
-// Processing Instructions are treated like Comment nodes, except with
-// a different type constant.  No parsing of target vs. command.
-// XXX: change this to give them target and data
-// 
-// Doctype nodes are like Element nodes (except with a different
-// type), and the public and system ids are stored as if they were
-// attributes.  XXX: really?
-//     
 // We need nomenclature for the two kinds of insertion in this tree
 // abstraction.  Nodes can be in 3 states.  When first created they
 // have no parent and are "disconnected". When inserted into another
@@ -93,7 +90,7 @@ Tree.prototype = {
     element: function element(tagname) {
 	var n = new node(this, ELEMENT_NODE, tagname);
 	n.kids = [];
-	n.attrs = O.create(null);  // No inherited methods
+	n.attrs = [];
 	return n;
     },
     doctype: function doctype(root, pubid, sysid) {
@@ -157,15 +154,91 @@ function node(tree, type, value) {
 }
 
 node.prototype = {
-    setAttribute: function setAttribute(name, value) {
-        assert(this.type === ELEMENT_NODE);
-        this.attrs[name] = value;
-        if (this.rooted()) this.tree.mutation.setAttribute(this, name, value);
+    getAttribute: function getAttribute(qname) {
+	for(let i = 0, n = this.attrs.length; i < n; i++) {
+	    let attr = this.attrs[i];
+	    if (attr.qname === qname) return attr.value;
+	}
+	return null;
     },
-    deleteAttribute: function deleteAttribute(name) {
+    getAttributeNS: function getAttributeNS(ns, lname) {
+	for(let i = 0, n = this.attrs.length; i < n; i++) {
+	    let attr = this.attrs[i];
+	    if (attr.namespace === namespace &&	attr.lname === lname)
+		return attr.value;
+	}
+	return null;
+    },
+    setAttribute: function setAttribute(qname, value) {
         assert(this.type === ELEMENT_NODE);
-        delete this.attrs[name];
-        if (this.rooted()) this.tree.mutation.setAttribute(this, name);
+
+	for(let i = 0, n = this.attrs.length; i < n; i++) {
+	    let attr = this.attrs[i];
+	    if (attr.qname === qname) {
+		attr.value = value;
+		if (this.rooted()) 	// Send mutation event
+		    this.tree.mutation.setAttribute(this, qname, value);
+		return;
+	    }
+	}
+	push(this.attrs, new attribute(qname, value));
+	// Send mutation event
+        if (this.rooted()) this.tree.mutation.setAttribute(this, qname, value);
+    },
+    setAttributeNS: function setAttribute(ns, qname, value, prefix, lname) {
+	for(let i = 0, n = this.attrs.length; i < n; i++) {
+	    let attr = this.attrs[i];
+	    if (attr.namespace === ns && attr.lname == lname) {
+		attr.prefix = prefix;
+		attr.value = value;
+		// XXX: fire a mutation event
+		return;
+
+	    }
+	}
+	push(this.a, new attribute(lname, value, prefix, namespace));
+	// XXX: fire a mutation event
+	// XXX: may need to define a new event category for namespaced attrs
+    },
+    removeAttribute: function deleteAttribute(qname) {
+        assert(this.type === ELEMENT_NODE);
+
+	for(let i = 0, n = this.attrs.length; i < n; i++) {
+	    let attr = this.attrs[i];
+	    if (attr.qname === qname) {
+		splice(this.attrs, i, 1);
+		// Mutation event
+		if (this.rooted()) this.tree.mutation.setAttribute(this, qname);
+		return;
+	    }
+	}
+    },
+    removeAttributeNS: function deleteAttribute(ns, lname) {
+	for(let i = 0, n = this.attrs.length; i < n; i++) {
+	    let attr = this.attrs[i];
+	    if (attr.namespace === namespace &&	attr.lname === lname) {
+		splice(this.attrs, i, 1);
+		// XXX: fire a mutation event
+		// XXX: may need to define a new event category
+		return;
+	    }
+	}
+    },
+    hasAttribute: function hasAttribute(qname) {
+	for(let i = 0, n = this.attrs.length; i < n; i++) {
+	    let attr = this.attrs[i];
+	    if (attr.qname === qname) return true;
+	}
+	return false;
+    },
+    hasAttributeNS: function hasAttribute(ns, lname) {
+	for(let i = 0, n = this.attrs.length; i < n; i++) {
+	    let attr = this.attrs[i];
+	    if (attr.namespace === namespace &&	attr.lname === lname) {
+		return true;
+	    }
+	}
+	return false;
     },
     setText: function setText(text) {
         assert(this.type === TEXT_NODE ||
@@ -296,91 +369,17 @@ node.prototype = {
 };
 
 
-function attribute(localName, value, prefix, namespace) {
-    this.lname = this.qname = localName;
+function attribute(lname, value, prefix, namespace) {
+    // DOM Attr objects are no longer Nodes, and attribute objects aren't
+    // node objects, but we still give them a type because we need that
+    // property to make the wrap() method work.
+    this.type = ATTRIBUTE_NODE;
+
+    this.lname = lname;
     this.value = value;
-    if (prefix) {
-	this.prefix = prefix;
-	this.namespace = namespace;
-	this.qname = prefix + ":" + localName
-    }
-}
-
-function attributes() {
-    // XXX: I could optimize this by using an object to map names to values
-    // But probably only in the case where the qname has no colon in it.
-    this.a = [];
-}
-
-attributes.prototype = {
-    get: function(qname) {
-	for(let i = 0, n = this.a.length; i < n; i++) {
-	    let attr = this.a[i];
-	    if (attr.qname === qname) return attr;
-	}
-	return null;
-    },
-    getNS: function(namespace, lname) {
-	for(let i = 0, n = this.a.length; i < n; i++) {
-	    let attr = this.a[i];
-	    if (attr.namespace === namespace &&	attr.lname === lname)
-		return attr;
-	}
-	return null;
-    },
-    set: function(qname, value) {
-	for(let i = 0, n = this.a.length; i < n; i++) {
-	    let attr = this.a[i];
-	    if (attr.qname === qname) {
-		attr.value = value;
-		return;
-	    }
-	}
-	push(this.a, new attribute(qname, value));
-    },
-    setNS: function(namespace, prefix, lname, value) {
-	for(let i = 0, n = this.a.length; i < n; i++) {
-	    let attr = this.a[i];
-	    if (attr.namespace === namespace && attr.lname == lname) {
-		attr.prefix = prefix;
-		attr.value = value;
-		return;
-	    }
-	}
-	push(this.a, new attribute(lname, value, prefix, namespace));
-    },
-    remove: function(qname) {
-	for(let i = 0, n = this.a.length; i < n; i++) {
-	    let attr = this.a[i];
-	    if (attr.qname === qname) {
-		splice(this.a, i, 1);
-		return;
-	    }
-	}
-    },
-    removeNS: function(namespace, lname) {
-	for(let i = 0, n = this.a.length; i < n; i++) {
-	    let attr = this.a[i];
-	    if (attr.namespace === namespace &&	attr.lname === lname) {
-		splice(this.a, i, 1);
-		return;
-	    }
-	}
-    },
-    has: function(qname) {
-	for(let i = 0, n = this.a.length; i < n; i++) {
-	    let attr = this.a[i];
-	    if (attr.qname === qname) return true;
-	}
-	return false;
-    },
-    hasNS: function(namespace, lname) {
-	for(let i = 0, n = this.a.length; i < n; i++) {
-	    let attr = this.a[i];
-	    if (attr.namespace === namespace &&	attr.lname === lname) {
-		return true;
-	    }
-	}
-	return false;
-    }
+    this.prefix = prefix || null;
+    this.namespace = namespace || null;
+    
+    if (prefix) this.qname = prefix + ":" + lname;
+    else this.qname = lname;
 }

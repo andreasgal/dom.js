@@ -18,13 +18,6 @@
 // property of the constructor function refers to the public interface
 // object that should be made available as a global property.
 // 
-// XXX
-// Extend this method to define a constructor.members property that points
-// to a pristine copy of the members that are not subject to monkey patching
-// so that the implementation can invoke its own methods in their original
-// form when it needs to do so.
-// e.g. DOM.Node.members.removeChild.call(this,...); 
-// 
 function implementIDLInterface(o) {
     let name = o.name || "";
     let superclass = o.superclass;

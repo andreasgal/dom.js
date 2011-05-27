@@ -13,6 +13,7 @@ MODULES = \
 	dom/EventTarget.js \
 	dom/Node.js \
 	dom/Element.js \
+	dom/Attr.js \
 	dom/Document.js \
 	dom/DOMImplementation.js \
 	dom/CharacterData.js \

@@ -70,25 +70,6 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
 // like the internal versions of constructors: DOM.Element() etc.
 let DOM = {};
 
-/*
- * This would be nice and efficient, but it doesn't conform to
- * WebIDL, which says the properties must be on the NodeList.prototype
-// DOM.emptyNodeList will be an object that is an instanceof NodeList
-// and is always empty. Note that it inherits its length and item properties
-// from an intermediate prototype rather than defining them directly
-defineLazyProperty(DOM, "emptyNodeList", function() {
-    return create(
-	create(DOM.NodeList.prototype, {
-	    length: {
-		value: 0, writable: false, enumerable: true, configurable:true
-	    },
-	    item: function() { return null; }
-	}));
-});
-*/
-
-function undef2null(x) { return x === undefined ? null : x; }
-
 
 
 // WebIDL requires value conversions in various places.
@@ -117,6 +98,8 @@ function toULong(x) {
     nyi();
 }
 
+function undef2null(x) { return x === undefined ? null : x; }
+
 
 // Return true if node is an HTML element and if its owner document is
 // and HTML document.  Returns false otherwise.  Note that the argument
@@ -127,5 +110,27 @@ function isHTML(node) {
 }
 
 //XXX Stubbed out function for testing the validity of XML attribute names
+/*
+NameStartChar	   ::=   	":" | [A-Z] | "_" | [a-z] | [#xC0-#xD6] | [#xD8-#xF6] | [#xF8-#x2FF] | [#x370-#x37D] | [#x37F-#x1FFF] | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
+
+NameChar	   ::=   	NameStartChar | "-" | "." | [0-9] | #xB7 | [#x0300-#x036F] | [#x203F-#x2040]
+
+Name	   ::=   	NameStartChar (NameChar)*
+
+
+[4]   	NCName	   ::=   	Name - (Char* ':' Char*) # An XML Name, minus the ":" 
+
+
+[7]   	QName	   ::=   	PrefixedName| UnprefixedName
+[8]   	PrefixedName	   ::=   	Prefix ':' LocalPart
+[9]   	UnprefixedName	   ::=   	LocalPart
+[10]   	Prefix	   ::=   	NCName
+[11]   	LocalPart	   ::=   	NCName
+*/
 function validName(s) { return true; }
 function validQName(s) { return true;}
+
+const html_namespace = "http://www.w3.org/1999/xhtml";
+const xml_namespace = "http://www.w3.org/XML/1998/namespace";
+const xmlns_namespace = "http://www.w3.org/2000/xmlns/";
+

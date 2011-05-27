@@ -1,5 +1,6 @@
 // DOM node type constants
 const ELEMENT_NODE = 1;
+const ATTRIBUTE_NODE = 2; // Historical, but we use it in wrap()
 const TEXT_NODE = 3;
 const PROCESSING_INSTRUCTION_NODE = 7;
 const COMMENT_NODE = 8;

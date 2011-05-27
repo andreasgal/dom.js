@@ -53,7 +53,6 @@ defineLazyProperty(DOM, "Element", function() {
 	    // The attributes attribute must return a read only array
 	    // of the context object's associated Attr objects.
 	    // 
-	    // XXX: an IDL array is not the same as a JavaScript array
 	    get attributes() { nyi(); },
 
 	    // DOMString? getAttribute(DOMString qualifiedName);
@@ -77,7 +76,7 @@ defineLazyProperty(DOM, "Element", function() {
 		// namespace issues? It would be a shame to have to 
 		// convert from a hash to an array.  Although I need to 
 		// have an array for form the attributes property above...
-		return undef2null(impl.attrs[qname]);
+		return impl.getAttribute(qname);
 	    },
 
 	    // DOMString? getAttributeNS(DOMString namespace,
@@ -88,7 +87,9 @@ defineLazyProperty(DOM, "Element", function() {
 	    // attributes whose namespace is namespace and local name
 	    // is localName, if the Attr is present, or null
 	    // otherwise.
-	    getAttributeNS: function getAttributeNS(ns, lname) {nyi()},
+	    getAttributeNS: function getAttributeNS(ns, lname) {
+		return unwrap(this).getAttributeNS(String(ns), String(lname));
+	    },
 
 	    // void setAttribute(DOMString qualifiedName, DOMString value);
 	    //
@@ -127,11 +128,6 @@ defineLazyProperty(DOM, "Element", function() {
 		if (substring(qname, 0, 5) === "xmlns")
 		    throw new DOM.DOMException(NAMESPACE_ERR);
 
-		// XXX Can there really be more than one matching attribute?
-		// I may have to deal with this in Tree.js
-		//
-		// Don't set the attribute directly: the tree needs to generate
-		// a mutation event
 		impl.setAttribute(qname, String(value));
 	    },
 
@@ -185,7 +181,43 @@ defineLazyProperty(DOM, "Element", function() {
 	    //     context object's attributes whose namespace is
 	    //     namespace, and local name is localName, to value,
 	    //     and set its namespace prefix to prefix.
-	    setAttributeNS: function setAttributeNS(ns, qname, value) {nyi();},
+	    setAttributeNS: function setAttributeNS(ns, qname, value) {
+		let impl = unwrap(this);
+		
+		ns = String(ns);
+		qname = String(qname);
+		value = String(value);
+
+		if (!validName(qname))
+		    throw new DOM.DOMException(INVALID_CHARACTER_ERR);
+
+		if (!validQName(qname))
+		    throw new DOM.DOMException(NAMESPACE_ERR);
+
+		let pos = S.indexOf(qname, ":");
+		let prefix, lname;
+		if (pos === -1) {
+		    prefix = null;
+		    lname = qname;
+		}
+		else {
+		    prefix = substring(qname, 0, pos);
+		    lname = substring(qname, pos+1);
+		}
+
+		if (ns === "") ns = null;
+
+		if ((prefix !== null && ns === null) ||
+		    (prefix === "xml" && ns !== xml_namespace) ||
+		    ((qname === "xmlns" || prefix === "xmlns") &&
+		     (ns !== xmlns_namespace)) ||
+		    (ns === xmlns_namespace && 
+		     !(qname === "xmlns" || prefix === "xmlns")))
+		    throw new DOM.DOMException(NAMESPACE_ERR);
+
+
+		impl.setAttributeNS(ns, qname, value, prefix, lname);
+	    },
 
 	    // void removeAttribute(DOMString qualifiedName);
 	    //
@@ -203,7 +235,7 @@ defineLazyProperty(DOM, "Element", function() {
 		let impl = unwrap(this);
 		qname = String(qname);
 		if (isHTML(impl)) qname = toLowerCase(qname);
-		impl.deleteAttribute(qname);
+		impl.removeAttribute(qname);
 	    },
 
 	    // void removeAttributeNS(DOMString namespace, DOMString localName);
@@ -212,7 +244,9 @@ defineLazyProperty(DOM, "Element", function() {
 	    // remove the Attr object in the context object's
 	    // attributes whose namespace is namespace and local name
 	    // is localName
-	    removeAttributeNS: function removeAttributeNS(ns, lname) {nyi();},
+	    removeAttributeNS: function removeAttributeNS(ns, lname) {
+		unwrap(this).removeAttributeNS(String(ns), String(lname));
+	    },
 
 	    // boolean hasAttribute(DOMString qualifiedName);
 	    //
@@ -230,7 +264,7 @@ defineLazyProperty(DOM, "Element", function() {
 		let impl = unwrap(this);
 		qname = String(qname);
 		if (isHTML(impl)) qname = toLowerCase(qname);
-		return qname in impl.attrs; // attrs has no prototype
+		return impl.hasAttribute(qname);
 	    },
 
 	    // boolean hasAttributeNS(DOMString namespace, DOMString localName);
@@ -239,7 +273,9 @@ defineLazyProperty(DOM, "Element", function() {
 	    // return true if context object's attributes contains an
 	    // Attr whose namespace is namespace and local name is
 	    // localName, or false otherwise.
-	    hasAttributeNS: function hasAttributeNS(ns, lname) { nyi(); },
+	    hasAttributeNS: function hasAttributeNS(ns, lname) {
+		return unwrap(this).hasAttributeNS(String(ns), String(lname));
+	    },
 
 	    // NodeList getElementsByTagName(DOMString qualifiedName);
 	    //
