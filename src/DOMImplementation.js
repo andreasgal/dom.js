@@ -62,8 +62,8 @@ defineLazyProperty(DOM, "DOMImplementation", function() {
 		let root = tree.root;   // Internal node
 		let doc = wrap(root);   // External Document object
 
-		// I could also do this at the lower level and
-		// not create the external nodes for these...
+		// XXX Or should I do this at the lower level and
+		// not create the external nodes for these?
 		let html = doc.createElement("html"),
 		    head = doc.createElement("head"),
 		    title = doc.createElement("title"),

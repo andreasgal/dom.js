@@ -90,7 +90,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    //
             get nodeName() {
 		let impl = unwrap(this);
-		switch(impl.type) {  // Cases roughly in order of frequency
+		switch(impl.type) {
 		case ELEMENT_NODE:
 		    return impl.value;
 		case TEXT_NODE:
@@ -128,9 +128,9 @@ defineLazyProperty(DOM, "Node", function() {
 	    // The parentElement attribute must return the parent element.
             get parentElement() { 
 		let parent = unwrap(this).parent;
-		return (parent && parent.type === ELEMENT_NODE) ?
-		    wrap(parent) :
-		    null;
+		return (parent && parent.type === ELEMENT_NODE)
+		    ? wrap(parent) 
+		    : null;
 	    },
 
             // boolean hasChildNodes();
@@ -162,8 +162,8 @@ defineLazyProperty(DOM, "Node", function() {
 	    // the context object, or null if there is none.
             get firstChild() {
 		let kids = unwrap(this).kids;
-		if (kids && kids.length > 0) return wrap(kids[0]);
-		else return null;
+		if (!kids || !kids.length) return null;
+		return wrap(kids[0]);
 	    },
 
             // readonly attribute Node lastChild;
@@ -171,8 +171,8 @@ defineLazyProperty(DOM, "Node", function() {
 	    // the context object, or null if there is none.
             get lastChild() {
 		let kids = unwrap(this).kids;
-		if (kids && kids.length > 0) return wrap(kids[kids.length-1]);
-		else return null;
+		if (!kids || !kids.length) return null;
+		return wrap(kids[kids.length-1]);
 	    },
 
             // readonly attribute Node previousSibling;

@@ -18,13 +18,12 @@
 
     function warn(n) {
 	if (!global.debug) return;
-	let debug = global.print || console.log;
+	let debug = console.log || global.print;
 	let where = split(new Error().stack, '\n')[2];
 
 	// Don't issue warnings if the call came direct from the console
 	// We still get warnings from indirect ones
 	if (substring(where, 0, 7) === "@typein") return;
-
 
 	debug("WARNING: Interceptable call to " + n + "() from " + where);
     }
@@ -37,6 +36,8 @@
 	    let val = o[prop];
 	    if (typeof val !== "function") return;
 	    if (prop === "toSource") return; // Don't mess up console
+	    if (prop === "valueOf") return;  // Or the Web Console
+	    if (substring(prop, 0, 2) == "__") return;
 	    // monkey patch the method to issue a warning
 	    o[prop] = function() {
 		warn(name + "." + prop);

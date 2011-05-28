@@ -4,27 +4,27 @@
 JS = /usr/local/bin/js
 
 MODULES = \
-	dom/snapshot.js \
-	dom/utils.js \
-	dom/interface.js \
-	dom/wrapmap.js \
-	dom/Tree.js \
-	dom/DOMException.js \
-	dom/EventTarget.js \
-	dom/Node.js \
-	dom/Element.js \
-	dom/Attr.js \
-	dom/Document.js \
-	dom/DOMImplementation.js \
-	dom/CharacterData.js \
-	dom/Comment.js \
-	dom/Text.js \
-	dom/ProcessingInstruction.js \
-	dom/NodeList.js \
-	dom/boot.js \
-	dom/peek.js
+	src/snapshot.js \
+	src/utils.js \
+	src/interface.js \
+	src/wrapmap.js \
+	src/Tree.js \
+	src/DOMException.js \
+	src/EventTarget.js \
+	src/Node.js \
+	src/Element.js \
+	src/Attr.js \
+	src/Document.js \
+	src/DOMImplementation.js \
+	src/CharacterData.js \
+	src/Comment.js \
+	src/Text.js \
+	src/ProcessingInstruction.js \
+	src/NodeList.js \
+	src/boot.js \
+	src/peek.js
 
-dom.js: LICENSE ${MODULES} dom/monkey.js
+dom.js: LICENSE ${MODULES} test/monkey.js
 # Output preamble
 	@rm -f $@;
 	@echo '// This file was automatically generated; DO NOT EDIT.' >> $@
@@ -53,7 +53,7 @@ dom.js: LICENSE ${MODULES} dom/monkey.js
 	@echo '}(this));' >> $@
 
 # Output code that monkey patches everything to test that we don't use it
-	@cat dom/monkey.js >> $@
+	@cat test/monkey.js >> $@
 
 	@chmod 444 $@
 	@echo "Created $@"
