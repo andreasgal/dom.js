@@ -53,7 +53,7 @@ dom.js: LICENSE ${MODULES} test/monkey.js
 	@echo '}(this));' >> $@
 
 # Output code that monkey patches everything to test that we don't use it
-	@cat test/monkey.js >> $@
+#	@cat test/monkey.js >> $@
 
 	@chmod 444 $@
 	@echo "Created $@"

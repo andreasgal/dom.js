@@ -23,7 +23,14 @@ defineLazyProperty(DOM, "DOMImplementation", function() {
 	    //             [TreatNullAs=EmptyString] DOMString namespace,
 	    //             [TreatNullAs=EmptyString] DOMString qualifiedName,
 	    //             DocumentType? doctype);
-	    createDocument: function createDocument(ns, qname, doctype){nyi();},
+	    createDocument: function createDocument(ns, qname, doctype){
+		// XXX: currently all the arguments are ignored
+
+		let tree = new Tree();  // Internal document object
+		let root = tree.root;   // Internal node
+		let doc = wrap(root);   // External Document object
+		return doc;
+	    },
 
 	    // Document createHTMLDocument(DOMString title);	    
 	    //

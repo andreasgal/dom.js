@@ -185,7 +185,7 @@ node.prototype = {
 	// Send mutation event
         if (this.rooted()) this.tree.mutation.setAttribute(this, qname, value);
     },
-    setAttributeNS: function setAttribute(ns, qname, value, prefix, lname) {
+    setAttributeNS: function setAttributeNS(ns, qname, value, prefix, lname) {
 	for(let i = 0, n = this.attrs.length; i < n; i++) {
 	    let attr = this.attrs[i];
 	    if (attr.namespace === ns && attr.lname == lname) {
@@ -196,7 +196,7 @@ node.prototype = {
 
 	    }
 	}
-	push(this.a, new attribute(lname, value, prefix, namespace));
+	push(this.attrs, new attribute(lname, value, prefix, ns));
 	// XXX: fire a mutation event
 	// XXX: may need to define a new event category for namespaced attrs
     },

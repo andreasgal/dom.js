@@ -5,7 +5,13 @@ function assert(expr, msg) {
 }
 
 // For stuff that I haven't implemented yet
-function nyi() { throw new Error("Not Yet Implemented"); }
+function nyi() {
+    let e = new Error();
+    let where = e.stack.split("\n")[1];
+//    where.shift();
+//    where.join("\n");
+    throw new Error("Not Yet Implemented at " + where);
+}
 
 const readonlyPropDesc = {writable:false,enumerable:true,configurable: true};
 const hiddenPropDesc = {writable: true,enumerable: false,configurable: true};

@@ -1,0 +1,51 @@
+<h1>Test Runner</h1>
+<script src="htmlparser.js"></script>
+<script src="harness.js"></script>
+<script src="../dom.js" type="application/javascript; version=1.8"></script>
+<script>
+
+// Get the URL of the test to display
+var url = window.location.search.substring(1);
+
+// Now I have to get the content of that URL into a document
+// that I can copy into a dom.js document before testing.
+// XHR2 should parse it for us, but that isn't working yet.
+// So I take the contents of the file, convert script tags into 
+// something else, convert to a data URL and load into an iframe.
+// The copy nodes from the iframe into dom.js, converting scripts back to 
+// script tags and executing them when they're inserted.
+
+
+var xhr = new XMLHttpRequest();
+xhr.open("GET", url);
+xhr.send();
+xhr.onload = function() {
+
+    var d = parse(xhr.response);
+
+
+
+    evalscripts(root);
+};
+
+
+var global_eval = eval;
+
+function evalscripts(e) {
+    if (e.nodeType !== Node.ELEMENT_NODE) return;
+    if (e.tagName === "SCRIPT") {
+	var text = "";
+	for(var c = e.firstChild; c; c = c.nextSibling) 
+	    if (c.nodeType === Node.TEXT_NODE) text += c.data;
+
+	global_eval(text);  // Run the test
+    }
+    else {
+	for(var c = e.firstChild; c !== null; c = c.nextSibling) {
+	    evalscripts(c);
+	}
+    }
+}
+
+
+</script>

@@ -1,0 +1,3 @@
+// I want to be able to take the HTML text of a W3C Dom Core test case,
+// parse the HTML to build a document and then eval the scripts to run the
+// test.  I don't need fancy results reporting like 

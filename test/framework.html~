@@ -1,0 +1,17 @@
+<script type="application/javascript; version=1.8">
+function dotest(f) {
+    r = new FileReader();
+    r.readAsText(f);
+    r.onload = function() {
+	var s = r.result;
+//	console.log("Got file: ", s);
+
+	var frame = document.createElement("iframe");
+	document.body.appendChild(frame);
+	frame.contentWindow.postMessage(s, "*");
+	frame.src = "testrunner.html";
+    }
+}
+</script>
+
+<input type="file" onchange="dotest(this.files[0])">

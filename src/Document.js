@@ -8,7 +8,7 @@ defineLazyProperty(DOM, "Document", function() {
         superclass: DOM.Node,
 	members: {
 	    // readonly attribute DOMImplementation implementation;
-	    get implementation() { nyi(); },
+	    get implementation() { return DOM.implementation; },
 
             // attribute DOMString documentURI;
 	    get documentURI() { nyi(); },
@@ -21,7 +21,16 @@ defineLazyProperty(DOM, "Document", function() {
 	    get doctype() { nyi(); },
 
 	    // readonly attribute Element? documentElement;
-	    get documentElement() { nyi(); },
+	    get documentElement() {
+		var root = unwrap(this), kids = root.kids;
+		if (kids) {
+		    for(let i = 0, n = kids.length; i < n; i++) {
+			if (kids[i].type === ELEMENT_NODE)
+			    return wrap(kids[i]);
+		    }
+		}
+		return null;
+	    },
 
 	    // NodeList getElementsByTagName(DOMString qualifiedName);
 	    getElementsByTagName: function getElementsByTagName(qname) {nyi();},

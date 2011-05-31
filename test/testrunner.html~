@@ -1,0 +1,48 @@
+<h1>Test Runner</h1>
+<script src="htmlparser.js"></script>
+<script src="harness.js"></script>
+<script src="../dom.js" type="application/javascript; version=1.8"></script>
+<script>
+// XXX turn off warning messages from monkey.js
+
+
+// Get the URL of the test to display
+var url = window.location.search.substring(1);
+
+var xhr = new XMLHttpRequest();
+xhr.open("GET", url);
+xhr.send();
+xhr.onload = function(e) {
+
+    // Parse the file and build a tree using dom.js
+    HTMLtoDOM(xhr.response, document);
+
+    // Traverse the tree, looking for scripts to run Since I haven't
+    // implemented Document.getElementsByTagName or
+    // Element.textContent yet this is trickier than it would
+    // otherwise be.
+    var root = document.firstChild;  // No Document.documentElement yet
+
+    evalscripts(root);
+}
+
+var global_eval = eval;
+
+function evalscripts(e) {
+    if (e.nodeType !== Node.ELEMENT_NODE) return;
+    if (e.tagName === "SCRIPT") {
+	var text = "";
+	for(var c = e.firstChild; c; c = c.nextSibling) 
+	    if (c.nodeType === Node.TEXT_NODE) text += c.data;
+
+	global_eval(text);  // Run the test
+    }
+    else {
+	for(var c = e.firstChild; c !== null; c = c.nextSibling) {
+	    evalscripts(c);
+	}
+    }
+}
+
+
+</script>
