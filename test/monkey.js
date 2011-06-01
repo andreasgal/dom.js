@@ -11,6 +11,8 @@
         Error = global.Error,
         split = String.split,
         substring = String.substring,
+        indexOf = String.indexOf,
+        match = String.match,
 	getOwnPropNames = Object.getOwnPropertyNames,
         foreach = Array.forEach,
 	fpCall = Function.prototype.call,
@@ -20,13 +22,19 @@
     function warn(n) {
 	if (!global.monkey_patch_warnings) return;
 	let debug = console.log || global.print;
-	let where = split(new Error().stack, '\n')[2];
+
+	// Get the filename and line number from the stack
+	let where = split(new Error().stack, '\n')[2], 
+     	    parts = match(where, /^([^@]*)@(.*):(\d*)$/),
+	    filename = parts[2], linenumber = parts[3];
 
 	// Don't issue warnings if the call came direct from the console
-	// We still get warnings from indirect ones
-	if (substring(where, 0, 7) === "@typein") return;
+	// Or from other files that we don't want to test
+	if (filename === "typein") return;
+	if (indexOf(filename, "test/harness.js") !== -1) return;
 
-	debug("WARNING: Interceptable call to " + n + "() from " + where);
+	debug("WARNING: Interceptable call to " + n + "() from " +
+	      filename + ":" + linenumber);
     }
 
     function monkeypatch(name) {

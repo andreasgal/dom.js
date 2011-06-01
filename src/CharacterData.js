@@ -52,7 +52,10 @@ defineLazyProperty(DOM, "CharacterData", function() {
 	    // void appendData(DOMString data);
 	    // The appendData(data) method must append data to the context
 	    // object's data.
-	    appendData: function appendData(data) { nyi(); },
+	    appendData: function appendData(data) {
+		let impl = unwrap(this);
+		impl.setText(impl.value + String(data));
+	    },
 
 	    // void insertData(unsigned long offset, DOMString data);
 	    // The insertData(offset, data) method must run these steps:
@@ -64,7 +67,21 @@ defineLazyProperty(DOM, "CharacterData", function() {
 	    //     Insert data into the context object's data after
 	    //     offset UTF-16 code units.
 	    //
-	    insertData: function insertData(offset, data) { nyi(); },
+	    insertData: function insertData(offset, data) {
+		let impl = unwrap(this),
+  		    curtext = impl.value;
+
+   		offset = toULong(offset);
+
+		if (offset > curtext.length)
+		    throw new DOM.DOMException(INDEX_SIZE_ERR);
+
+		let prefix = substring(curtext, 0, offset), 
+		    suffix = substring(curtext, offset);
+		impl.setText(prefix + String(data) + suffix);
+	    },
+
+	    
 
 	    // void deleteData(unsigned long offset, unsigned long count);
 	    // The deleteData(offset, count) method must run these steps:
@@ -78,7 +95,25 @@ defineLazyProperty(DOM, "CharacterData", function() {
 	    //
 	    //     Starting from offset UTF-16 code units remove count
 	    //     UTF-16 code units from the context object's data.
-	    deleteData: function deleteData(offset, count) { nyi(); },
+	    deleteData: function deleteData(offset, count) {
+		let impl = unwrap(this),
+		    curtext = impl.value,
+		    len = curtext.length;
+
+		offset = toULong(offset);
+		count = toULong(count);
+
+		if (offset > len)
+		    throw new DOM.DOMException(INDEX_SIZE_ERR);
+		    
+		if (offset+count > len)
+		    count = len - offset;
+
+		let prefix = substring(curtext, 0, offset),
+		    suffix = substring(curtext, offset+count);
+
+		impl.setText(prefix + suffix);
+	    },
 
 
 	    // void replaceData(unsigned long offset, unsigned long count,
@@ -89,7 +124,25 @@ defineLazyProperty(DOM, "CharacterData", function() {
 	    // count as arguments followed by the insertData() method
 	    // with offset and data as arguments and re-throw any
 	    // exceptions these methods might have thrown.
-	    replaceData: function replaceData(offset, count, data) { nyi(); },
+	    replaceData: function replaceData(offset, count, data) {
+		let impl = unwrap(this),
+		    curtext = impl.value,
+		    len = curtext.length;
+
+		offset = toULong(offset);
+		count = toULong(count);
+
+		if (offset > len)
+		    throw new DOM.DOMException(INDEX_SIZE_ERR);
+		    
+		if (offset+count > len)
+		    count = len - offset;
+
+		let prefix = substring(curtext, 0, offset),
+		    suffix = substring(curtext, offset+count);
+
+		impl.setText(prefix + String(data) + suffix);
+	    },
 	}
     });
 });

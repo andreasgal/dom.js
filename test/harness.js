@@ -19,22 +19,22 @@ policies and contribution forms [3].
     var default_timeout = 5000;
     var default_test_timeout = 2000;
 
+    var testnum = 0;
+
     /*
      * API functions
      */
-
-
     function test(func)
     {
 	try {
 	    window.monkey_patch_warnings = true;
 	    func();
 	    window.monkey_patch_warnings = false;
-	    console.log("Passed");
+	    console.log("PASS", ++testnum);
 	}
 	catch(e) {
 	    window.monkey_patch_warnings = false;
-	    console.log("Test failed: ", e.message);
+	    console.log("FAIL", ++testnum, e.message);
 	}
     }
 
