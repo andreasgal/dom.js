@@ -27,10 +27,13 @@ policies and contribution forms [3].
     function test(func)
     {
 	try {
+	    window.monkey_patch_warnings = true;
 	    func();
+	    window.monkey_patch_warnings = false;
 	    console.log("Passed");
 	}
 	catch(e) {
+	    window.monkey_patch_warnings = false;
 	    console.log("Test failed: ", e.message);
 	}
     }
@@ -462,6 +465,8 @@ policies and contribution forms [3].
 
     function make_message(function_name, description, error, substitutions)
     {
+	var old_debug = window.monkey_patch_warnings;
+	window.monkey_patch_warnings = false;
         for (var p in substitutions) {
             if (substitutions.hasOwnProperty(p)) {
                 substitutions[p] = format_value(substitutions[p]);
@@ -471,7 +476,9 @@ policies and contribution forms [3].
                                    merge({function_name:function_name,
                                           description:(description?description + " ":"")},
                                           substitutions));
-        return node_form.slice(1).join("");
+        var rv = node_form.slice(1).join("");
+	window.monkey_patch_warnings = old_debug;
+	return rv;
     }
 
 

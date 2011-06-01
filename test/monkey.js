@@ -1,12 +1,13 @@
 // As a testing measure, monkeypatch all the builtin constructors,
 // functions and methods to issue a warning if I actually use any of them.
-// See also snapshot.js.
+// See also ../src/snapshot.js.
 // This code is designed to run outside the big function that encloses
 // the rest of dom.js.
 (function(global) {
-    global.debug = true;  // Unset this to turn off annoying warning
+    global.monkey_patch_warnings = false;  // Set this to turn on warnings
 
     const
+        String = global.String,
         Error = global.Error,
         split = String.split,
         substring = String.substring,
@@ -17,7 +18,7 @@
 	apply = fpCall.bind(fpApply);
 
     function warn(n) {
-	if (!global.debug) return;
+	if (!global.monkey_patch_warnings) return;
 	let debug = console.log || global.print;
 	let where = split(new Error().stack, '\n')[2];
 

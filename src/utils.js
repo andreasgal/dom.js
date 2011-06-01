@@ -7,9 +7,7 @@ function assert(expr, msg) {
 // For stuff that I haven't implemented yet
 function nyi() {
     let e = new Error();
-    let where = e.stack.split("\n")[1];
-//    where.shift();
-//    where.join("\n");
+    let where = split(e.stack, "\n")[1];
     throw new Error("Not Yet Implemented at " + where);
 }
 
