@@ -51,13 +51,108 @@ defineLazyProperty(DOM, "Document", function() {
 
 	    // Element createElement([TreatNullAs=EmptyString]
 	    //                       DOMString localName);
+	    //
+	    // The createElement(localName) method must run the these
+	    // steps:
+	    //
+	    //     If localName does not match the Name production in
+	    //     XML, throw an INVALID_CHARACTER_ERR exception and
+	    //     terminate these steps.
+	    //
+	    //     If the context object is an HTML document, let
+	    //     localName be converted to lowercase.
+	    //
+	    //     Return a new element with no attributes, namespace
+	    //     set to the HTML namespace, local name set to
+	    //     localName, and ownerDocument set to the context
+	    //     object.
+	    //
 	    createElement: function createElement(lname) {
-		return wrap(unwrap(this).tree.element(lname));
+		lname = StringOrEmpty(lname);
+
+		if (!isValidName(lname))
+		    throw new DOM.DOMException(INVALID_CHARACTER_ERR);
+
+		let impl = unwrap(this);
+		if (impl.isHTML())
+		    lname = lname.toLowerCase();
+
+		return wrap(impl.tree.element(lname, null, HTML_NAMESPACE));
 	    },
 	    
 	    // Element createElementNS(DOMString namespace,
 	    //                         DOMString qualifiedName);
-	    createElementNS: function createElementNS(ns, qname) { nyi(); },
+	    //
+	    // The createElementNS(namespace, qualifiedName) method
+	    // must run these steps:
+	    //
+	    //     If qualifiedName does not match the Name production
+	    //     in XML, throw an INVALID_CHARACTER_ERR exception
+	    //     and terminate these steps.
+	    //
+	    //     If qualifiedName does not match the QName
+	    //     production in Namespaces in XML, throw a
+	    //     NAMESPACE_ERR exception and terminate these steps.
+	    //
+	    //     If qualifiedName contains a ":" (U+003E), then
+	    //     split the string on it and let prefix be the part
+	    //     before and localName the part after. Otherwise, let
+	    //     prefix be null and localName be qualifiedName.
+	    //
+	    //     If prefix is not null and namespace is an empty
+	    //     string, throw a NAMESPACE_ERR exception and
+	    //     terminate these steps.
+	    //
+	    //     If prefix is "xml" and namespace is not the XML
+	    //     namespace, throw a NAMESPACE_ERR exception and
+	    //     terminate these steps.
+	    //
+	    //     If qualifiedName or prefix is "xmlns" and namespace
+	    //     is not the XMLNS namespace, throw a NAMESPACE_ERR
+	    //     exception and terminate these steps.
+	    //
+	    //     If namespace is the XMLNS namespace and neither
+	    //     qualifiedName nor prefix is "xmlns", throw a
+	    //     NAMESPACE_ERR exception and terminate these steps.
+	    //
+	    //     Return a new element with no attributes, namespace
+	    //     set to namespace, namespace prefix set to prefix,
+	    //     local name set to localName, and ownerDocument set
+	    //     to the context object.
+	    //
+	    createElementNS: function createElementNS(ns, qname) {
+		ns = String(ns);
+		qname = String(qname);
+
+		if (!isValidName(qname))
+		    throw new DOM.DOMException(INVALID_CHARACTER_ERR);
+
+		if (!isValidQName(qname))
+		    throw new DOM.DOMException(NAMESPACE_ERR);
+
+		let pos, prefix, lname;
+		if ((pos = S.indexOf(qname, ":")) !== -1) {
+		    prefix = substring(qname, 0, pos);
+		    lname = substring(qname, pos+1);
+
+		    if (ns === "" || (prefix === "xml" && ns !== XML_NAMESPACE))
+			throw new DOM.DOMException(NAMESPACE_ERR);
+		}
+		else {
+		    prefix = null;
+		    lname = qname;
+		}
+
+		if (((qname === "xmlns" || prefix === "xmlns") &&
+		     ns !== XMLNS_NAMESPACE) ||
+		    (ns === XMLNS_NAMESPACE && 
+		     qname !== "xmlns" &&
+		     prefix !== "xmlns"))
+		    throw new DOM.DOMException(NAMESPACE_ERR);
+
+		
+		return wrap(unwrap(this).tree.element(lname, prefix, ns));
+	    },
 
 
 	    // DocumentFragment createDocumentFragment();

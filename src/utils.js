@@ -89,14 +89,14 @@ function toULong(x) {
 
 function undef2null(x) { return x === undefined ? null : x; }
 
-
-// Return true if node is an HTML element and if its owner document is
-// and HTML document.  Returns false otherwise.  Note that the argument
-// is an internal node implementation object, not a DOM Node.
-// XXX: this should go in Tree.js, I think. 
-function isHTML(node) {
-    // XXX: implement this
-    return true;
+// Convert x to a string as with the String() conversion function.
+// But if x is null, return the empty string insead of "null".
+// If a WebIDL method argument is just DOMString, convert with String()
+// But if it is [TreatNullAs=EmptyString] DOMString then use this function.
+function StringOrEmpty(x) {
+    return (x === null) 
+	? ""
+	: String(x);
 }
 
 
@@ -197,7 +197,7 @@ const [isValidName, isValidQName] = (function() {
     return [isValidName, isValidQName];
 }());
 
-const html_namespace = "http://www.w3.org/1999/xhtml";
-const xml_namespace = "http://www.w3.org/XML/1998/namespace";
-const xmlns_namespace = "http://www.w3.org/2000/xmlns/";
+const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
+const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
+const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
 

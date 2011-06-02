@@ -11,19 +11,25 @@ defineLazyProperty(DOM, "Element", function() {
 	    //
 	    // The namespaceURI attribute must return the context
 	    // object's namespace.
-	    get namespaceURI() { nyi(); },
+	    get namespaceURI() {
+		return unwrap(this).namespace;
+	    },
 
 	    // readonly attribute DOMString? prefix;
 	    //
 	    // The prefix attribute must return the context object's
 	    // namespace prefix.
-	    get prefix() { nyi(); },
+	    get prefix() {
+		return unwrap(this).prefix;
+	    },
 
 	    // readonly attribute DOMString localName;
 	    //
 	    // The localName attribute must return the context
 	    // object's local name.
-	    get localName() { nyi(); },
+	    get localName() {
+		return unwrap(this).value;
+	    },
 
 	    // readonly attribute DOMString tagName;
 	    //
@@ -40,12 +46,19 @@ defineLazyProperty(DOM, "Element", function() {
 	    //     qualified name be converted to uppercase.
 	    //
 	    //     Return qualified name.
+	    //
 	    get tagName() { 
-		// XXX: still need to deal with namespace stuff
-		let impl = unwrap(this), name = impl.value;
+		let impl = unwrap(this), qname;
+
+		if (impl.prefix !== null)
+		    qname = impl.prefix + ":" + impl.value;
+		else
+		    qname = impl.value;
 		
-		if (isHTML(impl)) name = toUpperCase(name);
-		return name;
+		if (impl.isHTML())
+		    qname = toUpperCase(qname);
+
+		return qname;
 	    },
 
 	    // readonly attribute Attr[] attributes;
@@ -208,10 +221,10 @@ defineLazyProperty(DOM, "Element", function() {
 		if (ns === "") ns = null;
 
 		if ((prefix !== null && ns === null) ||
-		    (prefix === "xml" && ns !== xml_namespace) ||
+		    (prefix === "xml" && ns !== XML_NAMESPACE) ||
 		    ((qname === "xmlns" || prefix === "xmlns") &&
-		     (ns !== xmlns_namespace)) ||
-		    (ns === xmlns_namespace && 
+		     (ns !== XMLNS_NAMESPACE)) ||
+		    (ns === XMLNS_NAMESPACE && 
 		     !(qname === "xmlns" || prefix === "xmlns")))
 		    throw new DOM.DOMException(NAMESPACE_ERR);
 

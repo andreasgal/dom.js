@@ -72,8 +72,17 @@ function implementIDLInterface(o) {
 	// Now copy the property to the prototype object
         O.defineProperty(prototype, m, desc);
 
-	// And to the constructor.members object
-	O.defineProperty(constructor.members, m, desc);
+	// And to the constructor.members object.  But if this members
+	// has a getter and/or a setter, turn them into regular methods
+	if (desc.value) 
+	    O.defineProperty(constructor.members, m, desc);
+	else {
+	    let name = m[0].toUpperCase() + substring(m, 1);
+	    if (desc.get)
+		constructor.members["get" + name] = desc.get;
+	    if (desc.set)
+		constructor.members["set" + name] = desc.get;
+	}
     }
 
     // If the interface does not already define a toString method, add one.

@@ -87,10 +87,12 @@ Tree.prototype = {
 	n.target = target;
 	return n;
     },
-    element: function element(tagname) {
+    element: function element(tagname, prefix, namespace) {
 	var n = new node(this, ELEMENT_NODE, tagname);
 	n.kids = [];
 	n.attrs = [];
+	n.prefix = prefix;
+	n.namespace = namespace;
 	return n;
     },
     doctype: function doctype(root, pubid, sysid) {
@@ -365,6 +367,21 @@ node.prototype = {
             if (e === that) return true;
         }
         return false;
+    },
+
+    // Return true if this is an HTML document or if this is an HTML element
+    // in an HTML document
+    isHTML: function isHTML() {
+	if (this.type === ELEMENT_NODE) {
+	    return (this.namespace === HTML_NAMESPACE &&
+		    this.tree.root.isHTML())
+	}
+	else if (this.type === DOCUMENT_NODE) {
+	    // XXX
+	    // I'm not sure how to determine this.
+	    // For now, just return true.
+	    return true;
+	}
     }
 };
 

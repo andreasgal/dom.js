@@ -92,7 +92,7 @@ defineLazyProperty(DOM, "Node", function() {
 		let impl = unwrap(this);
 		switch(impl.type) {
 		case ELEMENT_NODE:
-		    return impl.value;
+		    return call(DOM.Element.members.getTagName, this);
 		case TEXT_NODE:
 		    return "#text";
 		case DOCUMENT_NODE:
