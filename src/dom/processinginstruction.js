@@ -10,7 +10,7 @@ function processinginstruction(doc, target, data) {
 // identically.  Rather than define them all here, and then all at the 
 // wrapper level again, I'll just pick one to implement here.
 
-processinginstruction.prototype = Object.create(node.prototype, {
+processinginstruction.prototype = Object.create(leaf.prototype, {
     nodeType: constant(PROCESSING_INSTRUCTION_NODE),
     nodeName: attribute(function() { return this.target; }),
     nodeValue: attribute(function() { return this.data; },

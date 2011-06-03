@@ -7,20 +7,20 @@ function attr(elt, lname, value, prefix, namespace) {
     // because we need that property to make the wrap() method work.
     this.nodeType = ATTRIBUTE_NODE;
 
+    // localName and namespace are constant for any attr object.
+    // But value may change.  And so can prefix, and so, therefore can name.
     this.localName = lname;
     this.data = value;   // See prototype for value getter/setter
     this.prefix = prefix || null;
     this.namespaceURI = namespace || null;
-    
-    if (prefix) this.name = prefix + ":" + lname;
-    else this.name = lname;
+    this.name = prefix ? prefix + ":" + lname : lname;
 }
 
 attr.prototype = Object.create(Object.prototype, {
     value: attribute(function() { return this.data; },
 		     function(v) { 
 			 this.data = v;
-			 if (this.ownerElement.isrooted)
-			     this.ownerElement.ownerDocument.mutateValue(this)
+			 if (this.ownerElement.root)
+			     this.ownerElement.root.mutateValue(this)
 		     })
 });

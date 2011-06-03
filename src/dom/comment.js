@@ -3,7 +3,7 @@ function comment(doc, data) {
     this.data = data;
 }
 
-comment.prototype = Object.create(node.prototype, {
+comment.prototype = Object.create(leaf.prototype, {
     nodeType: constant(COMMENT_NODE),
     nodeName: constant("#comment"),
     nodeValue: attribute(function() { return this.data; },

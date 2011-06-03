@@ -66,4 +66,42 @@ document.prototype = Object.create(node.prototype, {
 
 	return new element(this, localName, namespace, prefix);
     }),
+
+    adoptNode: constant(function(node) {
+	if (node.nodeType === DOCUMENT_NODE ||
+	    node.nodeType === DOCUMENT_TYPE_NODE) NotSupportedError();
+
+	if (node.parentNode) node.parentNode.removeChild(node)
+
+	// XXX Is this inefficient?
+	recursive(function(n) { n.ownerDocument = owner; })(node);
+    }),
+
+
+
+    // Implementation-specific function.  Called when a text, comment, pi,
+    // or attr value changes.  (treats attrs as if they were nodes)
+    mutateValue: constant(function(node) {
+	// Note that when node is a attr object mutations are usually
+	// to the value, but may also include prefix changes
+	// (the namespaceURI and localName are constant, though)
+    }),
+
+    // Used by removeAttribute and removeAttributeNS for attributes.
+    // Also by Node.removeChild, etc. to remove a rooted element from
+    // the tree.  Only needs to generate a single mutation event when a 
+    // node is removed, but must recursively mark all descendants as not rooted.
+    mutateRemove: constant(function(node) {
+    }),
+
+    // Called when a new element becomes rooted.  It must recursively
+    // generate mutation events for each of the children, and mark them all
+    // as rooted.
+    mutateInsert: constant(function(node) {
+    }),
+
+    // Called when a rooted element is moved within the document
+    mutateMove: constant(function(node) {
+    }),
+    
 });

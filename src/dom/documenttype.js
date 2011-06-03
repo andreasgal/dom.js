@@ -6,7 +6,7 @@ function documenttype(name, publicId, systemId) {
     this.systemId = systemId || "";
 }
 
-documenttype.prototype = Object.create(node.prototype, {
+documenttype.prototype = Object.create(leaf.prototype, {
     nodeType: constant(DOCUMENT_TYPE_NODE),
     nodeName: attribute(function() { return this.name; }),
     nodeValue: attribute(fnull, fnoop),

@@ -3,7 +3,7 @@ function text(doc, data) {
     this.data = data;
 }
 
-text.prototype = Object.create(node.prototype, {
+text.prototype = Object.create(leaf.prototype, {
     nodeType: constant(TEXT_NODE),
     nodeName: constant("#text"),
     nodeValue: attribute(function() { return this.data; },
