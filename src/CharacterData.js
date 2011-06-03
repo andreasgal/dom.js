@@ -46,7 +46,7 @@ defineLazyProperty(DOM, "CharacterData", function() {
 		if (offset + count > length)
 		    return substring(data, offset);
 		else
-		    return substring(data, offset, count);
+		    return substring(data, offset, offset+count);
 	    },
 
 	    // void appendData(DOMString data);
