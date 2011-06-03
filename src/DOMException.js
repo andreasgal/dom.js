@@ -144,3 +144,72 @@ defineLazyProperty(DOM, "DOMException", function() {
         }
     });
 });
+
+// 
+// Shortcut functions for throwing errors of various types.
+// 
+
+function IndexSizeError() {
+    throw new DOM.DOMException(INDEX_SIZE_ERR);
+}
+function HierarchyRequestError() {
+    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
+}
+function WrongDocumentError() {
+    throw new DOM.DOMException(WRONG_DOCUMENT_ERR);
+}
+function InvalidCharacterError() {
+    throw new DOM.DOMException(INVALID_CHARACTER_ERR);
+}
+function NoModificationAllowedError() {
+    throw new DOM.DOMException(NO_MODIFICATION_ALLOWED_ERR);
+}
+function NotFoundError() {
+    throw new DOM.DOMException(NOT_FOUND_ERR);
+}
+function NotSupportedError() {
+    throw new DOM.DOMException(NOT_SUPPORTED_ERR);
+}
+function InvalidStateError() {
+    throw new DOM.DOMException(INVALID_STATE_ERR);
+}
+function SyntaxError() {
+    throw new DOM.DOMException(SYNTAX_ERR);
+}
+function InvalidModificationError() {
+    throw new DOM.DOMException(INVALID_MODIFICATION_ERR);
+}
+function NamespaceError() {
+    throw new DOM.DOMException(NAMESPACE_ERR);
+}
+function InvalidAccessError() {
+    throw new DOM.DOMException(INVALID_ACCESS_ERR);
+}
+function TypeMismatchError() {
+    throw new DOM.DOMException(TYPE_MISMATCH_ERR);
+}
+function SecurityError() {
+    throw new DOM.DOMException(SECURITY_ERR);
+}
+function NetworkError() {
+    throw new DOM.DOMException(NETWORK_ERR);
+}
+function AbortError() {
+    throw new DOM.DOMException(ABORT_ERR);
+}
+function UrlMismatchError() {
+    throw new DOM.DOMException(URL_MISMATCH_ERR);
+}
+function QuotaExceededError() {
+    throw new DOM.DOMException(QUOTA_EXCEEDED_ERR);
+}
+function TimeoutError() {
+    throw new DOM.DOMException(TIMEOUT_ERR);
+}
+function InvalidNodeTypeError() {
+    throw new DOM.DOMException(INVALID_NODE_TYPE_ERR);
+}
+function DataCloneError() {
+    throw new DOM.DOMException(DATA_CLONE_ERR);
+}
+

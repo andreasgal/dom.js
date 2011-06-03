@@ -11,6 +11,28 @@ function nyi() {
     throw new Error("Not Yet Implemented at " + where);
 }
 
+// Called by deprecated functions, etc.
+function warn(msg) {
+    console.warn(msg);
+}
+
+
+// Utility functions that return property descriptors
+function constant(v) { return { value: v }; }
+function attribute(get, set) {
+    if (set) 
+	return { get: get, set: set};
+    else 
+	return { get: get };
+}
+
+// some functions that do very simple stuff
+// Note that their names begin with f.
+// This is good for things like attribute(fnull,fnoop) 
+function fnull() { return null; }
+function fnoop() { /* do nothing */ }
+
+
 const readonlyPropDesc = {writable:false,enumerable:true,configurable: true};
 const hiddenPropDesc = {writable: true,enumerable: false,configurable: true};
 const constantPropDesc = {writable: false,enumerable: true,configurable: false};
