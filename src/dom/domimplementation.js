@@ -6,7 +6,7 @@ function domimplementation() {
 // XXX Since hasFeature is pretty strongly deprecated, can we get away with
 // always just returning false?
 domimplementation.prototype = {
-    hasFeature:  hasFeature(feature, version) {
+    hasFeature: function hasFeature(feature, version) {
 	// Warning text directly modified slightly from the DOM Core spec:
 	warn("Authors are strongly discouraged from using hasFeature(), " +
 	     "as it is notoriously unreliable and imprecise. " +
@@ -14,11 +14,12 @@ domimplementation.prototype = {
 	return false;
     },
     
-    createDocumentType: function(qualifiedName, publicId, systemId) {
+    createDocumentType: function createDocumenType(qualifiedName,
+						   publicId, systemId) {
 	return new documenttype(qualifiedName, publicId, systemId);
     },
 
-    createDocument: function(namespace, qualifiedName, doctype) {
+    createDocument: function createDocument(namespace, qualifiedName, doctype) {
 	// XXX
 	// Currently the DOM core spec indicates that this method never
 	// creates an HTML document, even if namespace and doctype are
@@ -41,15 +42,14 @@ domimplementation.prototype = {
 	return d;
     },
 
-    createHTMLDocument: function(titleText) {
-	let d = new document(true),
-
+    createHTMLDocument: function createHTMLDocument(titleText) {
+	let d = new document(true);
 	d.appendChild(new documenttype("html"));
 	let html = d.createElement("html");
 	d.appendChild(html);
 	let head = d.createElement("head");
 	html.appendChild(head);
-	let title = d.createElement("title"),
+	let title = d.createElement("title");
 	head.appendChild(title);
 	title.appendChild(d.createTextNode(titleText));
 	html.appendChild(d.createElement("body"));
@@ -57,3 +57,4 @@ domimplementation.prototype = {
 	return d;
     }
 };
+

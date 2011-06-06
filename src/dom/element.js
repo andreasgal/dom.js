@@ -4,6 +4,13 @@ function element(doc, localName, namespaceURI, prefix) {
     this.namespaceURI = namespaceURI;
     this.prefix = prefix;
 
+    this.tagName = (prefix !== null)
+	? prefix + ":" + localName
+	: localName;
+
+    if (this.isHTML)
+	this.tagName = toUpperCase(this.tagName);
+
     this.attributes = [];
     this.childNodes = [];
 }
@@ -62,7 +69,7 @@ element.prototype = Object.create(node.prototype, {
 	    if (attr.name === qname) {
 		splice(this.attributes, i, 1);
 		// Mutation event
-		if (this.root) this.root.mutateRemove(attr);
+		if (this.root) this.root.mutateRemoveAttr(attr);
 		return;
 	    }
 	}
@@ -131,12 +138,52 @@ element.prototype = Object.create(node.prototype, {
 	    let attr = this.attributes[i];
 	    if (attr.namespaceURI === ns && attr.localName === lname) {
 		splice(this.attributes, i, 1);
-		if (this.root) this.root.mutateRemove(attr);
+		if (this.root) this.root.mutateRemoveAttr(attr);
 		return;
 	    }
 	}
     }),
 
+    
+    firstElementChild: attribute(function() {
+	for(let i = 0, kids = this.childNodes, n = kids.length; i < n; i++) {
+	    if (kids[i].nodeType === ELEMENT_NODE) return kids[i];
+	}
+	return null;
+    }),
 
+    lastElementChild: attribute(function() {
+	for(let kids = this.childNodes, i = kids.length-1; i >= 0; i--) {
+	    if (kids[i].nodeType === ELEMENT_NODE) return kids[i];
+	}
+	return null;
+    }),
 
+    nextElementSibling: attribute(function() {
+	if (this.parentNode) {
+	    let sibs = this.parentNode.childNodes;
+	    for(let i = this.index+1, n = sibs.length; i < n; i++) {
+		if (sibs[i].nodeType === ELEMENT_NODE) return sibs[i];
+	    }
+	}
+	return null;
+    }),
+
+    previousElementSibling: attribute(function() {
+	if (this.parentNode) {
+	    let sibs = this.parentNode.childNodes;
+	    for(let i = this.index-1; i >= 0; i--) {
+		if (sibs[i].nodeType === ELEMENT_NODE) return sibs[i];
+	    }
+	}
+	return null;
+    }),
+
+    childElementCount: attribute(function() {
+	let kids = this.childNodes, count = 0;
+	for(let i = 0, n = kids.length; i < n; i++) {
+	    if (kids[i].nodeType === ELEMENT_NODE) count++
+	}
+	return count;
+    }),
 });

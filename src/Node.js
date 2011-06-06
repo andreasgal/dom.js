@@ -63,11 +63,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    //     DOCUMENT_FRAGMENT_NODE (11);
 	    //     NOTATION_NODE (12, historical). 
             get nodeType() {
-		// In order to avoid looking up the implementation object
-		// in the weak map, I could based this on the constructor
-		// property. But WebIDL says that property is writable, so
-		// that is not a safe optimization.
-		return unwrap(this).type;
+		return unwrap(this).nodeType;
 	    },
 
             // readonly attribute DOMString nodeName;
@@ -89,23 +85,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    //     "#document-fragment". 
 	    //
             get nodeName() {
-		let impl = unwrap(this);
-		switch(impl.type) {
-		case ELEMENT_NODE:
-		    return call(DOM.Element.members.getTagName, this);
-		case TEXT_NODE:
-		    return "#text";
-		case DOCUMENT_NODE:
-		    return "#document";
-		case COMMENT_NODE:
-		    return "#comment";
-		case DOCUMENT_TYPE_NODE:
-		    return impl.value;  // XXX?
-		case DOCUMENT_FRAGMENT_NODE:
-		    return "#document-fragment";
-		case PROCESSING_INSTRUCTION_NODE:
-		    return impl.target;
-		}
+		return unwrap(this).nodeName;
 	    },
 
             // readonly attribute DOMString baseURI;
@@ -115,30 +95,27 @@ defineLazyProperty(DOM, "Node", function() {
 	    // The ownerDocument attribute must return the Document
 	    // node that the context object is associated with, or
 	    // null if there is none.
-            get ownerDocument() { return wrap(unwrap(this).tree.root); },
+            get ownerDocument() {
+		return wrap(unwrap(this).ownerDocument);
+	    },
 
             // readonly attribute Node parentNode;
 	    // The parentNode attribute must return the parent.
             get parentNode() {
-		let parent = unwrap(this).parent;
-		return parent ? wrap(parent) : null;
+		return wrap(unwrap(this).parentNode);
 	    },
 
             // readonly attribute Element parentElement;
 	    // The parentElement attribute must return the parent element.
             get parentElement() { 
-		let parent = unwrap(this).parent;
-		return (parent && parent.type === ELEMENT_NODE)
-		    ? wrap(parent) 
-		    : null;
+		return wrap(unwrap(this).parentElement);
 	    },
 
             // boolean hasChildNodes();
 	    // The hasChildNodes() method must return false if the
 	    // context object has no children, or true otherwise.
             hasChildNodes: function hasChildNodes() { 
-		let impl = unwrap(this);
-		return !!(impl.kids && impl.kids.length);
+		return unwrap(this).hasChildNodes();
 	    },
 
             // readonly attribute NodeList childNodes;
@@ -150,29 +127,24 @@ defineLazyProperty(DOM, "Node", function() {
 		// to return a valid (empty) NodeList even for nodes that
 		// can never have kids
 		let impl = unwrap(this);
-		if (!impl.nodelist) {
-		    if (!impl.kids) impl.kids = [];
-		    impl.nodelist = new DOM.NodeList(impl.kids);
+		if (!impl._nodelist) {
+		    impl._nodelist = new DOM.NodeList(impl.childNodes);
 		}
-		return impl.nodelist
+		return impl._nodelist
 	    },
 
             // readonly attribute Node firstChild; 
 	    // The firstChild attribute must return the first child of
 	    // the context object, or null if there is none.
             get firstChild() {
-		let kids = unwrap(this).kids;
-		if (!kids || !kids.length) return null;
-		return wrap(kids[0]);
+		return wrap(unwrap(this).firstChild);
 	    },
 
             // readonly attribute Node lastChild;
 	    // The lastChild attribute must return the last child of
 	    // the context object, or null if there is none.
             get lastChild() {
-		let kids = unwrap(this).kids;
-		if (!kids || !kids.length) return null;
-		return wrap(kids[kids.length-1]);
+		return wrap(unwrap(this).lastChild);
 	    },
 
             // readonly attribute Node previousSibling;
@@ -180,12 +152,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    // previous sibling of the context object, or null if
 	    // there is none.
             get previousSibling() { 
-		let impl = unwrap(this);
-		if (impl.parent) {
-		    let index = impl.index();
-		    if (index > 0) return wrap(impl.parent.kids[index-1]);
-		}
-		return null;
+		return wrap(unwrap(this).previousSibling);
 	    },
             
             // readonly attribute Node nextSibling;
@@ -193,13 +160,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    // sibling of the context object, or null if there is
 	    // none.
             get nextSibling() {
-		let impl = unwrap(this);
-		if (impl.parent) {
-		    let index = impl.index();
-		    if (index < impl.parent.kids.length-1)
-			return wrap(impl.parent.kids[index+1]);
-		}
-		return null;
+		return wrap(unwrap(this).nextSibling);
 	    },
 
             // unsigned short compareDocumentPosition(Node other);
@@ -226,15 +187,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    // Any other node
 	    //     Null. 
             get nodeValue() {
-		let impl = unwrap(this);
-		switch(impl.type) {
-		case TEXT_NODE:
-		case COMMENT_NODE:
-		case PROCESSING_INSTRUCTION_NODE:
-		    return impl.value;
-		default:
-		    return null;
-		}
+		return unwrap(this).nodeValue;
 	    },
 
 	    // Setting the nodeValue attribute must do as described
@@ -247,18 +200,11 @@ defineLazyProperty(DOM, "Node", function() {
 	    // Any other node
 	    //     Do nothing. 
             set nodeValue(newval) {
-		let impl = unwrap(this);
-		newval = String(newval);
-		switch(impl.type) {
-		case TEXT_NODE:
-		case COMMENT_NODE:
-		case PROCESSING_INSTRUCTION_NODE:
-		    impl.setText(newval);
-		}
+		unwrap(this).nodeValue = newval;
 	    },
 
             // attribute DOMString textContent;
-
+	    //
 	    // The textContent attribute must return the following,
 	    // depending on the context object:
 	    // DocumentFragment
@@ -278,18 +224,7 @@ defineLazyProperty(DOM, "Node", function() {
 	    //     Null. 
 	    // 
             get textContent() {
-		let impl = unwrap(this);
-		switch(impl.type) {
-		case TEXT_NODE:
-		case COMMENT_NODE:
-		case PROCESSING_INSTRUCTION_NODE:
-		    return impl.value;
-		case ELEMENT_NODE:
-		case DOCUMENT_FRAGMENT_NODE:
-		    nyi();
-		default:
-		    return null;
-		}
+		return unwrap(this).textContent;
 	    },
 
 
@@ -314,263 +249,28 @@ defineLazyProperty(DOM, "Node", function() {
 	    // Any other node
 	    //     Do nothing. 
             set textContent(newval) { 
-		let impl = unwrap(this);
-		newval = String(newval);
-		switch(impl.type) {
-		case TEXT_NODE:
-		case COMMENT_NODE:
-		case PROCESSING_INSTRUCTION_NODE:
-		    impl.setText(newval);
-		    return;
-		case ELEMENT_NODE:
-		case DOCUMENT_FRAGMENT_NODE:
-		    nyi();
-		}
+		unwrap(this).textContent = newval;
 	    },
 
-            // Node insertBefore([NoNull] Node newChild, Node refChild);
-	    // 
-	    // The insertBefore(newChild, refChild) method must run these steps:
-	    //
-	    //     If the context object is not a Document,
-	    //     DocumentFragment or Element, throw a
-	    //     HIERARCHY_REQUEST_ERR and terminate these steps.
-	    //
-	    //     If refChild is null, return the result of invoking
-	    //     context object's appendChild with newChild as
-	    //     argument and terminate these steps.
-	    //
-	    //     If refChild is not a child of the context object,
-	    //     then throw a NOT_FOUND_ERR exception and terminate
-	    //     these steps.
-	    //
-	    //     If newChild is the context object or an ancestor of
-	    //     the context object throw a HIERARCHY_REQUEST_ERR
-	    //     and terminate these steps.
-	    //
-	    //     If newChild is a DocumentType node and its
-	    //     ownerDocument is not null throw a NOT_SUPPORTED_ERR
-	    //     exception and terminate these steps.
-	    //
-	    //     If newChild is a DocumentType node set its
-	    //     ownerDocument to the context object's
-	    //     ownerDocument.
-	    //
-	    //     If newChild is not a DocumentType node let newChild
-	    //     be the result of invoking the context object's
-	    //     ownerDocument adoptNode method with newChild as its
-	    //     argument.
-	    //
-	    //     If newChild is a DocumentFragment node, insert the
-	    //     children of newChild in the context object, in tree
-	    //     order, so that the last child becomes the previous
-	    //     sibling of refChild.
-	    //
-	    //     Otherwise insert newChild in the context object as
-	    //     the previous sibling of refChild.
-	    //
-	    //     Return newChild. 
             insertBefore: function insertBefore(newChild, refChild) {
-                if (refChild == null) // Also treat undefined as null
-		    return call(DOM.Node.members.appendChild, this, newChild);
-
-                let parent = unwrap(this);
-
-                if (parent.type !== ELEMENT_NODE &&
-                    parent.type !== DOCUMENT_NODE &&
-                    parent.type !== DOCUMENT_FRAGMENT_NODE)
-                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
-
-                let target = unwrap(refChild);
-                if (target.parent !== parent)
-                    throw new DOM.DOMException(NOT_FOUND_ERR);
-
-                let child = unwrap(newChild);
-
-                if (child.isAncestor(parent))
-                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
-                    
-                // XXX: how can this happen?
-                // Check the doctype creation functions
-                if (child.type == DOCUMENT_TYPE_NODE) {
-                    if (child.doc != null) 
-                        throw new DOM.DOMException(NOT_SUPPORTED_ERR);
-                    else 
-                        child.doc = parent.doc;
-                }
-
-                if (child.type == DOCUMENT_FRAGMENT_NODE) {
-                    for(let i = 0; i < child.kids.length; i++) {
-                        let k = child.kids[i];
-                        // Simplify the insertion by first removing the
-                        // kid from the fragment
-                        k.parent = null; 
-                        k.insert(target);
-                    }
-                    // And remove all the kids from the fragment
-                    child.kids.length = 0; 
-                }
-                else {
-                    // This method handles the adoptNode details when needed
-                    child.insert(target);
-                }
-
-                return newChild;
+		unwrap(this).insertBefore(unwrap(newChild), unwrap(refChild));
+		return newChild;
             },
 
-            // Node replaceChild([NoNull] Node newChild,[NoNull] Node oldChild);
-            //
-	    // The replaceChild(newChild, oldChild) method must run these steps:
-	    //
-	    //     If the context object is not a Document,
-	    //     DocumentFragment or Element, throw a
-	    //     HIERARCHY_REQUEST_ERR and terminate these steps.
-	    //
-	    //     If oldChild is not a child of the context object,
-	    //     then throw a NOT_FOUND_ERR exception and terminate
-	    //     these steps.
-	    //
-	    //     If newChild is the context object or an ancestor of
-	    //     the context object throw a HIERARCHY_REQUEST_ERR
-	    //     and terminate these steps.
-	    //
-	    //     If newChild is a DocumentType node and its
-	    //     ownerDocument is not null throw a NOT_SUPPORTED_ERR
-	    //     exception and terminate these steps.
-	    //
-	    //     If newChild is a DocumentType node set its
-	    //     ownerDocument to the context object's
-	    //     ownerDocument.
-	    //
-	    //     If newChild is not a DocumentType node let newChild
-	    //     be the result of invoking the context object's
-	    //     ownerDocument adoptNode method with newChild as its
-	    //     argument.
-	    //
-	    //     Let refChild be oldChild's first next sibling.
-	    //
-	    //     Remove oldChild from the context object.
-	    //
-	    //     Return the result of invoking the context object's
-	    //     insertBefore method with newChild and refChild as
-	    //     arguments.
-	    //
-            replaceChild: function replaceChild(newChild, oldChild) {
-                // The error checking steps above seem to be performed
-                // by the methods called below.
-                let refChild = oldChild.nextSibling;
 
-		// Our methods may be monkey patched, so invoke the 
-		// original clean versions.  From DOM Core: 
-		//
-		// "When a method or an attribute is said to call
-		// another method or attribute, the user agent must
-		// invoke its internal API for that attribute or
-		// method so that e.g. the author can't change the
-		// behavior by overriding attributes or methods with
-		// custom properties or functions in ECMAScript."
-		call(DOM.Node.members.removeChild, this, oldChild);
-		return call(DOM.Node.members.insertBefore,
-			    this, newChild, refChild);
+            replaceChild: function replaceChild(newChild, oldChild) {
+		unwrap(this).replaceChild(unwrap(newChild), unwrap(oldChild));
+		return newChild;
             },
 
             // Node removeChild([NoNull] Node oldChild);
-	    //
-	    // The removeChild(oldChild) method must run these steps:
-	    //
-	    //     If the context object is not a Document,
-	    //     DocumentFragment or Element, throw a
-	    //     HIERARCHY_REQUEST_ERR and terminate these steps.
-	    //
-	    //     If oldChild is not a child of the context object,
-	    //     then throw a NOT_FOUND_ERR exception and terminate
-	    //     these steps.
-	    //
-	    //     Remove oldChild from the context object.
-	    //
-	    //     Return oldChild.
-	    //
             removeChild: function removeChild(oldChild) {
-                let parent = unwrap(this);
-                if (parent.type !== ELEMENT_NODE &&
-                    parent.type !== DOCUMENT_NODE &&
-                    parent.type !== DOCUMENT_FRAGMENT_NODE)
-                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
-
-                let child = unwrap(oldChild);
-                if (child.parent !== parent)
-                    throw new DOM.DOMException(NOT_FOUND_ERR);
-
-                child.remove();
-
+		unwrap(this).removeChild(unwrap(oldChild));
                 return oldChild;
             },
 
-            // Node appendChild([NoNull] Node newChild);
-	    // The appendChild(newChild) method must run these steps:
-	    //
-	    //     If the context object is not a Document,
-	    //     DocumentFragment or Element, throw a
-	    //     HIERARCHY_REQUEST_ERR and terminate these steps.
-	    //
-	    //     If newChild is the context object or an ancestor of
-	    //     the context object throw a HIERARCHY_REQUEST_ERR
-	    //     and terminate these steps.
-	    //
-	    //     If newChild is a DocumentType node and its
-	    //     ownerDocument is not null throw a NOT_SUPPORTED_ERR
-	    //     exception and terminate these steps.
-	    //
-	    //     If newChild is a DocumentType node set its
-	    //     ownerDocument to the context object's
-	    //     ownerDocument.
-	    //
-	    //     If newChild is not a DocumentType node let newChild
-	    //     be the result of invoking the context object's
-	    //     ownerDocument adoptNode method with newChild as its
-	    //     argument.
-	    //
-	    //     Append newChild to the context object.
-	    //
-	    //     Return newChild.
             appendChild: function appendChild(newChild) { 
-                let parent = unwrap(this);
-
-                if (parent.type !== ELEMENT_NODE &&
-                    parent.type !== DOCUMENT_NODE &&
-                    parent.type !== DOCUMENT_FRAGMENT_NODE)
-                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
-
-                let child = unwrap(newChild);
-
-                if (child.isAncestor(parent))
-                    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
-                    
-                // XXX: how can this happen?
-                // Check the doctype creation functions
-                if (child.type == DOCUMENT_TYPE_NODE) {
-                    if (child.doc != null) 
-                        throw new DOM.DOMException(NOT_SUPPORTED_ERR);
-                    else 
-                        child.doc = parent.doc;
-                }
-
-                if (child.type == DOCUMENT_FRAGMENT_NODE) {
-                    for(let i = 0; i < child.kids.length; i++) {
-                        let k = child.kids[i];
-                        // Simplify the insertion by first removing the
-                        // kid from the fragment
-                        k.parent = null; 
-                        k.append(parent);
-                    }
-                    // And remove all the kids from the fragment
-                    child.kids.length = 0; 
-                }
-                else {
-                    // This method handles the adoptNode details when needed
-                    child.append(parent);
-                }
-
+		unwrap(this).appendChild(unwrap(newChild));
                 return newChild;
             },
 

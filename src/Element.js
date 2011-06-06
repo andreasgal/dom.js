@@ -12,7 +12,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // The namespaceURI attribute must return the context
 	    // object's namespace.
 	    get namespaceURI() {
-		return unwrap(this).namespace;
+		return unwrap(this).namespaceURI;
 	    },
 
 	    // readonly attribute DOMString? prefix;
@@ -28,7 +28,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // The localName attribute must return the context
 	    // object's local name.
 	    get localName() {
-		return unwrap(this).value;
+		return unwrap(this).localName;
 	    },
 
 	    // readonly attribute DOMString tagName;
@@ -48,17 +48,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    //     Return qualified name.
 	    //
 	    get tagName() { 
-		let impl = unwrap(this), qname;
-
-		if (impl.prefix !== null)
-		    qname = impl.prefix + ":" + impl.value;
-		else
-		    qname = impl.value;
-		
-		if (impl.isHTML())
-		    qname = toUpperCase(qname);
-
-		return qname;
+		return unwrap(this).tagName;
 	    },
 
 	    // readonly attribute Attr[] attributes;
@@ -80,16 +70,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    //     object's attributes whose qualified name is name,
 	    //     if the Attr is present, or null otherwise.
 	    getAttribute: function getAttribute(qname) {
-		let impl = unwrap(this);
-		qname = String(qname);
-		if (isHTML(impl)) qname = toLowerCase(qname);
-
-		// XXX The *first* attr? Can an element really ever
-		// have more than one that matches? Is this because of 
-		// namespace issues? It would be a shame to have to 
-		// convert from a hash to an array.  Although I need to 
-		// have an array for form the attributes property above...
-		return impl.getAttribute(qname);
+		return unwrap(this).getAttribute(String(qname));
 	    },
 
 	    // DOMString? getAttributeNS(DOMString namespace,
@@ -105,187 +86,34 @@ defineLazyProperty(DOM, "Element", function() {
 	    },
 
 	    // void setAttribute(DOMString qualifiedName, DOMString value);
-	    //
-	    // The setAttribute(qualifiedName, value) method must run
-	    // these steps:
-	    //
-	    //     If qualifiedName does not match the Name production
-	    //     in XML, throw an INVALID_CHARACTER_ERR exception
-	    //     and terminate these steps.
-	    //
-	    //     If the context object is in the HTML namespace and
-	    //     its ownerDocument is an HTML document, let
-	    //     qualifiedName be converted to lowercase.
-	    //
-	    //     If "xmlns" is a prefix match for qualifiedName,
-	    //     throw a NAMESPACE_ERR and terminate these steps.
-	    //
-	    //     If the context object does not have an Attr object
-	    //     whose local name is qualifiedName, create an Attr
-	    //     object, whose local name is qualifiedName and value
-	    //     is value. Append this object to the context
-	    //     object's attributes.
-	    //
-	    //     Otherwise, set the value of the first Attr object
-	    //     in the context object's attributes whose qualified
-	    //     name is qualifiedName, to value.
 	    setAttribute: function setAttribute(qname, value) {
-		let impl = unwrap(this);
-		qname = String(qname);
-		
-		if (!validName(qname))
-		    throw new DOM.DOMException(INVALID_CHARACTER_ERR);
-
-		if (isHTML(impl)) qname = toLowerCase(qname);
-
-		if (substring(qname, 0, 5) === "xmlns")
-		    throw new DOM.DOMException(NAMESPACE_ERR);
-
-		impl.setAttribute(qname, String(value));
+		unwrap(this).setAttribute(String(qname), String(value));
 	    },
 
 	    // void setAttributeNS(DOMString namespace, 
 	    //                     DOMString qualifiedName, DOMString value);
-	    //
-	    // The setAttributeNS(namespace, qualifiedName, value)
-	    // method must run these steps:
-	    //
-	    //     If qualifiedName does not match the Name production
-	    //     in XML, throw an INVALID_CHARACTER_ERR exception
-	    //     and terminate these steps.
-	    //
-	    //     If qualifiedName does not match the QName
-	    //     production in Namespaces in XML, throw a
-	    //     NAMESPACE_ERR exception and terminate these steps.
-	    //
-	    //     If qualifiedName contains a ":" (U+003E), then
-	    //     split the string on it and let prefix be the part
-	    //     before and localName the part after. Otherwise, let
-	    //     prefix be null and localName be qualifiedName.
-	    //
-	    //     If namespace is the empty string, let namespace be
-	    //     null.
-	    //
-	    //     If prefix is not null and namespace is null, throw
-	    //     a NAMESPACE_ERR exception and terminate these
-	    //     steps.
-	    //
-	    //     If prefix is "xml" and namespace is not the XML
-	    //     namespace, throw a NAMESPACE_ERR exception and
-	    //     terminate these steps.
-	    //
-	    //     If qualifiedName or prefix is "xmlns" and namespace
-	    //     is not the XMLNS namespace, throw a NAMESPACE_ERR
-	    //     exception and terminate these steps.
-	    //
-	    //     If namespace is the XMLNS namespace and neither
-	    //     qualifiedName nor prefix is "xmlns", throw a
-	    //     NAMESPACE_ERR exception and terminate these steps.
-	    //
-	    //     If the context object's attributes does not contain
-	    //     an Attr object whose namespace is namespace and
-	    //     local name is localName, create an Attr object,
-	    //     whose namespace is namespace, namespace prefix is
-	    //     prefix, local name is localName, and value is
-	    //     value. Append this object to the context object's
-	    //     attributes.
-	    //
-	    //     Otherwise, set the value of the Attr object in the
-	    //     context object's attributes whose namespace is
-	    //     namespace, and local name is localName, to value,
-	    //     and set its namespace prefix to prefix.
 	    setAttributeNS: function setAttributeNS(ns, qname, value) {
-		let impl = unwrap(this);
-		
-		ns = String(ns);
-		qname = String(qname);
-		value = String(value);
-
-		if (!validName(qname))
-		    throw new DOM.DOMException(INVALID_CHARACTER_ERR);
-
-		if (!validQName(qname))
-		    throw new DOM.DOMException(NAMESPACE_ERR);
-
-		let pos = S.indexOf(qname, ":");
-		let prefix, lname;
-		if (pos === -1) {
-		    prefix = null;
-		    lname = qname;
-		}
-		else {
-		    prefix = substring(qname, 0, pos);
-		    lname = substring(qname, pos+1);
-		}
-
-		if (ns === "") ns = null;
-
-		if ((prefix !== null && ns === null) ||
-		    (prefix === "xml" && ns !== XML_NAMESPACE) ||
-		    ((qname === "xmlns" || prefix === "xmlns") &&
-		     (ns !== XMLNS_NAMESPACE)) ||
-		    (ns === XMLNS_NAMESPACE && 
-		     !(qname === "xmlns" || prefix === "xmlns")))
-		    throw new DOM.DOMException(NAMESPACE_ERR);
-
-
-		impl.setAttributeNS(ns, qname, value, prefix, lname);
+		unwrap(this).setAttributeNS(String(ns),
+					    String(qname),
+					    String(value));
 	    },
 
 	    // void removeAttribute(DOMString qualifiedName);
-	    //
-	    // The removeAttribute(qualifiedName) method must run the
-	    // following steps:
-	    //
-	    //     If the context object is in the HTML namespace and
-	    //     its ownerDocument is an HTML document, let
-	    //     qualifiedName be converted to lowercase.
-	    //
-	    //     Remove the first Attr object in the context
-	    //     object's attributes whose qualified name is
-	    //     qualifiedName.
 	    removeAttribute: function removeAttribute(qname) {
-		let impl = unwrap(this);
-		qname = String(qname);
-		if (isHTML(impl)) qname = toLowerCase(qname);
-		impl.removeAttribute(qname);
+		unwrap(this).removeAttribute(String(qname));
 	    },
 
 	    // void removeAttributeNS(DOMString namespace, DOMString localName);
-	    //
-	    // The removeAttributeNS(namespace, localName) method must
-	    // remove the Attr object in the context object's
-	    // attributes whose namespace is namespace and local name
-	    // is localName
 	    removeAttributeNS: function removeAttributeNS(ns, lname) {
 		unwrap(this).removeAttributeNS(String(ns), String(lname));
 	    },
 
 	    // boolean hasAttribute(DOMString qualifiedName);
-	    //
-	    // The hasAttribute(qualifiedName) method must run these
-	    // steps:
-	    //
-	    //     If the context object is in the HTML namespace and
-	    //     its ownerDocument is an HTML document, let
-	    //     qualifiedName be converted to lowercase.
-	    //
-	    //     Return true if context object's attributes contains
-	    //     an Attr whose qualified name is qualifiedName, or
-	    //     false otherwise.
 	    hasAttribute: function hasAttribute(qname) {
-		let impl = unwrap(this);
-		qname = String(qname);
-		if (isHTML(impl)) qname = toLowerCase(qname);
-		return impl.hasAttribute(qname);
+		return unwrap(this).hasAttribute(String(qname));
 	    },
 
 	    // boolean hasAttributeNS(DOMString namespace, DOMString localName);
-	    //
-	    // The hasAttributeNS(namespace, localName) method must
-	    // return true if context object's attributes contains an
-	    // Attr whose namespace is namespace and local name is
-	    // localName, or false otherwise.
 	    hasAttributeNS: function hasAttributeNS(ns, lname) {
 		return unwrap(this).hasAttributeNS(String(ns), String(lname));
 	    },
@@ -351,14 +179,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // child of the context object that is of type Element or
 	    // null if there is no such node.
 	    get firstElementChild() {
-		let kids = unwrap(this).kids;
-		if (kids) {
-		    for(let i = 0, len = kids.length; i < len; i++) {
-			if (kids[i].type == ELEMENT_NODE)
-			    return wrap(kids[i]);
-		    }
-		}
-		return null;
+		return unwrap(this).firstElementChild;
 	    },
 
 	    // readonly attribute Element? lastElementChild;
@@ -367,14 +188,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // child of the context object that is of type Element or
 	    // null if there is no such node.
 	    get lastElementChild() {
-		let kids = unwrap(this).kids;
-		if (kids) {
-		    for(let i = kids.length-1; i >= 0; i--) {
-			if (kids[i].type == ELEMENT_NODE)
-			    return wrap(kids[i]);
-		    }
-		}
-		return null;
+		return unwrap(this).lastElementChild;
 	    },
 
 	    // readonly attribute Element? previousElementSibling;
@@ -383,15 +197,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // first preceding sibling of the context object that is
 	    // of type Element or null if there is no such node.
 	    get previousElementSibling() {
-		let impl = unwrap(this);
-		if (impl.parent) {
-		    let index = impl.index(), kids = impl.parent.kids;
-		    for(let i = index-1; i >= 0; i--) {
-			if (kids[i].type == ELEMENT_NODE)
-			    return wrap(kids[i]);
-		    }
-		}
-		return null;
+		return unwrap(this).previousElementSibling;
 	    },
 
 	    // readonly attribute Element? nextElementSibling;
@@ -400,15 +206,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // following sibling of the context object that is of type
 	    // Element or null if there is no such node.
 	    get nextElementSibling() {
-		let impl = unwrap(this);
-		if (impl.parent) {
-		    let index = impl.index(), kids = impl.parent.kids;
-		    for(let i = index+1, len = kids.length; i < len; i++) {
-			if (kids[i].type == ELEMENT_NODE)
-			    return wrap(kids[i]);
-		    }
-		}
-		return null;
+		return unwrap(this).nextElementSibling;
 	    },
 
 	    // readonly attribute unsigned long childElementCount;
@@ -416,13 +214,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // The childElementCount attribute must return the number
 	    // of children of the context node that are Elements.
 	    get childElementCount() {
-		let impl = unwrap(this), kids = impl.kids, count = 0;
-		if (kids) {
-		    for(let i = 0, len = kids.length; i < len; i++) {
-			if (kids[i].type == ELEMENT_NODE) count++;
-		    }
-		}
-		return count;
+		return unwrap(this).childElementCount;
 	    },
 	}
     });

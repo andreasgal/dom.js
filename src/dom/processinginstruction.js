@@ -1,22 +1,25 @@
-function processinginstruction(doc, target, data) {
-    this.ownerDocument = doc;
-    this.target = target;
-    this.data = data;
-}
+const processinginstruction = (function() {
 
+    function processinginstruction(doc, target, data) {
+	this.ownerDocument = doc;
+	this.target = target;
+	this._data = data;
+    }
 
-// XXX
-// For PI nodes, the nodeValue, textContent and data attributes all behave
-// identically.  Rather than define them all here, and then all at the 
-// wrapper level again, I'll just pick one to implement here.
+    var nodeValue = attribute(function() { return this._data; },
+			      function(v) { 
+				  this._data = v;
+				  if (this.rooted)
+				      this.ownerDocument.mutateValue(this);
+			      });
 
-processinginstruction.prototype = Object.create(leaf.prototype, {
-    nodeType: constant(PROCESSING_INSTRUCTION_NODE),
-    nodeName: attribute(function() { return this.target; }),
-    nodeValue: attribute(function() { return this.data; },
-			 function(d) {
-			     this.data = d;
-			     if (this.rooted)
-				 this.ownerDocument.mutateValue(this);
-			 })
-});
+    processinginstruction.prototype = Object.create(leaf.prototype, {
+	nodeType: constant(PROCESSING_INSTRUCTION_NODE),
+	nodeName: attribute(function() { return this.target; }),
+	nodeValue: nodeValue,
+	textContent: nodeValue,
+	data: nodeValue,
+    });
+
+    return processinginstruction;
+}());

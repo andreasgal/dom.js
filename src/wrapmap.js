@@ -22,6 +22,8 @@ let lastkey = {}, lastvalue = undefined;
 // null, undefined, a primitive, or an object with no mapping.
 // This provides basic error checking for methods like Node.appendChild().
 function unwrap(n) {
+    if (n === null) return null;
+
     // Simple optimization
     // If I ever remove or alter mappings, then this won't be valid anymore.
     if (n === lastkey) return lastvalue;
@@ -31,7 +33,7 @@ function unwrap(n) {
 
 	// This happens if someone passes a bogus object to 
 	// appendChild, for example. 
-	if (!impl) throw new DOM.DOMException(NOT_FOUND_ERR);
+	if (!impl) NotFoundError();
 
 	lastkey = n;
 	lastvalue = impl;
@@ -41,41 +43,42 @@ function unwrap(n) {
 	// If n was null or not an object the WeakMap will raise a TypeError
 	// TypeError might be the best thing to propagate, but DOM precedent
 	// seems to be to do this:
-	throw new DOM.DOMException(NOT_FOUND_ERR);
+	NotFoundError();
     }
 }
 
 // Return the interface object (a DOM node) for the implementation node n,
 // creating it if necessary
 function wrap(n) {
-    if (!n.dom) {
+    if (n === null) return null;
+
+    if (!n._wrapper) {
 	switch(n.type) {
 	case ELEMENT_NODE:
-	    n.dom = new DOM.Element();
+	    n._wrapper = new DOM.Element();
 	    break;
 	case TEXT_NODE:
-	    n.dom = new DOM.Text();
+	    n._wrapper = new DOM.Text();
 	    break;
 	case COMMENT_NODE:
-	    n.dom = new DOM.Comment();
+	    n._wrapper = new DOM.Comment();
 	    break;
 	case PROCESSING_INSTRUCTION_NODE:
-	    n.dom = new DOM.ProcessingInstruction();
+	    n._wrapper = new DOM.ProcessingInstruction();
 	    break;
 	case DOCUMENT_NODE:
-	    n.dom = new DOM.Document();
+	    n._wrapper = new DOM.Document();
 	    break;
 	case DOCUMENT_FRAGMENT_NODE:
+	    n._wrapper = new DOM.DocumentFragment();
+	    break;
 	case DOCUMENT_TYPE_NODE:
-	    // This should never occur.
-	    // Nodes of these types are only created through the DOM and 
-	    // should never be encountered in their bare state
-	    assert(false, "unexpected bare node");
+	    n._wrapper = new DOM.DocumentType();
 	}
 
-	wmset(nodes, n.dom, n);
+	wmset(nodes, n._wrapper, n);
     }
 
-    return n.dom;
+    return n._wrapper;
 }
 

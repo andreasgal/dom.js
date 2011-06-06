@@ -4,9 +4,9 @@
 // creating the default HTML document the Document, Element, Node and other
 // interfaces.
 defineLazyProperty(global, "document", function() {
-    return DOM.implementation.createHTMLDocument("");
+    return wrap(DOM.implementation.createHTMLDocument(""));
 });
 
 defineLazyProperty(DOM, "implementation", function() {
-    return new DOM.DOMImplementation();
+    return new domimplementation();
 });

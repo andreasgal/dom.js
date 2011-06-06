@@ -1,14 +1,3 @@
-// DOM node type constants
-const ELEMENT_NODE = 1;
-const ATTRIBUTE_NODE = 2; // Historical, but we use it in wrap()
-const TEXT_NODE = 3;
-const PROCESSING_INSTRUCTION_NODE = 7;
-const COMMENT_NODE = 8;
-const DOCUMENT_NODE = 9;
-const DOCUMENT_TYPE_NODE = 10;
-const DOCUMENT_FRAGMENT_NODE = 11;
-
-
 // All nodes have a nodeType and an ownerDocument.
 // Once inserted, they also have a parentNode.
 // This is an abstract class; all nodes in a document are instances
@@ -59,73 +48,43 @@ node.prototype = Object.create(Object.prototype, {
 	    : sibs[i+1]
     }),
 
+    insertBefore: constant(function insertBefore(child, refChild) {
+	let parent = this;
+	if (refChild === null) return this.appendChild(child);
+	if (refChild.parentNode !== parent) NotFoundError();
+	if (child.isAncestor(parent)) HierarchyRequestError();
+	if (child.nodeType === DOCUMENT_NODE) HierarchyRequestError();
+	parent.ensureSameDoc(child);
+	child.insert(parent, refChild.index);
+	return child;
+    }),
 
-    // Node appendChild([NoNull] Node newChild);
-    // The appendChild(newChild) method must run these steps:
-    //
-    //     If the context object is not a Document,
-    //     DocumentFragment or Element, throw a
-    //     HIERARCHY_REQUEST_ERR and terminate these steps.
-    //
-    //     If newChild is the context object or an ancestor of
-    //     the context object throw a HIERARCHY_REQUEST_ERR
-    //     and terminate these steps.
-    //
-    //     If newChild is a DocumentType node and its
-    //     ownerDocument is not null throw a NOT_SUPPORTED_ERR
-    //     exception and terminate these steps.
-    //
-    //     If newChild is a DocumentType node set its
-    //     ownerDocument to the context object's
-    //     ownerDocument.
-    //
-    //     If newChild is not a DocumentType node let newChild
-    //     be the result of invoking the context object's
-    //     ownerDocument adoptNode method with newChild as its
-    //     argument.
-    //
-    //     Append newChild to the context object.
-    //
-    //     Return newChild.
+
     appendChild: constant(function(child) {
 	let parent = this;
 	if (child.isAncestor(parent)) HierarchyRequestError();
 	if (child.nodeType === DOCUMENT_NODE) HierarchyRequestError();
-
 	parent.ensureSameDoc(child);
+	child.insert(parent, parent.childNodes.length);
+	return child;
+    }),
 
-	if (child.nodeType === DOCUMENT_FRAGMENT_NODE) {
-	    let  c;
-	    while(c = child.firstChild)	parent.appendChild(c);
-	    return;
-	}
+    removeChild: constant(function removeChild(child) {
+	let parent = this;
+	if (child.parentNode !== parent) NotFoundError();
+	child.remove();
+	return child;
+    }),
 
-	// If both the child and the parent are rooted, then we want to
-	// transplant the child without uprooting and rerooting it.
-	if (child.rooted && parent.rooted) {
-	    // Remove the child from its current position in the tree
-	    // without calling removeChild, since we don't want to uproot it.
-	    let curpar = child.parentNode, idx = child.index;
-	    splice(curpar.childNodes, i, 1);
-	    // And append it to its new parent
-	    child.parentNode = parent;
-	    push(parent.childNodes, child);
-	    // Generate a move mutation event
-	    parent.ownerDocument.mutateMove(child);
-	    return;
-	}
+    replaceChild: constant(function replaceChild(newChild, oldChild) {
+	let parent = this;
+	if (oldChild.parentNode !== parent) NotFoundError();
+	if (newChild.isAncestor(parent)) HierarchyRequestError();
+	parent.ensureSameDoc(newChild);
 
-	// If the child already has a parent, it needs to be removed from
-	// that parent, which may also uproot it
-	if (child.parentNode)
-	    child.parentNode.removeChild(child);
-
-	// Now append the child to the parent's array of children
-	child.parentNode = parent;
-	push(parent.childNodes, child);
-
-	// And root the child if necessary
-	if (parent.rooted) parent.ownerDocument.mutateInsert(child);
+	let refChild = oldChild.nextSibling;
+	oldChild.remove();
+	return parent.insertBefore(newChild, refChild);
     }),
 
 
@@ -201,7 +160,64 @@ node.prototype = Object.create(Object.prototype, {
 		ownerdoc.adoptNode(that);
 	}
 	
+	// XXX: this step does not seem necessary.
 	if (this.ownerDocument !== that.ownerDocument) HierarchyRequestError();
     }),
+
+    // Remove this node from its parent
+    remove: constant(function remove() {
+	// Remove this node from its parents array of children
+	splice(this.parentNode.childNodes, this.index, 1);
+	// Forget this node's parent
+	delete this.parentNode;
+	// Send mutation events if necessary
+	if (this.rooted) this.ownerDocument.mutateRemove(this);
+    }),
+
+    // Insert this node as a child of parent at the specified index,
+    // firing mutation events as necessary
+    insert: constant(function insert(parent, index) {
+	let child = this, kids = parent.childNodes;
+
+	// Special case for document fragments
+	if (child.nodeType === DOCUMENT_FRAGMENT_NODE) {
+	    let  c;
+	    while(c = child.firstChild)	c.insert(parent, index++);
+	    return;
+	}
+
+	// If both the child and the parent are rooted, then we want to
+	// transplant the child without uprooting and rerooting it.
+	if (child.rooted && parent.rooted) {
+	    // Remove the child from its current position in the tree
+	    // without calling remove(), since we don't want to uproot it.
+	    let curpar = child.parentNode, curidx = child.index;
+	    splice(child.parentNode.childNodes, child.index, 1);
+
+	    // And insert it as a child of its new parent
+	    child.parentNode = parent;
+	    splice(kids, index, 0, child);
+	    child._index = index;              // Optimization
+	    kids[index+1]._index = index + 1;  // Optimization
+
+	    // Generate a move mutation event
+	    parent.ownerDocument.mutateMove(child);
+	}
+	else {
+	    // If the child already has a parent, it needs to be removed from
+	    // that parent, which may also uproot it
+	    if (child.parentNode) child.remove();
+	    
+	    // Now insert the child into the parent's array of children
+	    child.parentNode = parent;
+	    splice(kids, index, 0, child);
+	    child._index = index;              // Optimization
+	    kids[index+1]._index = index + 1;  // Optimization
+	    
+	    // And root the child if necessary
+	    if (parent.rooted) parent.ownerDocument.mutateInsert(child);
+	}
+    }),
+
 });
 

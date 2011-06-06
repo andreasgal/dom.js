@@ -14,7 +14,7 @@ defineLazyProperty(DOM, "ProcessingInstruction", function() {
 	    // attribute DOMString data;
 	    get data() { return unwrap(this).data; },
 	    set data(newval) {
-		unwrap(this).setText(String(newval));
+		unwrap(this).data = String(newval);
 	    },
 	}
     });

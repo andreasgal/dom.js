@@ -1,6 +1,5 @@
 function document(isHTML) {
     this.isHTML = isHTML;
-    this.nodeType = DOCUMENT_NODE;
     this.documentURI = null;    // XXX what should this be?
     this.implementation = new domimplementation();
 
@@ -73,10 +72,10 @@ document.prototype = Object.create(node.prototype, {
 
 	if (node.parentNode) node.parentNode.removeChild(node)
 
-	// XXX Is this inefficient?
-	recursive(function(n) { n.ownerDocument = owner; })(node);
-    }),
+	recursivelySetOwner(node, this);
 
+	return node;
+    }),
 
 
     // Implementation-specific function.  Called when a text, comment, pi,
@@ -88,16 +87,32 @@ document.prototype = Object.create(node.prototype, {
     }),
 
     // Used by removeAttribute and removeAttributeNS for attributes.
-    // Also by Node.removeChild, etc. to remove a rooted element from
-    // the tree.  Only needs to generate a single mutation event when a 
+    mutateRemoveAttr: constant(function(attr) {
+    }),
+
+    // Called by Node.removeChild, etc. to remove a rooted element from
+    // the tree. Only needs to generate a single mutation event when a 
     // node is removed, but must recursively mark all descendants as not rooted.
     mutateRemove: constant(function(node) {
+	// Mark this and all descendants as not rooted
+	recursivelyUproot(node);
+
+	// XXX Send a single mutation event
     }),
 
     // Called when a new element becomes rooted.  It must recursively
     // generate mutation events for each of the children, and mark them all
     // as rooted.
     mutateInsert: constant(function(node) {
+	// Mark the node as rooted
+	this.rooted = true;
+
+	// XXX send the mutation event
+
+
+	// And now recurse on all kids 
+	for(let i = 0, kids = node.childNodes, n = kids.length; i < n; i++)
+	    this.mutateInsert(kids[i]);
     }),
 
     // Called when a rooted element is moved within the document
@@ -105,3 +120,11 @@ document.prototype = Object.create(node.prototype, {
     }),
     
 });
+
+let recursivelyUproot = recursive(function(n) { n.rooted = false; });
+
+function recursivelySetOwner(node, owner) {
+    node.ownerDocument = owner;
+    for(let i = 0, kids = node.childNodes, n = kids.length; i < n; i++)
+	recursivelySetOwner(kids[i], owner);
+}

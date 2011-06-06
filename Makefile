@@ -3,12 +3,22 @@
 # https://developer.mozilla.org/En/SpiderMonkey/Build_Documentation
 JS = /usr/local/bin/js
 
-MODULES = \
+FILES= \
 	src/snapshot.js \
 	src/utils.js \
 	src/interface.js \
 	src/wrapmap.js \
-	src/Tree.js \
+	src/dom/node.js \
+	src/dom/leaf.js \
+	src/dom/text.js \
+	src/dom/comment.js \
+	src/dom/processinginstruction.js \
+	src/dom/element.js \
+	src/dom/attr.js \
+	src/dom/document.js \
+	src/dom/documentfragment.js \
+	src/dom/documenttype.js \
+	src/dom/domimplementation.js \
 	src/DOMException.js \
 	src/EventTarget.js \
 	src/Node.js \
@@ -21,10 +31,11 @@ MODULES = \
 	src/Text.js \
 	src/ProcessingInstruction.js \
 	src/NodeList.js \
-	src/boot.js \
-	src/peek.js
+	src/boot.js
 
-dom.js: LICENSE ${MODULES} test/monkey.js
+#	src/peek.js
+
+dom.js: LICENSE ${FILES} test/monkey.js
 # Output preamble
 	@rm -f $@;
 	@echo '// This file was automatically generated; DO NOT EDIT.' >> $@
@@ -37,7 +48,7 @@ dom.js: LICENSE ${MODULES} test/monkey.js
 	@echo '"use strict";' >> $@
 
 # Append each of the module files
-	@for f in ${MODULES} ;\
+	@for f in ${FILES} ;\
 	do \
 		echo >> $@ ;\
 		echo >> $@ ;\
@@ -57,3 +68,4 @@ dom.js: LICENSE ${MODULES} test/monkey.js
 
 	@chmod 444 $@
 	@echo "Created $@"
+
