@@ -1,11 +1,11 @@
 defineLazyProperty(global, "ProcessingInstruction", function() {
-    return DOM.ProcessingInstruction.interface;
+    return wrapper.ProcessingInstruction.interface;
 }, true);
 
-defineLazyProperty(DOM, "ProcessingInstruction", function() {
+defineLazyProperty(wrapper, "ProcessingInstruction", function() {
     return implementIDLInterface({
         name: "ProcessingInstruction",
-        superclass: DOM.Node,
+        superclass: wrapper.Node,
 	constructor: function ProcessingInstruction() {},
 	members: {
 	    // readonly attribute DOMString target

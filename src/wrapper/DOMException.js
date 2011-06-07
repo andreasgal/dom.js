@@ -7,35 +7,11 @@
  * more important.
  */
 
-
-// DOMException codes.  Pass one of these to the DOM.DOMException() constructor
-const INDEX_SIZE_ERR = 1;
-const HIERARCHY_REQUEST_ERR = 3;
-const WRONG_DOCUMENT_ERR = 4;
-const INVALID_CHARACTER_ERR = 5;
-const NO_MODIFICATION_ALLOWED_ERR = 7;
-const NOT_FOUND_ERR = 8;
-const NOT_SUPPORTED_ERR = 9;
-const INVALID_STATE_ERR = 11;
-const SYNTAX_ERR = 12;
-const INVALID_MODIFICATION_ERR = 13;
-const NAMESPACE_ERR = 14;
-const INVALID_ACCESS_ERR = 15;
-const TYPE_MISMATCH_ERR = 17;
-const SECURITY_ERR = 18;
-const NETWORK_ERR = 19;
-const ABORT_ERR = 20;
-const URL_MISMATCH_ERR = 21;
-const QUOTA_EXCEEDED_ERR = 22;
-const TIMEOUT_ERR = 23;
-const INVALID_NODE_TYPE_ERR = 24;
-const DATA_CLONE_ERR = 25;
-
 defineLazyProperty(global, "DOMException", function() {
-    return DOM.DOMException.interface;
+    return wrapper.DOMException.interface;
 }, true);
 
-defineLazyProperty(DOM, "DOMException", function() {
+defineLazyProperty(wrapper, "DOMException", function() {
     const names = [
 	null,  // No error with code 0
         "INDEX_SIZE_ERR",
@@ -150,66 +126,66 @@ defineLazyProperty(DOM, "DOMException", function() {
 // 
 
 function IndexSizeError() {
-    throw new DOM.DOMException(INDEX_SIZE_ERR);
+    throw new wrapper.DOMException(INDEX_SIZE_ERR);
 }
 function HierarchyRequestError() {
-    throw new DOM.DOMException(HIERARCHY_REQUEST_ERR);
+    throw new wrapper.DOMException(HIERARCHY_REQUEST_ERR);
 }
 function WrongDocumentError() {
-    throw new DOM.DOMException(WRONG_DOCUMENT_ERR);
+    throw new wrapper.DOMException(WRONG_DOCUMENT_ERR);
 }
 function InvalidCharacterError() {
-    throw new DOM.DOMException(INVALID_CHARACTER_ERR);
+    throw new wrapper.DOMException(INVALID_CHARACTER_ERR);
 }
 function NoModificationAllowedError() {
-    throw new DOM.DOMException(NO_MODIFICATION_ALLOWED_ERR);
+    throw new wrapper.DOMException(NO_MODIFICATION_ALLOWED_ERR);
 }
 function NotFoundError() {
-    throw new DOM.DOMException(NOT_FOUND_ERR);
+    throw new wrapper.DOMException(NOT_FOUND_ERR);
 }
 function NotSupportedError() {
-    throw new DOM.DOMException(NOT_SUPPORTED_ERR);
+    throw new wrapper.DOMException(NOT_SUPPORTED_ERR);
 }
 function InvalidStateError() {
-    throw new DOM.DOMException(INVALID_STATE_ERR);
+    throw new wrapper.DOMException(INVALID_STATE_ERR);
 }
 function SyntaxError() {
-    throw new DOM.DOMException(SYNTAX_ERR);
+    throw new wrapper.DOMException(SYNTAX_ERR);
 }
 function InvalidModificationError() {
-    throw new DOM.DOMException(INVALID_MODIFICATION_ERR);
+    throw new wrapper.DOMException(INVALID_MODIFICATION_ERR);
 }
 function NamespaceError() {
-    throw new DOM.DOMException(NAMESPACE_ERR);
+    throw new wrapper.DOMException(NAMESPACE_ERR);
 }
 function InvalidAccessError() {
-    throw new DOM.DOMException(INVALID_ACCESS_ERR);
+    throw new wrapper.DOMException(INVALID_ACCESS_ERR);
 }
 function TypeMismatchError() {
-    throw new DOM.DOMException(TYPE_MISMATCH_ERR);
+    throw new wrapper.DOMException(TYPE_MISMATCH_ERR);
 }
 function SecurityError() {
-    throw new DOM.DOMException(SECURITY_ERR);
+    throw new wrapper.DOMException(SECURITY_ERR);
 }
 function NetworkError() {
-    throw new DOM.DOMException(NETWORK_ERR);
+    throw new wrapper.DOMException(NETWORK_ERR);
 }
 function AbortError() {
-    throw new DOM.DOMException(ABORT_ERR);
+    throw new wrapper.DOMException(ABORT_ERR);
 }
 function UrlMismatchError() {
-    throw new DOM.DOMException(URL_MISMATCH_ERR);
+    throw new wrapper.DOMException(URL_MISMATCH_ERR);
 }
 function QuotaExceededError() {
-    throw new DOM.DOMException(QUOTA_EXCEEDED_ERR);
+    throw new wrapper.DOMException(QUOTA_EXCEEDED_ERR);
 }
 function TimeoutError() {
-    throw new DOM.DOMException(TIMEOUT_ERR);
+    throw new wrapper.DOMException(TIMEOUT_ERR);
 }
 function InvalidNodeTypeError() {
-    throw new DOM.DOMException(INVALID_NODE_TYPE_ERR);
+    throw new wrapper.DOMException(INVALID_NODE_TYPE_ERR);
 }
 function DataCloneError() {
-    throw new DOM.DOMException(DATA_CLONE_ERR);
+    throw new wrapper.DOMException(DATA_CLONE_ERR);
 }
 

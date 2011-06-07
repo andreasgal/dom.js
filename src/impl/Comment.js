@@ -1,5 +1,5 @@
-const comment = (function() {
-    function comment(doc, data) {
+defineLazyProperty(impl, "Comment", function() {
+    function Comment(doc, data) {
 	this.ownerDocument = doc;
 	this._data = data;
     }
@@ -11,7 +11,7 @@ const comment = (function() {
 				      this.ownerDocument.mutateValue(this);
 			      });
     
-    comment.prototype = Object.create(leaf.prototype, {
+    Comment.prototype = Object.create(impl.Leaf.prototype, {
 	nodeType: constant(COMMENT_NODE),
 	nodeName: constant("#comment"),
 	nodeValue: nodeValue,
@@ -19,5 +19,5 @@ const comment = (function() {
 	data: nodeValue,
     });
     
-    return comment;
-}());
+    return Comment;
+});

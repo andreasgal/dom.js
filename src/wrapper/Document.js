@@ -1,11 +1,16 @@
+// The document object is the entry point to the entire DOM
+defineLazyProperty(global, "document", function() {
+    return wrap(new impl.DOMImplementation().createHTMLDocument(""));
+});
+
 defineLazyProperty(global, "Document", function() {
-    return DOM.Document.interface;
+    return wrapper.Document.interface;
 }, true);
 
-defineLazyProperty(DOM, "Document", function() {
+defineLazyProperty(wrapper, "Document", function() {
     return implementIDLInterface({
         name: "Document",
-        superclass: DOM.Node,
+        superclass: wrapper.Node,
 	members: {
 	    // readonly attribute DOMImplementation implementation;
 	    get implementation() { return wrap(unwrap(this).implementation); },

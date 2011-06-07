@@ -1,8 +1,8 @@
 defineLazyProperty(global, "DOMImplementation", function() {
-    return DOM.DOMImplementation.interface;
+    return wrapper.DOMImplementation.interface;
 }, true);
 
-defineLazyProperty(DOM, "DOMImplementation", function() {
+defineLazyProperty(wrapper, "DOMImplementation", function() {
     return implementIDLInterface({
         name: "DOMImplementation",
 	members: {

@@ -6,10 +6,10 @@
 // this framework.
 
 defineLazyProperty(global, "NodeList", function() {
-    return DOM.NodeList.interface;
+    return wrapper.NodeList.interface;
 }, true);
 
-defineLazyProperty(DOM, "NodeList", function() {
+defineLazyProperty(wrapper, "NodeList", function() {
     // This maps the localprops object internal to ArrayNodeList() to
     // the corresponding array.  Strangely, we don't map the proxy
     // object itself to the array because when we need to use the map,

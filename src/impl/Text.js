@@ -1,7 +1,7 @@
-const text = (function() {
-    function text(doc, data) {
+defineLazyProperty(impl, "Text", function() {
+    function Text(doc, data) {
 	this.ownerDocument = doc;
-	this.data = _data;
+	this._data = data;
     }
     
     var nodeValue = attribute(function() { return this._data; },
@@ -11,7 +11,7 @@ const text = (function() {
 				      this.ownerDocument.mutateValue(this);
 			      });
     
-    text.prototype = Object.create(leaf.prototype, {
+    Text.prototype = Object.create(impl.Leaf.prototype, {
 	nodeType: constant(TEXT_NODE),
 	nodeName: constant("#text"),
 	// These three attributes are all the same.
@@ -22,5 +22,5 @@ const text = (function() {
 	data: nodeValue,
     });
 
-    return text;
-}());
+    return Text;
+});

@@ -60,29 +60,12 @@ function implementIDLInterface(o) {
     // defined with getters and setters. Methods should be regular properties.
     // This will mean that the members will all be enumerable, configurable
     // and writable (unless there is no setter) as they are supposed to be.
-    // 
-    // While we're at it, we also copy the original version of each member
-    // into the constructor.members object so we can access the original
-    // version of the member even if it has been patched by scripts.
-    constructor.members = {}
     for(let m in members) {
 	// Get the property descriptor of the member
 	let desc = O.getOwnPropertyDescriptor(members, m);
 
 	// Now copy the property to the prototype object
         O.defineProperty(prototype, m, desc);
-
-	// And to the constructor.members object.  But if this members
-	// has a getter and/or a setter, turn them into regular methods
-	if (desc.value) 
-	    O.defineProperty(constructor.members, m, desc);
-	else {
-	    let name = m[0].toUpperCase() + substring(m, 1);
-	    if (desc.get)
-		constructor.members["get" + name] = desc.get;
-	    if (desc.set)
-		constructor.members["set" + name] = desc.get;
-	}
     }
 
     // If the interface does not already define a toString method, add one.

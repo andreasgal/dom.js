@@ -1,10 +1,8 @@
-// For now, I'm going for DOM Core compatible attributes.
-// XXX Full web compatibility will be ugly; deferred.
 defineLazyProperty(global, "Attr", function() {
-    return DOM.Attr.interface;
+    return wrapper.Attr.interface;
 }, true);
 
-defineLazyProperty(DOM, "Attr", function() {
+defineLazyProperty(wrapper, "Attr", function() {
     return implementIDLInterface({
         name: "Attr",
 	members: {

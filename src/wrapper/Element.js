@@ -1,11 +1,11 @@
 defineLazyProperty(global, "Element", function() {
-    return DOM.Element.interface;
+    return wrapper.Element.interface;
 }, true);
 
-defineLazyProperty(DOM, "Element", function() {
+defineLazyProperty(wrapper, "Element", function() {
     return implementIDLInterface({
         name: "Element",
-        superclass: DOM.Node,
+        superclass: wrapper.Node,
 	members: {
 	    // readonly attribute DOMString? namespaceURI;
 	    //
@@ -179,7 +179,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // child of the context object that is of type Element or
 	    // null if there is no such node.
 	    get firstElementChild() {
-		return unwrap(this).firstElementChild;
+		return wrap(unwrap(this).firstElementChild);
 	    },
 
 	    // readonly attribute Element? lastElementChild;
@@ -188,7 +188,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // child of the context object that is of type Element or
 	    // null if there is no such node.
 	    get lastElementChild() {
-		return unwrap(this).lastElementChild;
+		return wrap(unwrap(this).lastElementChild);
 	    },
 
 	    // readonly attribute Element? previousElementSibling;
@@ -197,7 +197,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // first preceding sibling of the context object that is
 	    // of type Element or null if there is no such node.
 	    get previousElementSibling() {
-		return unwrap(this).previousElementSibling;
+		return wrap(unwrap(this).previousElementSibling);
 	    },
 
 	    // readonly attribute Element? nextElementSibling;
@@ -206,7 +206,7 @@ defineLazyProperty(DOM, "Element", function() {
 	    // following sibling of the context object that is of type
 	    // Element or null if there is no such node.
 	    get nextElementSibling() {
-		return unwrap(this).nextElementSibling;
+		return wrap(unwrap(this).nextElementSibling);
 	    },
 
 	    // readonly attribute unsigned long childElementCount;

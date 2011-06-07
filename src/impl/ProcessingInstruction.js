@@ -1,6 +1,6 @@
-const processinginstruction = (function() {
+defineLazyProperty(impl, "ProcessingInstruction", function() {
 
-    function processinginstruction(doc, target, data) {
+    function ProcessingInstruction(doc, target, data) {
 	this.ownerDocument = doc;
 	this.target = target;
 	this._data = data;
@@ -13,7 +13,7 @@ const processinginstruction = (function() {
 				      this.ownerDocument.mutateValue(this);
 			      });
 
-    processinginstruction.prototype = Object.create(leaf.prototype, {
+    ProcessingInstruction.prototype = Object.create(impl.Leaf.prototype, {
 	nodeType: constant(PROCESSING_INSTRUCTION_NODE),
 	nodeName: attribute(function() { return this.target; }),
 	nodeValue: nodeValue,
@@ -21,5 +21,5 @@ const processinginstruction = (function() {
 	data: nodeValue,
     });
 
-    return processinginstruction;
-}());
+    return ProcessingInstruction;
+});

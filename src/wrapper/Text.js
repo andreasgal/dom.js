@@ -1,12 +1,12 @@
 // The Text interface is a subtype of CharacterData.  It adds three methods.
 defineLazyProperty(global, "Text", function() {
-    return DOM.Text.interface;
+    return wrapper.Text.interface;
 }, true);
 
-defineLazyProperty(DOM, "Text", function() {
+defineLazyProperty(wrapper, "Text", function() {
     return implementIDLInterface({
         name: "Text",
-        superclass: DOM.CharacterData,
+        superclass: wrapper.CharacterData,
 	members: {
 	    // Text splitText(unsigned long offset);
 	    //

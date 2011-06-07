@@ -11,8 +11,8 @@
  * OO syntax of the JS builtins.  Instead of a.map(f), we call map(a, f)
  * for example.
  * 
- * See monkey.js for code that patches all the built-in functions and methods
- * to test whether we avoid using them.
+ * See ../test/monkey.js for code that patches all the built-in
+ * functions and methods to test whether we avoid using them.
  */
 
 

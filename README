@@ -5,22 +5,21 @@ JavaScript DOM implementations exist, none of them are WebIDL-compliant
 example). Also, all other implementations do not provide proper encapsulation.
 The details of the implementation leak through the API.
 
-For full WebIDL compliance the JavaScript engine has to support Proxies
-and weak maps. Firefox/SpiderMonkey support Proxies, but the current
-implementation as of Firefox 4 doesn't bind the receiver object to 'this' in
-handler traps. A series of patches is required to fix this:
+The code uses ES5, Proxies and WeakMaps as well as Spidermonkey features
+such as const, let and destructuring assignment.  It should run in
+Firefox 6.
 
-https://bugzilla.mozilla.org/show_bug.cgi?id=643101
-https://bugzilla.mozilla.org/show_bug.cgi?id=643100
+The Makefile generates dom.js from many smaller files in the src/
+directory. dom.js includes all of the smaller files within one large
+closure so the variables and constants that appear to be global do
+not, in fact, leak into the global scope.
 
-I am trying to coordinate with TC39 to get this change into the Harmony draft
-spec, and I will get the patches into Firefox 5 if that succeeds.
+The src/impl/ directory contains an implementation of the DOM using
+plain JavaScript objects.  By itself, this is not a conforming
+implementation because its internal properties are visible.
 
-The Harmony weak maps proposal is not currently implemented in any browser.
-I have a patch I will try to get into Firefox 5:
-
-https://bugzilla.mozilla.org/show_bug.cgi?id=547941
-
-dom.js is ridicilously incomplete. I am interested in correctness, performance,
-and code quality (in that order). Completeness is not a near or mid-term goal.
-This project is useless for anything but R&D of a self-hosted DOM.
+The src/wrapper/ directory contains wrapper objects that should be
+WebIDL-compliant DOM objects.  Each wrapper object has a corresponding
+implementation object, and a WeakMap maintains the mapping from
+wrappers to implementations so that the wrapper object does not
+require a property that refers to the implementation.

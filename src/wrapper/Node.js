@@ -1,29 +1,11 @@
-// DOM node type constants
-const ELEMENT_NODE = 1;
-const ATTRIBUTE_NODE = 2; // Historical, but we use it in wrap()
-const TEXT_NODE = 3;
-const PROCESSING_INSTRUCTION_NODE = 7;
-const COMMENT_NODE = 8;
-const DOCUMENT_NODE = 9;
-const DOCUMENT_TYPE_NODE = 10;
-const DOCUMENT_FRAGMENT_NODE = 11;
-
-// Constants used in the return value of compareDocumentPosition
-const DOCUMENT_POSITION_DISCONNECTED = 0x01;
-const DOCUMENT_POSITION_PRECEDING = 0x02;
-const DOCUMENT_POSITION_FOLLOWING = 0x04;
-const DOCUMENT_POSITION_CONTAINS = 0x08;
-const DOCUMENT_POSITION_CONTAINED_BY = 0x10;
-const DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20;
-
 defineLazyProperty(global, "Node", function() {
-    return DOM.Node.interface;
+    return wrapper.Node.interface;
 }, true);
 
-defineLazyProperty(DOM, "Node", function() {
+defineLazyProperty(wrapper, "Node", function() {
     return implementIDLInterface({
         name: "Node",
-        superclass: DOM.EventTarget,
+        superclass: wrapper.EventTarget,
         constants: {
             ELEMENT_NODE: ELEMENT_NODE,
             ATTRIBUTE_NODE: 2,         // historical
@@ -128,7 +110,7 @@ defineLazyProperty(DOM, "Node", function() {
 		// can never have kids
 		let impl = unwrap(this);
 		if (!impl._nodelist) {
-		    impl._nodelist = new DOM.NodeList(impl.childNodes);
+		    impl._nodelist = new wrapper.NodeList(impl.childNodes);
 		}
 		return impl._nodelist
 	    },

@@ -1,39 +1,35 @@
-# We need a version of JavaScript that supports WeakMap, Proxy, const and let.
-# Build your own:
-# https://developer.mozilla.org/En/SpiderMonkey/Build_Documentation
-JS = /usr/local/bin/js
-
 FILES= \
 	src/snapshot.js \
+	src/globals.js \
 	src/utils.js \
 	src/interface.js \
 	src/wrapmap.js \
-	src/dom/node.js \
-	src/dom/leaf.js \
-	src/dom/text.js \
-	src/dom/comment.js \
-	src/dom/processinginstruction.js \
-	src/dom/element.js \
-	src/dom/attr.js \
-	src/dom/document.js \
-	src/dom/documentfragment.js \
-	src/dom/documenttype.js \
-	src/dom/domimplementation.js \
-	src/DOMException.js \
-	src/EventTarget.js \
-	src/Node.js \
-	src/Element.js \
-	src/Attr.js \
-	src/Document.js \
-	src/DOMImplementation.js \
-	src/CharacterData.js \
-	src/Comment.js \
-	src/Text.js \
-	src/ProcessingInstruction.js \
-	src/NodeList.js \
-	src/boot.js
-
-#	src/peek.js
+	src/xmlnames.js \
+	src/impl/Node.js \
+	src/impl/Leaf.js \
+	src/impl/Text.js \
+	src/impl/Comment.js \
+	src/impl/ProcessingInstruction.js \
+	src/impl/Element.js \
+	src/impl/Attr.js \
+	src/impl/Document.js \
+	src/impl/DocumentFragment.js \
+	src/impl/DocumentType.js \
+	src/impl/DOMImplementation.js \
+	src/wrapper/DOMException.js \
+	src/wrapper/EventTarget.js \
+	src/wrapper/Node.js \
+	src/wrapper/Element.js \
+	src/wrapper/Attr.js \
+	src/wrapper/Document.js \
+	src/wrapper/DOMImplementation.js \
+	src/wrapper/CharacterData.js \
+	src/wrapper/Comment.js \
+	src/wrapper/Text.js \
+	src/wrapper/ProcessingInstruction.js \
+	src/wrapper/DocumentType.js \
+	src/wrapper/DocumentFragment.js \
+	src/wrapper/NodeList.js \
 
 dom.js: LICENSE ${FILES} test/monkey.js
 # Output preamble

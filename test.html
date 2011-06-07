@@ -3,5 +3,31 @@
 <script src="dom.js" type="application/javascript; version=1.8">
 </script>
 <script>
-console.log(document);
+try {
+    console.log(document);
+    console.log(document.nodeType, document.nodeName, document.nodeValue);
+    var doctype = document.firstChild;
+    console.log(doctype);
+    console.log(doctype.nodeType, doctype.nodeName, doctype.nodeValue);
+    var html = doctype.nextSibling;
+    console.log(html);
+    console.log(html.nodeType, html.nodeName, html.nodeValue);
+    var head = html.firstElementChild;
+    console.log(head);
+    console.log(head.nodeType, head.nodeName, head.nodeValue, head.tagName);
+    var title = head.lastChild;
+    console.log(title);
+    console.log(title.nodeType, title.nodeName, title.nodeValue, title.tagName);
+    var text = title.firstChild;
+    console.log(text);
+    console.log(text.nodeType, text.nodeName, text.nodeValue, text.data);
+    var body = head.nextSibling;
+    console.log(body);
+    console.log(body.nodeType, body.nodeName, body.nodeValue, body.tagName);
+}
+catch(e) {
+    console.log(e.name, e.message);
+    var stack = e.stack.split("\n");
+    stack.forEach(function(frame) { console.log(frame); });
+}
 </script>

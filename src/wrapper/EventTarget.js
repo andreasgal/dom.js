@@ -1,8 +1,8 @@
 defineLazyProperty(global, "EventTarget", function() {
-    return DOM.EventTarget.interface;
+    return wrapper.EventTarget.interface;
 }, true);
 
-defineLazyProperty(DOM, "EventTarget", function() {
+defineLazyProperty(wrapper, "EventTarget", function() {
     return implementIDLInterface({
         name: "EventTarget",
         members: {
