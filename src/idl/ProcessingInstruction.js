@@ -6,16 +6,16 @@ defineLazyProperty(idl, "ProcessingInstruction", function() {
     return implementIDLInterface({
         name: "ProcessingInstruction",
         superclass: idl.Node,
-	constructor: function ProcessingInstruction() {},
-	members: {
-	    // readonly attribute DOMString target
-	    get target() { return unwrap(this).target },
+        constructor: function ProcessingInstruction() {},
+        members: {
+            // readonly attribute DOMString target
+            get target() { return unwrap(this).target },
 
-	    // attribute DOMString data;
-	    get data() { return unwrap(this).data; },
-	    set data(newval) {
-		unwrap(this).data = String(newval);
-	    },
-	}
+            // attribute DOMString data;
+            get data() { return unwrap(this).data; },
+            set data(newval) {
+                unwrap(this).data = String(newval);
+            },
+        }
     });
 });

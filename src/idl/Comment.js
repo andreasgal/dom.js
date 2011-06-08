@@ -8,6 +8,6 @@ defineLazyProperty(idl, "Comment", function() {
     return implementIDLInterface({
         name: "Comment",
         superclass: idl.CharacterData,
-	members: {}
+        members: {}
     });
 });

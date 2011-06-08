@@ -6,6 +6,6 @@ defineLazyProperty(idl, "DocumentFragment", function() {
     return implementIDLInterface({
         name: "DocumentFragment",
         superclass: idl.Node,
-	members: {}
+        members: {}
     });
 });

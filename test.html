@@ -24,6 +24,19 @@ try {
     var body = head.nextSibling;
     console.log(body);
     console.log(body.nodeType, body.nodeName, body.nodeValue, body.tagName);
+    
+    body.setAttribute("id", "body");
+    console.log(document.getElementById("body").tagName);
+
+    head.setAttribute("id", "body");
+    console.log(document.getElementById("body").tagName);
+
+    title.setAttribute("id", "body");
+    console.log(document.getElementById("body").tagName);
+
+    html.setAttribute("id", "body");
+    console.log(document.getElementById("body").tagName);
+
 }
 catch(e) {
     console.log(e.name, e.message);

@@ -1,24 +1,24 @@
 // This grammar is from the XML and XML Namespace specs. It specifies whether
 // a string (such as an element or attribute name) is a valid Name or QName.
 // 
-// Name	           ::=   	NameStartChar (NameChar)*
-// NameStartChar   ::=   	":" | [A-Z] | "_" | [a-z] |
+// Name            ::=          NameStartChar (NameChar)*
+// NameStartChar   ::=          ":" | [A-Z] | "_" | [a-z] |
 //                              [#xC0-#xD6] | [#xD8-#xF6] | [#xF8-#x2FF] |
-// 				[#x370-#x37D] | [#x37F-#x1FFF] |
-// 				[#x200C-#x200D] | [#x2070-#x218F] |
-// 				[#x2C00-#x2FEF] | [#x3001-#xD7FF] |
-// 				[#xF900-#xFDCF] | [#xFDF0-#xFFFD] |
-// 				[#x10000-#xEFFFF]
+//                              [#x370-#x37D] | [#x37F-#x1FFF] |
+//                              [#x200C-#x200D] | [#x2070-#x218F] |
+//                              [#x2C00-#x2FEF] | [#x3001-#xD7FF] |
+//                              [#xF900-#xFDCF] | [#xFDF0-#xFFFD] |
+//                              [#x10000-#xEFFFF]
 //
-// NameChar	   ::=   	NameStartChar | "-" | "." | [0-9] |
+// NameChar        ::=          NameStartChar | "-" | "." | [0-9] |
 //                                 #xB7 | [#x0300-#x036F] | [#x203F-#x2040]
 //
-// QName	   ::=   	PrefixedName| UnprefixedName
-// PrefixedName	   ::=   	Prefix ':' LocalPart
-// UnprefixedName  ::=   	LocalPart
-// Prefix	   ::=   	NCName
-// LocalPart	   ::=   	NCName
-// NCName	   ::=   	Name - (Char* ':' Char*) 
+// QName           ::=          PrefixedName| UnprefixedName
+// PrefixedName    ::=          Prefix ':' LocalPart
+// UnprefixedName  ::=          LocalPart
+// Prefix          ::=          NCName
+// LocalPart       ::=          NCName
+// NCName          ::=          Name - (Char* ':' Char*) 
 //                              # An XML Name, minus the ":"        
 //
 const [isValidName, isValidQName] = (function() {
@@ -36,9 +36,9 @@ const [isValidName, isValidQName] = (function() {
     let namestartchars = ncnamestartchars + ":";
     let namechars = ncnamechars + ":";
     let name = new RegExp("^[" + namestartchars + "]" +
-			  "[" + namechars + "]*$");
+                          "[" + namechars + "]*$");
     let qname = new RegExp("^(" + ncname + "|" +
-			   ncname + ":" + ncname + ")$");
+                           ncname + ":" + ncname + ")$");
 
     // XML says that these characters are also legal:
     // [#x10000-#xEFFFF].  So if the patterns above fail, and the
@@ -61,35 +61,35 @@ const [isValidName, isValidQName] = (function() {
 
     // Build another set of regexps that include surrogates
     let surrogatename = new RegExp("^[" + namestartchars + "]" +
-				   "[" + namechars + "]*$");
+                                   "[" + namechars + "]*$");
     let surrogateqname = new RegExp("^(" + ncname + "|" +
-				    ncname + ":" + ncname + ")$");
+                                    ncname + ":" + ncname + ")$");
 
     function isValidName(s) {
-	if (simplename.test(s)) return true;  // Plain ASCII
-	if (name.test(s)) return true;        // Unicode BMP
+        if (simplename.test(s)) return true;  // Plain ASCII
+        if (name.test(s)) return true;        // Unicode BMP
 
-	// Maybe the tests above failed because s includes surrogate pairs
-	// Most likely, though, they failed for some more basic syntax problem
-	if (!hassurrogates.test(s)) return false;
+        // Maybe the tests above failed because s includes surrogate pairs
+        // Most likely, though, they failed for some more basic syntax problem
+        if (!hassurrogates.test(s)) return false;
 
-	// Is the string a valid name if we allow surrogates?
-	if (!surrogatename.test(s)) return false;
+        // Is the string a valid name if we allow surrogates?
+        if (!surrogatename.test(s)) return false;
 
-	// Finally, are the surrogates all correctly paired up?
-	let chars = s.match(surrogatechars), pairs = s.match(surrogatepairs);
-	return pairs != null && 2*pairs.length === chars.length;
+        // Finally, are the surrogates all correctly paired up?
+        let chars = s.match(surrogatechars), pairs = s.match(surrogatepairs);
+        return pairs != null && 2*pairs.length === chars.length;
     }
 
 
     function isValidQName(s) {
-	if (simpleqname.test(s)) return true;  // Plain ASCII
-	if (qname.test(s)) return true;        // Unicode BMP
-	
-	if (!hassurrogates.test(s)) return false;
-	if (!surrogateqname.test(s)) return false;
-	let chars = s.match(surrogatechars), pairs = s.match(surrogatepairs);
-	return pairs != null && 2*pairs.length === chars.length;
+        if (simpleqname.test(s)) return true;  // Plain ASCII
+        if (qname.test(s)) return true;        // Unicode BMP
+        
+        if (!hassurrogates.test(s)) return false;
+        if (!surrogateqname.test(s)) return false;
+        let chars = s.match(surrogatechars), pairs = s.match(surrogatepairs);
+        return pairs != null && 2*pairs.length === chars.length;
     }
 
     return [isValidName, isValidQName];

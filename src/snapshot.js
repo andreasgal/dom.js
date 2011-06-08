@@ -21,15 +21,16 @@
 // important. Later, we might come back and optimize this to just take
 // copies of the stuff we actually use.
 
-function shallow_frozen_copy(o) {
-    let r = {};
-    Object.getOwnPropertyNames(o).forEach(function(n) {
-	Object.defineProperty(r, n, Object.getOwnPropertyDescriptor(o, n));
-    });
-    return Object.freeze(r);
-}
-
 const
+    shallow_frozen_copy = function(o) {
+        let r = {};
+        Object.getOwnPropertyNames(o).forEach(function(n) {
+            Object.defineProperty(r, n, Object.getOwnPropertyDescriptor(o, n));
+        });
+        return Object.freeze(r);
+    },
+
+
     // Copy the original state of constructor functions
     // This is not a complete list. I've left out error types I'm unlikely
     // to ever throw.
@@ -108,6 +109,7 @@ const
     push = A.push,
     pop = A.pop,
     reduce = A.reduce,
+    sort = A.sort,
     splice = A.splice,
 
     // Ditto for the String generic functions

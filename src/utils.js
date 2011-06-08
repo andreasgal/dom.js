@@ -23,9 +23,9 @@ function warn(msg) {
 // the element it is called on or the recursion won't work correctly.
 function recursive(f) {
     return function recurse(node) {
-	f(node);
-	for(let i = 0, n = node.childNodes.length;  i < n; i++) 
-	    recurse(node.childNodes[i]);
+        f(node);
+        for(let i = 0, n = node.childNodes.length;  i < n; i++) 
+            recurse(node.childNodes[i]);
     };
 }
 
@@ -34,9 +34,9 @@ function recursive(f) {
 function constant(v) { return { value: v }; }
 function attribute(get, set) {
     if (set) 
-	return { get: get, set: set};
+        return { get: get, set: set};
     else 
-	return { get: get };
+        return { get: get };
 }
 
 // some functions that do very simple stuff
@@ -100,4 +100,12 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
         enumerable: !hidden,
         configurable: true
     });
+}
+
+// Compare two nodes based on their document order. This function is intended
+// to be passed to sort(). Assumes that the array being sorted does not
+// contain duplicates.  And that all nodes are connected and comparable.
+// Clever code by ppk via jeresig.
+function documentOrder(n,m) {
+    return 3 - (n.compareDocumentPosition(m) & 6); 
 }

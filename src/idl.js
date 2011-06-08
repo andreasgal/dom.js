@@ -20,8 +20,8 @@ function undef2null(x) { return x === undefined ? null : x; }
 // But if it is [TreatNullAs=EmptyString] DOMString then use this function.
 function StringOrEmpty(x) {
     return (x === null) 
-	? ""
-	: String(x);
+        ? ""
+        : String(x);
 }
 
 // The DOM has some nested type hierarchies and WebIDL has specific
@@ -87,10 +87,10 @@ function implementIDLInterface(o) {
     // This will mean that the members will all be enumerable, configurable
     // and writable (unless there is no setter) as they are supposed to be.
     for(let m in members) {
-	// Get the property descriptor of the member
-	let desc = O.getOwnPropertyDescriptor(members, m);
+        // Get the property descriptor of the member
+        let desc = O.getOwnPropertyDescriptor(members, m);
 
-	// Now copy the property to the prototype object
+        // Now copy the property to the prototype object
         O.defineProperty(prototype, m, desc);
     }
 
@@ -98,7 +98,7 @@ function implementIDLInterface(o) {
     // This will help to make debugging easier.
     // XXX: I'm not sure if this is legal according to WebIDL and DOM Core.
     if (!hasOwnProperty(members, "toString")) {
-	prototype.toString = function() { return "[object " + name + "]"; };
+        prototype.toString = function() { return "[object " + name + "]"; };
     }
 
     // Finally, return the constructor

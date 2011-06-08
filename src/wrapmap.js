@@ -24,65 +24,63 @@ const [unwrap, wrap] = (function() {
     // null, undefined, a primitive, or an object with no mapping.
     // This provides basic error checking for methods like Node.appendChild().
     function unwrap(n) {
-	if (n === null) return null;
+        // Simple optimization
+        // If I ever remove or alter mappings, then this won't be valid anymore.
+        if (n === lastkey) return lastvalue;
 
-	// Simple optimization
-	// If I ever remove or alter mappings, then this won't be valid anymore.
-	if (n === lastkey) return lastvalue;
+        try {
+            let impl = wmget(nodes, n);
 
-	try {
-	    let impl = wmget(nodes, n);
+            // This happens if someone passes a bogus object to 
+            // appendChild, for example. 
+            if (!impl) NotFoundError();
 
-	    // This happens if someone passes a bogus object to 
-	    // appendChild, for example. 
-	    if (!impl) NotFoundError();
-
-	    lastkey = n;
-	    lastvalue = impl;
-	    return impl;
-	}
-	catch(e) {
-	    // If n was null or not an object the WeakMap will raise a TypeError
-	    // TypeError might be the best thing to propagate, but DOM precedent
-	    // seems to be to do this:
-	    NotFoundError();
-	}
+            lastkey = n;
+            lastvalue = impl;
+            return impl;
+        }
+        catch(e) {
+            // If n was null or not an object the WeakMap will raise a TypeError
+            // TypeError might be the best thing to propagate, but DOM precedent
+            // seems to be to do this:
+            NotFoundError();
+        }
     }
 
     // Return the interface object (a DOM node) for the implementation node n,
     // creating it if necessary
     function wrap(n) {
-	if (n === null) return null;
+        if (n === null) return null;
 
-	if (!n._idl) {
-	    switch(n.nodeType) {
-	    case ELEMENT_NODE:
-		n._idl = new idl.Element();
-		break;
-	    case TEXT_NODE:
-		n._idl = new idl.Text();
-		break;
-	    case COMMENT_NODE:
-		n._idl = new idl.Comment();
-		break;
-	    case PROCESSING_INSTRUCTION_NODE:
-		n._idl = new idl.ProcessingInstruction();
-		break;
-	    case DOCUMENT_NODE:
-		n._idl = new idl.Document();
-		break;
-	    case DOCUMENT_FRAGMENT_NODE:
-		n._idl = new idl.DocumentFragment();
-		break;
-	    case DOCUMENT_TYPE_NODE:
-		n._idl = new idl.DocumentType();
-		break;
-	    }
+        if (!n._idl) {
+            switch(n.nodeType) {
+            case ELEMENT_NODE:
+                n._idl = new idl.Element();
+                break;
+            case TEXT_NODE:
+                n._idl = new idl.Text();
+                break;
+            case COMMENT_NODE:
+                n._idl = new idl.Comment();
+                break;
+            case PROCESSING_INSTRUCTION_NODE:
+                n._idl = new idl.ProcessingInstruction();
+                break;
+            case DOCUMENT_NODE:
+                n._idl = new idl.Document();
+                break;
+            case DOCUMENT_FRAGMENT_NODE:
+                n._idl = new idl.DocumentFragment();
+                break;
+            case DOCUMENT_TYPE_NODE:
+                n._idl = new idl.DocumentType();
+                break;
+            }
 
-	    wmset(nodes, n._idl, n);
-	}
+            wmset(nodes, n._idl, n);
+        }
 
-	return n._idl;
+        return n._idl;
     }
 
     return [unwrap, wrap];
