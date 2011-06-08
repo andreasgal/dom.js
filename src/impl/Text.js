@@ -11,7 +11,7 @@ defineLazyProperty(impl, "Text", function() {
                                       this.root.mutateValue(this);
                               });
     
-    Text.prototype = Object.create(impl.Leaf.prototype, {
+    Text.prototype = Object.create(impl.CharacterData.prototype, {
         nodeType: constant(TEXT_NODE),
         nodeName: constant("#text"),
         // These three attributes are all the same.

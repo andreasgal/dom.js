@@ -7,6 +7,7 @@ FILES= \
 	src/xmlnames.js \
 	src/impl/Node.js \
 	src/impl/Leaf.js \
+	src/impl/CharacterData.js \
 	src/impl/Text.js \
 	src/impl/Comment.js \
 	src/impl/ProcessingInstruction.js \

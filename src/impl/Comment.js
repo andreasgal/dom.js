@@ -11,7 +11,7 @@ defineLazyProperty(impl, "Comment", function() {
                                       this.root.mutateValue(this);
                               });
     
-    Comment.prototype = Object.create(impl.Leaf.prototype, {
+    Comment.prototype = Object.create(impl.CharacterData.prototype, {
         nodeType: constant(COMMENT_NODE),
         nodeName: constant("#comment"),
         nodeValue: nodeValue,
