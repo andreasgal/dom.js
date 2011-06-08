@@ -1,11 +1,11 @@
 defineLazyProperty(global, "DocumentType", function() {
-    return iface.DocumentType.publicInterface;
+    return idl.DocumentType.publicInterface;
 }, true);
 
-defineLazyProperty(iface, "DocumentType", function() {
+defineLazyProperty(idl, "DocumentType", function() {
     return implementIDLInterface({
         name: "DocumentType",
-        superclass: iface.Node,
+        superclass: idl.Node,
 	members: {
 	    get name() { return unwrap(this).name; },
 	    get publicId() { return unwrap(this).publicId; },

@@ -16,20 +16,20 @@ FILES= \
 	src/impl/DocumentFragment.js \
 	src/impl/DocumentType.js \
 	src/impl/DOMImplementation.js \
-	src/iface/DOMException.js \
-	src/iface/EventTarget.js \
-	src/iface/Node.js \
-	src/iface/Element.js \
-	src/iface/Attr.js \
-	src/iface/Document.js \
-	src/iface/DOMImplementation.js \
-	src/iface/CharacterData.js \
-	src/iface/Comment.js \
-	src/iface/Text.js \
-	src/iface/ProcessingInstruction.js \
-	src/iface/DocumentType.js \
-	src/iface/DocumentFragment.js \
-	src/iface/NodeList.js \
+	src/idl/DOMException.js \
+	src/idl/EventTarget.js \
+	src/idl/Node.js \
+	src/idl/Element.js \
+	src/idl/Attr.js \
+	src/idl/Document.js \
+	src/idl/DOMImplementation.js \
+	src/idl/CharacterData.js \
+	src/idl/Comment.js \
+	src/idl/Text.js \
+	src/idl/ProcessingInstruction.js \
+	src/idl/DocumentType.js \
+	src/idl/DocumentFragment.js \
+	src/idl/NodeList.js \
 
 dom.js: LICENSE ${FILES} test/monkey.js
 # Output preamble

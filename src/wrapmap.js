@@ -4,7 +4,7 @@
 // (with a capital N) are the public objects that implement DOM
 // interfaces and do not have any properties other than the accessor
 // properties and methods defined by the DOM.  They are implemented by 
-// the files in iface/*
+// the files in idl/*
 //
 // Every Node must have a node to hold its actual data.
 // But nodes can exist without any corresponding Node: Nodes are created
@@ -54,35 +54,35 @@ const [unwrap, wrap] = (function() {
     function wrap(n) {
 	if (n === null) return null;
 
-	if (!n._iface) {
+	if (!n._idl) {
 	    switch(n.nodeType) {
 	    case ELEMENT_NODE:
-		n._iface = new iface.Element();
+		n._idl = new idl.Element();
 		break;
 	    case TEXT_NODE:
-		n._iface = new iface.Text();
+		n._idl = new idl.Text();
 		break;
 	    case COMMENT_NODE:
-		n._iface = new iface.Comment();
+		n._idl = new idl.Comment();
 		break;
 	    case PROCESSING_INSTRUCTION_NODE:
-		n._iface = new iface.ProcessingInstruction();
+		n._idl = new idl.ProcessingInstruction();
 		break;
 	    case DOCUMENT_NODE:
-		n._iface = new iface.Document();
+		n._idl = new idl.Document();
 		break;
 	    case DOCUMENT_FRAGMENT_NODE:
-		n._iface = new iface.DocumentFragment();
+		n._idl = new idl.DocumentFragment();
 		break;
 	    case DOCUMENT_TYPE_NODE:
-		n._iface = new iface.DocumentType();
+		n._idl = new idl.DocumentType();
 		break;
 	    }
 
-	    wmset(nodes, n._iface, n);
+	    wmset(nodes, n._idl, n);
 	}
 
-	return n._iface;
+	return n._idl;
     }
 
     return [unwrap, wrap];

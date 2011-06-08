@@ -1,8 +1,8 @@
 defineLazyProperty(global, "DOMImplementation", function() {
-    return iface.DOMImplementation.publicInterface;
+    return idl.DOMImplementation.publicInterface;
 }, true);
 
-defineLazyProperty(iface, "DOMImplementation", function() {
+defineLazyProperty(idl, "DOMImplementation", function() {
     return implementIDLInterface({
         name: "DOMImplementation",
 	members: {

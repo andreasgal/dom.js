@@ -4,13 +4,13 @@ defineLazyProperty(global, "document", function() {
 });
 
 defineLazyProperty(global, "Document", function() {
-    return iface.Document.publicInterface;
+    return idl.Document.publicInterface;
 }, true);
 
-defineLazyProperty(iface, "Document", function() {
+defineLazyProperty(idl, "Document", function() {
     return implementIDLInterface({
         name: "Document",
-        superclass: iface.Node,
+        superclass: idl.Node,
 	members: {
 	    // readonly attribute DOMImplementation implementation;
 	    get implementation() { return wrap(unwrap(this).implementation); },

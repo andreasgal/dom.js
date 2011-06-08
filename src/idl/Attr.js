@@ -1,8 +1,8 @@
 defineLazyProperty(global, "Attr", function() {
-    return iface.Attr.publicInterface;
+    return idl.Attr.publicInterface;
 }, true);
 
-defineLazyProperty(iface, "Attr", function() {
+defineLazyProperty(idl, "Attr", function() {
     return implementIDLInterface({
         name: "Attr",
 	members: {
