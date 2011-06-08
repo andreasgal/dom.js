@@ -1,13 +1,13 @@
 // The comment interface is a subtype of CharacterData.
 // It does not add any new constants or members.
 defineLazyProperty(global, "Comment", function() {
-    return wrapper.Comment.interface;
+    return iface.Comment.publicInterface;
 }, true);
 
-defineLazyProperty(wrapper, "Comment", function() {
+defineLazyProperty(iface, "Comment", function() {
     return implementIDLInterface({
         name: "Comment",
-        superclass: wrapper.CharacterData,
+        superclass: iface.CharacterData,
 	members: {}
     });
 });

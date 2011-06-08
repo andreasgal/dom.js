@@ -2,7 +2,7 @@ FILES= \
 	src/snapshot.js \
 	src/globals.js \
 	src/utils.js \
-	src/interface.js \
+	src/idl.js \
 	src/wrapmap.js \
 	src/xmlnames.js \
 	src/impl/Node.js \
@@ -16,20 +16,20 @@ FILES= \
 	src/impl/DocumentFragment.js \
 	src/impl/DocumentType.js \
 	src/impl/DOMImplementation.js \
-	src/wrapper/DOMException.js \
-	src/wrapper/EventTarget.js \
-	src/wrapper/Node.js \
-	src/wrapper/Element.js \
-	src/wrapper/Attr.js \
-	src/wrapper/Document.js \
-	src/wrapper/DOMImplementation.js \
-	src/wrapper/CharacterData.js \
-	src/wrapper/Comment.js \
-	src/wrapper/Text.js \
-	src/wrapper/ProcessingInstruction.js \
-	src/wrapper/DocumentType.js \
-	src/wrapper/DocumentFragment.js \
-	src/wrapper/NodeList.js \
+	src/iface/DOMException.js \
+	src/iface/EventTarget.js \
+	src/iface/Node.js \
+	src/iface/Element.js \
+	src/iface/Attr.js \
+	src/iface/Document.js \
+	src/iface/DOMImplementation.js \
+	src/iface/CharacterData.js \
+	src/iface/Comment.js \
+	src/iface/Text.js \
+	src/iface/ProcessingInstruction.js \
+	src/iface/DocumentType.js \
+	src/iface/DocumentFragment.js \
+	src/iface/NodeList.js \
 
 dom.js: LICENSE ${FILES} test/monkey.js
 # Output preamble

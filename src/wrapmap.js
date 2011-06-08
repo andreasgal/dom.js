@@ -4,7 +4,7 @@
 // (with a capital N) are the public objects that implement DOM
 // interfaces and do not have any properties other than the accessor
 // properties and methods defined by the DOM.  They are implemented by 
-// the files in wrapper/*
+// the files in iface/*
 //
 // Every Node must have a node to hold its actual data.
 // But nodes can exist without any corresponding Node: Nodes are created
@@ -54,35 +54,35 @@ const [unwrap, wrap] = (function() {
     function wrap(n) {
 	if (n === null) return null;
 
-	if (!n._wrapper) {
+	if (!n._iface) {
 	    switch(n.nodeType) {
 	    case ELEMENT_NODE:
-		n._wrapper = new wrapper.Element();
+		n._iface = new iface.Element();
 		break;
 	    case TEXT_NODE:
-		n._wrapper = new wrapper.Text();
+		n._iface = new iface.Text();
 		break;
 	    case COMMENT_NODE:
-		n._wrapper = new wrapper.Comment();
+		n._iface = new iface.Comment();
 		break;
 	    case PROCESSING_INSTRUCTION_NODE:
-		n._wrapper = new wrapper.ProcessingInstruction();
+		n._iface = new iface.ProcessingInstruction();
 		break;
 	    case DOCUMENT_NODE:
-		n._wrapper = new wrapper.Document();
+		n._iface = new iface.Document();
 		break;
 	    case DOCUMENT_FRAGMENT_NODE:
-		n._wrapper = new wrapper.DocumentFragment();
+		n._iface = new iface.DocumentFragment();
 		break;
 	    case DOCUMENT_TYPE_NODE:
-		n._wrapper = new wrapper.DocumentType();
+		n._iface = new iface.DocumentType();
 		break;
 	    }
 
-	    wmset(nodes, n._wrapper, n);
+	    wmset(nodes, n._iface, n);
 	}
 
-	return n._wrapper;
+	return n._iface;
     }
 
     return [unwrap, wrap];

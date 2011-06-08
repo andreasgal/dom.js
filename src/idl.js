@@ -1,3 +1,29 @@
+// This file defines functions for satisfying the requirements of WebIDL
+
+
+// WebIDL requires value conversions in various places.
+
+// Convert x to an unsigned long and return it
+// WebIDL currently says to use ES ToUint32() unless there is a [Clamp]
+// attribute on the operation.  We can invoke the ToUint32 operation 
+// with the >>> operator.
+//
+function toULong(x) {
+    return x >>> 0;  // The >>> operator does ToUint32
+}
+
+function undef2null(x) { return x === undefined ? null : x; }
+
+// Convert x to a string as with the String() conversion function.
+// But if x is null, return the empty string insead of "null".
+// If a WebIDL method argument is just DOMString, convert with String()
+// But if it is [TreatNullAs=EmptyString] DOMString then use this function.
+function StringOrEmpty(x) {
+    return (x === null) 
+	? ""
+	: String(x);
+}
+
 // The DOM has some nested type hierarchies and WebIDL has specific
 // requirements about property attributes, etc.  This function defines
 // a new DOM interface, returning a constructor function for internal
@@ -13,7 +39,7 @@
 //    constants    // constants defined by the interface
 //    members      // interface attributes and methods
 //
-// This method returns a constructor object for creating objects that 
+// This function returns a constructor object for creating objects that 
 // implement the interface. It is an internal constructor.  The interface
 // property of the constructor function refers to the public interface
 // object that should be made available as a global property.
@@ -38,7 +64,7 @@ function implementIDLInterface(o) {
 
     // Retain references to the prototype and interface objects for internal use
     constructor.prototype = prototype;
-    constructor["interface"] = interfaceObject
+    constructor.publicInterface = interfaceObject
 
     // WebIDL says that the interface object has this prototype property
     defineHiddenConstantProp(interfaceObject, "prototype", prototype);

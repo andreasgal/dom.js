@@ -1,11 +1,11 @@
 defineLazyProperty(global, "Node", function() {
-    return wrapper.Node.interface;
+    return iface.Node.publicInterface;
 }, true);
 
-defineLazyProperty(wrapper, "Node", function() {
+defineLazyProperty(iface, "Node", function() {
     return implementIDLInterface({
         name: "Node",
-        superclass: wrapper.EventTarget,
+        superclass: iface.EventTarget,
         constants: {
             ELEMENT_NODE: ELEMENT_NODE,
             ATTRIBUTE_NODE: 2,         // historical
@@ -110,7 +110,7 @@ defineLazyProperty(wrapper, "Node", function() {
 		// can never have kids
 		let impl = unwrap(this);
 		if (!impl._nodelist) {
-		    impl._nodelist = new wrapper.NodeList(impl.childNodes);
+		    impl._nodelist = new iface.NodeList(impl.childNodes);
 		}
 		return impl._nodelist
 	    },

@@ -1,14 +1,16 @@
 defineLazyProperty(global, "DOMImplementation", function() {
-    return wrapper.DOMImplementation.interface;
+    return iface.DOMImplementation.publicInterface;
 }, true);
 
-defineLazyProperty(wrapper, "DOMImplementation", function() {
+defineLazyProperty(iface, "DOMImplementation", function() {
     return implementIDLInterface({
         name: "DOMImplementation",
 	members: {
 	    //  boolean hasFeature(DOMString feature,
 	    //                     [TreatNullAs=EmptyString] DOMString version);
-	    hasFeature: function hasFeature(feature, version) { nyi(); },
+	    hasFeature: function hasFeature(feature, version) {
+		return unwrap(this).hasFeature(feature, version);
+	    },
 	    
 	    //  DocumentType createDocumentType(
 	    //             [TreatNullAs=EmptyString] DOMString qualifiedName,
@@ -16,7 +18,9 @@ defineLazyProperty(wrapper, "DOMImplementation", function() {
 	    createDocumentType: function createDocumentType(qname,
 							    publicid,
 							    systemid) {
-		nyi();
+		return wrap(unwrap(this).createDocumentType(qname,
+							    publicid,
+							    systemid));
 	    },
 
 	    //  Document createDocument(
@@ -24,12 +28,7 @@ defineLazyProperty(wrapper, "DOMImplementation", function() {
 	    //             [TreatNullAs=EmptyString] DOMString qualifiedName,
 	    //             DocumentType? doctype);
 	    createDocument: function createDocument(ns, qname, doctype){
-		// XXX: currently all the arguments are ignored
-
-		let tree = new Tree();  // Internal document object
-		let root = tree.root;   // Internal node
-		let doc = wrap(root);   // External Document object
-		return doc;
+		return wrap(unwrap(this).createDocument(ns, qname, doctype));
 	    },
 
 	    // Document createHTMLDocument(DOMString title);	    
@@ -64,26 +63,8 @@ defineLazyProperty(wrapper, "DOMImplementation", function() {
 	    // it to the html element created in the earlier step.
 	    //
 	    // Return doc.
-	    createHTMLDocument: function createHTMLDocument(titleText) {
-		let tree = new Tree();  // Internal document object
-		let root = tree.root;   // Internal node
-		let doc = wrap(root);   // External Document object
-
-		// XXX Or should I do this at the lower level and
-		// not create the external nodes for these?
-		let html = doc.createElement("html"),
-		    head = doc.createElement("head"),
-		    title = doc.createElement("title"),
-		    body = doc.createElement("body"),
-		    text = doc.createTextNode(titleText);
-    
-		title.appendChild(text);
-		head.appendChild(title);
-		html.appendChild(head);
-		html.appendChild(body);
-		doc.appendChild(html);
-
-		return doc;
+	    createHTMLDocument: function createHTMLDocument(title) {
+		return wrap(unwrap(this).createHTMLDocument(title));
 	    },
 	}
     });

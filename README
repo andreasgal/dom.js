@@ -18,8 +18,9 @@ The src/impl/ directory contains an implementation of the DOM using
 plain JavaScript objects.  By itself, this is not a conforming
 implementation because its internal properties are visible.
 
-The src/wrapper/ directory contains wrapper objects that should be
-WebIDL-compliant DOM objects.  Each wrapper object has a corresponding
-implementation object, and a WeakMap maintains the mapping from
-wrappers to implementations so that the wrapper object does not
-require a property that refers to the implementation.
+The src/iface/ directory implements WebIDL-compliant DOM
+interfaces on top of the implementation objects.  Each interface
+object has a corresponding implementation object, and a WeakMap
+maintains the mapping from interfaces to implementations so that the
+interface object does not require a property that refers to the
+implementation.

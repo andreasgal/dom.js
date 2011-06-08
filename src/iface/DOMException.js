@@ -8,10 +8,10 @@
  */
 
 defineLazyProperty(global, "DOMException", function() {
-    return wrapper.DOMException.interface;
+    return iface.DOMException.publicInterface;
 }, true);
 
-defineLazyProperty(wrapper, "DOMException", function() {
+defineLazyProperty(iface, "DOMException", function() {
     const names = [
 	null,  // No error with code 0
         "INDEX_SIZE_ERR",
@@ -126,66 +126,66 @@ defineLazyProperty(wrapper, "DOMException", function() {
 // 
 
 function IndexSizeError() {
-    throw new wrapper.DOMException(INDEX_SIZE_ERR);
+    throw new iface.DOMException(INDEX_SIZE_ERR);
 }
 function HierarchyRequestError() {
-    throw new wrapper.DOMException(HIERARCHY_REQUEST_ERR);
+    throw new iface.DOMException(HIERARCHY_REQUEST_ERR);
 }
 function WrongDocumentError() {
-    throw new wrapper.DOMException(WRONG_DOCUMENT_ERR);
+    throw new iface.DOMException(WRONG_DOCUMENT_ERR);
 }
 function InvalidCharacterError() {
-    throw new wrapper.DOMException(INVALID_CHARACTER_ERR);
+    throw new iface.DOMException(INVALID_CHARACTER_ERR);
 }
 function NoModificationAllowedError() {
-    throw new wrapper.DOMException(NO_MODIFICATION_ALLOWED_ERR);
+    throw new iface.DOMException(NO_MODIFICATION_ALLOWED_ERR);
 }
 function NotFoundError() {
-    throw new wrapper.DOMException(NOT_FOUND_ERR);
+    throw new iface.DOMException(NOT_FOUND_ERR);
 }
 function NotSupportedError() {
-    throw new wrapper.DOMException(NOT_SUPPORTED_ERR);
+    throw new iface.DOMException(NOT_SUPPORTED_ERR);
 }
 function InvalidStateError() {
-    throw new wrapper.DOMException(INVALID_STATE_ERR);
+    throw new iface.DOMException(INVALID_STATE_ERR);
 }
 function SyntaxError() {
-    throw new wrapper.DOMException(SYNTAX_ERR);
+    throw new iface.DOMException(SYNTAX_ERR);
 }
 function InvalidModificationError() {
-    throw new wrapper.DOMException(INVALID_MODIFICATION_ERR);
+    throw new iface.DOMException(INVALID_MODIFICATION_ERR);
 }
 function NamespaceError() {
-    throw new wrapper.DOMException(NAMESPACE_ERR);
+    throw new iface.DOMException(NAMESPACE_ERR);
 }
 function InvalidAccessError() {
-    throw new wrapper.DOMException(INVALID_ACCESS_ERR);
+    throw new iface.DOMException(INVALID_ACCESS_ERR);
 }
 function TypeMismatchError() {
-    throw new wrapper.DOMException(TYPE_MISMATCH_ERR);
+    throw new iface.DOMException(TYPE_MISMATCH_ERR);
 }
 function SecurityError() {
-    throw new wrapper.DOMException(SECURITY_ERR);
+    throw new iface.DOMException(SECURITY_ERR);
 }
 function NetworkError() {
-    throw new wrapper.DOMException(NETWORK_ERR);
+    throw new iface.DOMException(NETWORK_ERR);
 }
 function AbortError() {
-    throw new wrapper.DOMException(ABORT_ERR);
+    throw new iface.DOMException(ABORT_ERR);
 }
 function UrlMismatchError() {
-    throw new wrapper.DOMException(URL_MISMATCH_ERR);
+    throw new iface.DOMException(URL_MISMATCH_ERR);
 }
 function QuotaExceededError() {
-    throw new wrapper.DOMException(QUOTA_EXCEEDED_ERR);
+    throw new iface.DOMException(QUOTA_EXCEEDED_ERR);
 }
 function TimeoutError() {
-    throw new wrapper.DOMException(TIMEOUT_ERR);
+    throw new iface.DOMException(TIMEOUT_ERR);
 }
 function InvalidNodeTypeError() {
-    throw new wrapper.DOMException(INVALID_NODE_TYPE_ERR);
+    throw new iface.DOMException(INVALID_NODE_TYPE_ERR);
 }
 function DataCloneError() {
-    throw new wrapper.DOMException(DATA_CLONE_ERR);
+    throw new iface.DOMException(DATA_CLONE_ERR);
 }
 

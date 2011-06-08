@@ -1,11 +1,11 @@
 defineLazyProperty(global, "CharacterData", function() {
-    return wrapper.CharacterData.interface;
+    return iface.CharacterData.publicInterface;
 }, true);
 
-defineLazyProperty(wrapper, "CharacterData", function() {
+defineLazyProperty(iface, "CharacterData", function() {
     return implementIDLInterface({
         name: "CharacterData",
-        superclass: wrapper.Node,
+        superclass: iface.Node,
 	members: {
 	    // [TreatNullAs=EmptyString] attribute DOMString data;
 	    // The data attribute must return the data of the node, and on

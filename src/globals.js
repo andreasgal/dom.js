@@ -51,5 +51,5 @@ const DATA_CLONE_ERR = 25;
 // Anything I want to define lazily using defineLazyProperty above has
 // to be a property of something; it can't just be a local variable.
 // So these objects are holders for lazy properties.  
-const impl = {};     // implementation construtors defined here
-const wrapper = {};  // wrapper constructors defined here
+const impl = {};       // implementation construtors defined here
+const iface = {};  // interface constructors defined here

@@ -1,11 +1,11 @@
 defineLazyProperty(global, "Element", function() {
-    return wrapper.Element.interface;
+    return iface.Element.publicInterface;
 }, true);
 
-defineLazyProperty(wrapper, "Element", function() {
+defineLazyProperty(iface, "Element", function() {
     return implementIDLInterface({
         name: "Element",
-        superclass: wrapper.Node,
+        superclass: iface.Node,
 	members: {
 	    // readonly attribute DOMString? namespaceURI;
 	    //

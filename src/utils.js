@@ -101,27 +101,3 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
         configurable: true
     });
 }
-
-
-// WebIDL requires value conversions in various places.
-
-// Convert x to an unsigned long and return it
-// WebIDL currently says to use ES ToUint32() unless there is a [Clamp]
-// attribute on the operation.  We can invoke the ToUint32 operation 
-// with the >>> operator.
-//
-function toULong(x) {
-    return x >>> 0;  // The >>> operator does ToUint32
-}
-
-function undef2null(x) { return x === undefined ? null : x; }
-
-// Convert x to a string as with the String() conversion function.
-// But if x is null, return the empty string insead of "null".
-// If a WebIDL method argument is just DOMString, convert with String()
-// But if it is [TreatNullAs=EmptyString] DOMString then use this function.
-function StringOrEmpty(x) {
-    return (x === null) 
-	? ""
-	: String(x);
-}

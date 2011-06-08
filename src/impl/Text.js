@@ -16,7 +16,7 @@ defineLazyProperty(impl, "Text", function() {
 	nodeName: constant("#text"),
 	// These three attributes are all the same.
 	// The data attribute has a [TreatNullAs=EmptyString] but we'll
-	// implement that in the wrapper level
+	// implement that at the interface level
 	nodeValue: nodeValue,
 	textContent: nodeValue,
 	data: nodeValue,

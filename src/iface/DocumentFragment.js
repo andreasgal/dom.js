@@ -1,11 +1,11 @@
 defineLazyProperty(global, "DocumentFragment", function() {
-    return wrapper.DocumentFragment.interface;
+    return iface.DocumentFragment.publicInterface;
 }, true);
 
-defineLazyProperty(wrapper, "DocumentFragment", function() {
+defineLazyProperty(iface, "DocumentFragment", function() {
     return implementIDLInterface({
         name: "DocumentFragment",
-        superclass: wrapper.Node,
+        superclass: iface.Node,
 	members: {}
     });
 });
