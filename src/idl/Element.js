@@ -171,7 +171,9 @@ defineLazyProperty(idl, "Element", function() {
             // collection, rooted at the context object, whose filter
             // matches only elements whose parent is the context
             // object.
-            get children() { nyi(); },
+            get children() {
+                nyi();
+            },
 
             // readonly attribute Element? firstElementChild;
             //

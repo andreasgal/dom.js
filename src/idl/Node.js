@@ -104,15 +104,7 @@ defineLazyProperty(idl, "Node", function() {
             // The childNodes attribute must return a NodeList rooted
             // at the context object matching only children.
             get childNodes() {
-                // This attribute has to return the same value each time
-                // it is accessed, so we must cache. And, it is supposed
-                // to return a valid (empty) NodeList even for nodes that
-                // can never have kids
-                let impl = unwrap(this);
-                if (!impl._nodelist) {
-                    impl._nodelist = new idl.NodeList(impl.childNodes);
-                }
-                return impl._nodelist
+                return wrap(unwrap(this).childNodes, idl.NodeList);
             },
 
             // readonly attribute Node firstChild; 

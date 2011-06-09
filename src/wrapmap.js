@@ -49,32 +49,42 @@ const [unwrap, wrap] = (function() {
 
     // Return the interface object (a DOM node) for the implementation node n,
     // creating it if necessary
-    function wrap(n) {
+    function wrap(n, type) {
         if (n === null) return null;
 
         if (!n._idl) {
-            switch(n.nodeType) {
-            case ELEMENT_NODE:
-                n._idl = new idl.Element();
-                break;
-            case TEXT_NODE:
-                n._idl = new idl.Text();
-                break;
-            case COMMENT_NODE:
-                n._idl = new idl.Comment();
-                break;
-            case PROCESSING_INSTRUCTION_NODE:
-                n._idl = new idl.ProcessingInstruction();
-                break;
-            case DOCUMENT_NODE:
-                n._idl = new idl.Document();
-                break;
-            case DOCUMENT_FRAGMENT_NODE:
-                n._idl = new idl.DocumentFragment();
-                break;
-            case DOCUMENT_TYPE_NODE:
-                n._idl = new idl.DocumentType();
-                break;
+            if (type) {
+                n._idl = new type(n);
+            }
+            else {
+                // If now interface type was explicitly specified, then
+                // we're wrapping a node.
+                switch(n.nodeType) {
+                case ELEMENT_NODE:
+                    n._idl = new idl.Element();
+                    break;
+                case TEXT_NODE:
+                    n._idl = new idl.Text();
+                    break;
+                case COMMENT_NODE:
+                    n._idl = new idl.Comment();
+                    break;
+                case PROCESSING_INSTRUCTION_NODE:
+                    n._idl = new idl.ProcessingInstruction();
+                    break;
+                case DOCUMENT_NODE:
+                    n._idl = new idl.Document();
+                    break;
+                case DOCUMENT_FRAGMENT_NODE:
+                    n._idl = new idl.DocumentFragment();
+                    break;
+                case DOCUMENT_TYPE_NODE:
+                    n._idl = new idl.DocumentType();
+                    break;
+                case ATTRIBUTE_NODE: // Not technically a node type anymore
+                    n._idl = new idl.Attr();
+                    break;
+                }
             }
 
             wmset(nodes, n._idl, n);
