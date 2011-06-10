@@ -226,6 +226,9 @@ defineLazyProperty(impl, "Element", function() {
         getElementsByTagNameNS:
             constant(impl.Document.prototype.getElementsByTagNameNS),
 
+        getElementsByClassName:
+            constant(impl.Document.prototype.getElementsByClassName),
+
     });
 
     return Element;

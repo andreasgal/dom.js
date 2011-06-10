@@ -102,6 +102,7 @@ const
     // name collisions like indexOf, lastIndexOf and slice) can be
     // accessed on the A or S objects.
     concat = A.concat,
+    every = A.every,
     foreach = A.forEach,  // Note lowercase e
     isArray = A.isArray,
     join = A.join,

@@ -225,6 +225,14 @@ defineLazyProperty(impl, "Document", function() {
             return new impl.FilteredElementList(this, filter);
         }),
 
+        getElementsByClassName: constant(function getElementsByClassName(names){
+            names = names.trim();  
+            if (names === "") return []; // Empty node list
+            names = names.split(/\s+/);  // Split on spaces
+            return new impl.FilteredElementList(this, 
+                                           new classNamesElementFilter(names));
+        }),
+
         adoptNode: constant(function(node) {
             if (node.nodeType === DOCUMENT_NODE ||
                 node.nodeType === DOCUMENT_TYPE_NODE) NotSupportedError();
@@ -362,6 +370,51 @@ defineLazyProperty(impl, "Document", function() {
         for(let i = 0, n = kids.length; i < n; i++)
             recursivelySetOwner(kids[i], owner);
     }
+
+
+    // These function return predicates for filtering elements.
+    // They're used by the Document and Element classes for methods like
+    // getElementsByTagName and getElementsByClassName
+
+    function localNameElementFilter(lname) {
+        return function(e) { return e.localName === lname; };
+    }
+
+    function htmlLocalNameElementFilter(lname) {
+        let lclname = toLowerCase(lname);
+        if (lclname === lname)
+            return localNameFilter(lname);
+
+        return function(e) {
+            return e.isHTML
+                ? e.localName === lclname
+                : e.localName === lname;
+        };
+    }
+
+    function namespaceElementFilter(ns) {
+        return function(e) { return e.namespaceURI === ns; };
+    }
+
+    function namespaceLocalNameElementFilter(ns, lname) {
+        return function(e) {
+            return e.namespaceURI === ns && e.localName === lname;
+        };
+    }
+
+    // XXX
+    // Optimize this when I implement classList.
+    function classNamesElementFilter(names) {
+        return function(e) {
+            let classAttr = e.getAttribute("class");
+            if (!classAttr) return false;
+            let classes = classAttr.trim().split(/\s+/);
+            return every(names, function(n) {
+                return A.indexOf(classes, n) !== -1;
+            })
+        }
+    }
+
 
     return Document;
 });

@@ -111,33 +111,3 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
 function documentOrder(n,m) {
     return 3 - (n.compareDocumentPosition(m) & 6); 
 }
-
-// These function return predicates for filtering elements.
-// They're used by the Document and Element classes for methods like
-// getElementsByTagName and getElementsByClassName
-
-function localNameElementFilter(lname) {
-    return function(e) { return e.localName === lname; };
-}
-
-function htmlLocalNameElementFilter(lname) {
-    let lclname = toLowerCase(lname);
-    if (lclname === lname)
-        return localNameFilter(lname);
-
-    return function(e) {
-        return e.isHTML
-            ? e.localName === lclname
-            : e.localName === lname;
-    };
-}
-
-function namespaceElementFilter(ns) {
-    return function(e) { return e.namespaceURI === ns; };
-}
-
-function namespaceLocalNameElementFilter(ns, lname) {
-    return function(e) {
-        return e.namespaceURI === ns && e.localName === lname;
-    };
-}

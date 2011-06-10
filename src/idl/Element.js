@@ -166,8 +166,9 @@ defineLazyProperty(idl, "Element", function() {
             //
             // When invoked with the same argument the same NodeList
             // object may be returned as returned by an earlier call.
-            getElementsByClassName: function getElementsByClassName(classes) {
-                nyi();
+            getElementsByClassName: function getElementsByClassName(names) {
+                return wrap(unwrap(this).getElementsByClassName(String(names)),
+                            idl.NodeList);
             },
 
             // readonly attribute HTMLCollection children;
