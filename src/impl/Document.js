@@ -22,9 +22,12 @@ defineLazyProperty(impl, "Document", function() {
         // on a rooted element.
         this.byId = Object.create(null); // inherit nothing
 
-        // Structure id: increment this whenever an element is
-        // inserted or deleted.
-        this._sid = 0;
+        // This property holds a monotonically increasing value akin to 
+        // a timestamp used to record the last modification time of nodes
+        // and their subtrees. See the lastModified attribute and modify()
+        // method of the Node class.  And see FilteredElementList for an example
+        // of the use of lastModified
+        this.modclock = 0;
     }
 
     Document.prototype = Object.create(impl.Node.prototype, {
@@ -197,23 +200,29 @@ defineLazyProperty(impl, "Document", function() {
 
         getElementsByTagName: constant(function getElementsByTagName(lname) {
             let filter;
-            if (lname === "*") {
+            if (lname === "*")
                 filter = ftrue;
-            }
-            else if (this.isHTML) {
-                let lc = toLowerCase(lname);
-                filter = function(e) {
-                    if (e.isHTML) return e.tagName === lc;
-                    else return e.tagName === lname;
-                };
-            }
-            else {
-                filter = function(e) {
-                    return e.tagName === lname;
-                };
-            }
+            else if (this.ownerDocument.isHTML) 
+                filter = htmlLocalNameElementFilter(lname);
+            else 
+                filter = localNameElementFilter(lname);
 
-            return new impl.TagNameNodeList(this, filter);
+            return new impl.FilteredElementList(this, filter);
+        }),
+
+        getElementsByTagNameNS: constant(function getElementsByTagNameNS(ns,
+                                                                         lname){
+            let filter;
+            if (ns === "*" && lname === "*")
+                filter = ftrue;
+            else if (ns === "*") 
+                filter = localNameElementFilter(lname);
+            else if (lname === "*")
+                filter = namespaceElementFilter(ns);
+            else
+                filter = namespaceLocalNameElementFilter(ns, lname);
+
+            return new impl.FilteredElementList(this, filter);
         }),
 
         adoptNode: constant(function(node) {
@@ -222,7 +231,8 @@ defineLazyProperty(impl, "Document", function() {
 
             if (node.parentNode) node.parentNode.removeChild(node)
 
-            recursivelySetOwner(node, this);
+            if (node.ownerDocument !== this)
+                recursivelySetOwner(node, this);
 
             return node;
         }),
@@ -347,6 +357,7 @@ defineLazyProperty(impl, "Document", function() {
 
     function recursivelySetOwner(node, owner) {
         node.ownerDocument = owner;
+        delete node._lastModified; // mod times are document-based
         let kids = node.childNodes;
         for(let i = 0, n = kids.length; i < n; i++)
             recursivelySetOwner(kids[i], owner);

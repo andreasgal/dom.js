@@ -41,7 +41,9 @@ defineLazyProperty(idl, "Document", function() {
             // NodeList getElementsByTagNameNS(DOMString namespace,
             //                                 DOMString localName);
             getElementsByTagNameNS: function getElementsByTagNameNS(ns, lname){
-                nyi();
+                return wrap(unwrap(this).getElementsByTagNameNS(String(ns), 
+                                                                String(lname)),
+                            idl.NodeList);
             },
 
             // NodeList getElementsByClassName(DOMString classNames);

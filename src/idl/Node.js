@@ -227,7 +227,8 @@ defineLazyProperty(idl, "Node", function() {
             },
 
             insertBefore: function insertBefore(newChild, refChild) {
-                unwrap(this).insertBefore(unwrap(newChild), unwrap(refChild));
+                unwrap(this).insertBefore(unwrap(newChild),
+                                          unwrapOrNull(refChild));
                 return newChild;
             },
 

@@ -220,7 +220,7 @@ defineLazyProperty(impl, "Node", function() {
             splice(this.parentNode.childNodes, this.index, 1);
 
             // Update the structure id for all ancestors
-            this.parentNode.updateSid();
+            this.parentNode.modify();
 
             // Forget this node's parent
             delete this.parentNode;
@@ -249,13 +249,13 @@ defineLazyProperty(impl, "Node", function() {
                 // without calling remove(), since we don't want to uproot it.
                 let curpar = child.parentNode, curidx = child.index;
                 splice(child.parentNode.childNodes, child.index, 1);
-                curpar.updateSid();
+                curpar.modify();
 
                 // And insert it as a child of its new parent
                 child.parentNode = parent;
                 splice(kids, index, 0, child);
                 child._index = index;              // Optimization
-                parent.updateSid();
+                parent.modify();
 
                 // Generate a move mutation event
                 parent.ownerDocument.mutateMove(child);
@@ -268,7 +268,7 @@ defineLazyProperty(impl, "Node", function() {
                 // Now insert the child into the parent's array of children
                 child.parentNode = parent;
                 splice(kids, index, 0, child);
-                parent.updateSid();
+                parent.modify();
                 child._index = index;              // Optimization
                 
                 // And root the child if necessary
@@ -276,15 +276,44 @@ defineLazyProperty(impl, "Node", function() {
             }
         }),
 
-        updateSid: constant(function updateSid() {
-            // Skip document and fragment nodes
-            if (this.nodeType !== ELEMENT_NODE) return; 
 
-            this.ownerDocument._sid++;
-            let sid = this.ownerDocument._sid;
-            for(let n = this; n; n = n.parentElement)
-                n._sid = sid;
+        // Return the lastModified value for this node. (For use as a
+        // cache invalidation mechanism. If the node does not already
+        // have one, initialize it from the owner document's modclock
+        // property.  (Note that modclock does not return the actual
+        // time; it is simply a counter incremented on each document
+        // modification)
+        lastModified: attribute(function() {
+            if (!this._lastModified)
+                this._lastModified = this.doc.modclock;
+                
+            return this._lastModified;
         }),
+
+        // Increment the owner document's modclock and use the new
+        // value to update the lastModified value for this node and
+        // all of its ancestors.  Nodes that have never had their
+        // lastModified value queried do not need to have a
+        // lastModified property set on them since there is no
+        // previously queried value to ever compare the new value
+        // against, so only update nodes that already have a
+        // _lastModified property.
+        modify: constant(function() {
+            let time = ++this.doc.modclock;
+            for(let n = this; n; n = n.parentElement)
+                if (n._lastModified) n._lastModified = time;
+
+        }),
+
+        // This attribute is not part of the DOM but is quite helpful.
+        // It returns the document with which a node is associated.  Usually
+        // this is the ownerDocument. But ownerDocument is null for the
+        // document object itself, so this is a handy way to get the document
+        // regardless of the node type
+        doc: attribute(function() {
+            return this.ownerDocument || this;
+        })
+
 
     });
 

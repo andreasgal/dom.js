@@ -14,13 +14,6 @@ defineLazyProperty(impl, "Element", function() {
 
         this.attributes = [];
         this.childNodes = [];
-
-        // Each element has a "structure id" as its _sid property.
-        // This property is an integer that is set larger whenever
-        // elements are inserted or deleted beneath it.  If we cache
-        // values (such as NodeLists) for an element , then we can
-        // recompute the value if the structure id has changed.
-        this._sid = this.ownerDocument._sid;
     }
 
     Element.prototype = Object.create(impl.Node.prototype, {
@@ -226,27 +219,12 @@ defineLazyProperty(impl, "Element", function() {
             return null;
         }),
 
-        getElementsByTagName: constant(function getElementsByTagName(lname) {
-            let filter;
-            if (lname === "*") {
-                filter = ftrue;
-            }
-            else if (this.ownerDocument.isHTML) {
-                let lc = toLowerCase(lname);
-                filter = function(e) {
-                    if (e.isHTML) return e.tagName === lc;
-                    else return e.tagName === lname;
-                };
-            }
-            else {
-                filter = function(e) {
-                    return e.tagName === lname;
-                };
-            }
+        // Just copy this method from the Document prototype
+        getElementsByTagName:
+            constant(impl.Document.prototype.getElementsByTagName),
 
-            return new impl.TagNameNodeList(this, filter);
-        }),
-
+        getElementsByTagNameNS:
+            constant(impl.Document.prototype.getElementsByTagNameNS),
 
     });
 

@@ -16,8 +16,8 @@
 //
 // The methods in this file manage the mapping between nodes and Nodes
 // 
-const [unwrap, wrap] = (function() {
-    let nodes = new WeakMap(), lastkey = {}, lastvalue = undefined;
+const [unwrap, unwrapOrNull, wrap] = (function() {
+    let idlToImplMap = new WeakMap(), lastkey = {}, lastvalue = undefined;
 
     // Return the implementation object for the DOM Node n
     // This method will throw a DOMException(NOT_FOUND_ERR) if n is
@@ -29,7 +29,7 @@ const [unwrap, wrap] = (function() {
         if (n === lastkey) return lastvalue;
 
         try {
-            let impl = wmget(nodes, n);
+            let impl = wmget(idlToImplMap, n);
 
             // This happens if someone passes a bogus object to 
             // appendChild, for example. 
@@ -45,6 +45,11 @@ const [unwrap, wrap] = (function() {
             // seems to be to do this:
             NotFoundError();
         }
+    }
+
+    function unwrapOrNull(n) {
+        if (!n) return null;
+        return unwrap(n);
     }
 
     // Return the interface object (a DOM node) for the implementation node n,
@@ -87,11 +92,11 @@ const [unwrap, wrap] = (function() {
                 }
             }
 
-            wmset(nodes, n._idl, n);
+            wmset(idlToImplMap, n._idl, n);
         }
 
         return n._idl;
     }
 
-    return [unwrap, wrap];
+    return [unwrap, unwrapOrNull, wrap];
 }());

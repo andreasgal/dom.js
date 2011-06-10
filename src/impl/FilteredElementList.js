@@ -1,13 +1,20 @@
-defineLazyProperty(impl, "TagNameNodeList", function() {
-    function TagNameNodeList(root, filter) {
+//
+// This file defines node list implementation that lazily traverses
+// the document tree (or a subtree rooted at any element) and includes
+// only those elements for which a specified filter function returns true.
+// It is used to implement the
+// {Document,Element}.getElementsBy{TagName,ClassName}{,NS} methods.
+//
+defineLazyProperty(impl, "FilteredElementList", function() {
+    function FilteredElementList(root, filter) {
         this.root = root;
         this.filter = filter;
-        this._sid = root._sid;
+        this.lastModified = root.lastModified
         this.done = false;
         this.cache = [];
     }
 
-    TagNameNodeList.prototype = {
+    FilteredElementList.prototype = {
         get length() { 
             this.checkcache();
             if (!this.done) this.traverse();
@@ -22,11 +29,11 @@ defineLazyProperty(impl, "TagNameNodeList", function() {
         },
 
         checkcache: function() {
-            if (this._sid !== this.root._sid) {
+            if (this.lastModified !== this.root.lastModified) {
                 // subtree has changed, so invalidate cache
                 this.cache.length = 0;
                 this.done = false;
-                this._sid = this.root._sid;
+                this.lastModified = this.root.lastModified;
             }
         },
 
@@ -70,5 +77,5 @@ defineLazyProperty(impl, "TagNameNodeList", function() {
         }
     };
 
-    return TagNameNodeList;
+    return FilteredElementList;
 });
