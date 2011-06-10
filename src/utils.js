@@ -43,6 +43,8 @@ function attribute(get, set) {
 // Note that their names begin with f.
 // This is good for things like attribute(fnull,fnoop) 
 function fnull() { return null; }
+function ftrue() { return true; }
+function ffalse() { return false; }
 function fnoop() { /* do nothing */ }
 
 const readonlyPropDesc = {writable:false,enumerable:true,configurable: true};

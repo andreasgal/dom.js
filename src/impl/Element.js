@@ -14,6 +14,13 @@ defineLazyProperty(impl, "Element", function() {
 
         this.attributes = [];
         this.childNodes = [];
+
+        // Each element has a "structure id" as its _sid property.
+        // This property is an integer that is set larger whenever
+        // elements are inserted or deleted beneath it.  If we cache
+        // values (such as NodeLists) for an element , then we can
+        // recompute the value if the structure id has changed.
+        this._sid = this.ownerDocument._sid;
     }
 
     Element.prototype = Object.create(impl.Node.prototype, {
@@ -188,6 +195,35 @@ defineLazyProperty(impl, "Element", function() {
                 if (kids[i].nodeType === ELEMENT_NODE) count++
             }
             return count;
+        }),
+
+        // Return the next element, in source order, after this one or
+        // null if there are no more.  If root element is specified,
+        // then don't traverse beyond its subtree.
+        // 
+        // This is not a DOM method, but is convenient for 
+        // lazy traversals of the tree.
+        nextElement: constant(function(root) {
+            let next = this.firstElementChild || this.nextElementSibling;
+            if (next) return next;
+
+            // XXX: still need to implement Document.documentElement
+            if (!root) root = this.ownerDocument.documentElement;
+
+            // If we can't go down or across, then we have to go up
+            // and across to the parent sibling or another ancestor's
+            // sibling.  Be careful, though: if we reach the root
+            // element, or if we reach the documentElement, then 
+            // the traversal ends.
+            for(let parent = this.parentElement;
+                parent && parent !== root;
+                parent = parent.parentElement) {
+
+                next = parent.nextElementSibling;
+                if (next) return next;
+            }
+
+            return null;
         }),
     });
 

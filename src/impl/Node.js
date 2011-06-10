@@ -4,7 +4,8 @@ defineLazyProperty(impl, "Node", function() {
     // This is an abstract class; all nodes in a document are instances
     // of a subtype, so all the properties are defined by more specific
     // constructors.
-    function Node() {}
+    function Node() {
+    }
 
     Node.prototype = Object.create(Object.prototype, {
         
@@ -217,8 +218,13 @@ defineLazyProperty(impl, "Node", function() {
         remove: constant(function remove() {
             // Remove this node from its parents array of children
             splice(this.parentNode.childNodes, this.index, 1);
+
+            // Update the structure id for all ancestors
+            this.parentNode.updateSid();
+
             // Forget this node's parent
             delete this.parentNode;
+
             // Send mutation events if necessary
             if (this.root) this.root.mutateRemove(this);
         }),
@@ -231,22 +237,25 @@ defineLazyProperty(impl, "Node", function() {
             // Special case for document fragments
             if (child.nodeType === DOCUMENT_FRAGMENT_NODE) {
                 let  c;
-                while(c = child.firstChild)     c.insert(parent, index++);
+                while(c = child.firstChild)
+                    c.insert(parent, index++);
                 return;
             }
 
             // If both the child and the parent are rooted, then we want to
             // transplant the child without uprooting and rerooting it.
-            if (child.roo && parent.root) {
+            if (child.root && parent.root) {
                 // Remove the child from its current position in the tree
                 // without calling remove(), since we don't want to uproot it.
                 let curpar = child.parentNode, curidx = child.index;
                 splice(child.parentNode.childNodes, child.index, 1);
+                curpar.updateSid();
 
                 // And insert it as a child of its new parent
                 child.parentNode = parent;
                 splice(kids, index, 0, child);
                 child._index = index;              // Optimization
+                parent.updateSid();
 
                 // Generate a move mutation event
                 parent.ownerDocument.mutateMove(child);
@@ -259,11 +268,19 @@ defineLazyProperty(impl, "Node", function() {
                 // Now insert the child into the parent's array of children
                 child.parentNode = parent;
                 splice(kids, index, 0, child);
+                parent.updateSid();
                 child._index = index;              // Optimization
                 
                 // And root the child if necessary
                 if (parent.root) parent.root.mutateInsert(child);
             }
+        }),
+
+        updateSid: constant(function updateSid() {
+            this.ownerDocument._sid++;
+            let sid = this.ownerDocument._sid;
+            for(let n = this; n; n = n.parentElement)
+                n._sid = sid;
         }),
 
     });

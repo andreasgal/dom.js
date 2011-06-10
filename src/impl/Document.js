@@ -21,6 +21,10 @@ defineLazyProperty(impl, "Document", function() {
         // or uprooted, and any time an attribute is added, removed or changed
         // on a rooted element.
         this.byId = Object.create(null); // inherit nothing
+
+        // Structure id: increment this whenever an element is
+        // inserted or deleted.
+        this._sid = 0;
     }
 
     Document.prototype = Object.create(impl.Node.prototype, {
@@ -91,6 +95,27 @@ defineLazyProperty(impl, "Document", function() {
             return n;
         }),
 
+
+        getElementsByTagName: constant(function getElementsByTagName(lname) {
+            let filter;
+            if (lname === "*") {
+                filter = ftrue;
+            }
+            else if (this.isHTML) {
+                let lc = toLowerCase(lname);
+                filter = function(e) {
+                    if (e.isHTML) return e.tagName === lc;
+                    else return e.tagName === lname;
+                };
+            }
+            else {
+                filter = function(e) {
+                    return e.tagName === lname;
+                };
+            }
+
+            return new impl.TagNameNodeList(this, filter);
+        }),
 
         adoptNode: constant(function(node) {
             if (node.nodeType === DOCUMENT_NODE ||
