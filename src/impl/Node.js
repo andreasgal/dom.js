@@ -277,6 +277,9 @@ defineLazyProperty(impl, "Node", function() {
         }),
 
         updateSid: constant(function updateSid() {
+            // Skip document and fragment nodes
+            if (this.nodeType !== ELEMENT_NODE) return; 
+
             this.ownerDocument._sid++;
             let sid = this.ownerDocument._sid;
             for(let n = this; n; n = n.parentElement)

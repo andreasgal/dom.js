@@ -130,7 +130,10 @@ defineLazyProperty(idl, "Element", function() {
             //
             // When invoked with the same argument the same NodeList
             // object may be returned as returned by an earlier call.
-            getElementsByTagName: function getElementsByTagName(qname) {nyi();},
+            getElementsByTagName: function getElementsByTagName(qname) {
+                return wrap(unwrap(this).getElementsByTagName(String(qname)),
+                            idl.NodeList);
+            },
 
             // NodeList getElementsByTagNameNS(DOMString namespace,
             //                                 DOMString localName);

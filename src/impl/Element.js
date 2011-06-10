@@ -225,6 +225,29 @@ defineLazyProperty(impl, "Element", function() {
 
             return null;
         }),
+
+        getElementsByTagName: constant(function getElementsByTagName(lname) {
+            let filter;
+            if (lname === "*") {
+                filter = ftrue;
+            }
+            else if (this.ownerDocument.isHTML) {
+                let lc = toLowerCase(lname);
+                filter = function(e) {
+                    if (e.isHTML) return e.tagName === lc;
+                    else return e.tagName === lname;
+                };
+            }
+            else {
+                filter = function(e) {
+                    return e.tagName === lname;
+                };
+            }
+
+            return new impl.TagNameNodeList(this, filter);
+        }),
+
+
     });
 
     return Element;

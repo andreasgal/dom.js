@@ -86,6 +86,105 @@ defineLazyProperty(impl, "Document", function() {
             return new impl.Element(this, localName, namespace, prefix);
         }),
 
+        // Add some (surprisingly complex) document hierarchy validity
+        // checks when adding, removing and replacing nodes into a
+        // document object, and also maintain the documentElement and
+        // doctype properties of the document.  Each of the following
+        // 4 methods chains to the Node implementation of the method
+        // to do the actual inserting, removal or replacement.
+
+        appendChild: constant(function(child) {
+            if (child.nodeType === TEXT_NODE) HierarchyRequestError();
+            if (child.nodeType === ELEMENT_NODE) {
+                if (this.documentElement) // We already have a root element
+                    HierarchyRequestError();
+
+                this.documentElement = child;
+            }
+            if (child.nodeType === DOCUMENT_TYPE_NODE) {
+                if (this.doctype ||        // Already have one
+                    this.documentElement)   // Or out-of-order
+                    HierarchyRequestError()
+
+                this.doctype = child;
+            }
+
+            // Now chain to our superclass
+            return impl.Node.prototype.appendChild.call(this, child);
+        }),
+
+        insertBefore: constant(function insertBefore(child, refChild) {
+            if (refChild.parentNode !== this) NotFoundError();
+            if (child.nodeType === TEXT_NODE) HierarchyRequestError();
+            if (child.nodeType === ELEMENT_NODE) {
+                // If we already have a root element or if we're trying to
+                // insert it before the doctype
+                if (this.documentElement ||
+                    (this.doctype && this.doctype.index >= refChild.index))
+                    HierarchyRequestError();
+
+                this.documentElement = child;
+            }
+            if (child.nodeType === DOCUMENT_TYPE_NODE) {
+                if (this.doctype ||        
+                    (this.documentElement &&
+                     refChild.index >= this.documentElement.index))
+                    HierarchyRequestError()
+
+                this.doctype = child;
+            }
+            return impl.Node.prototype.insertBefore.call(this, child, refChild);
+        }),        
+
+        replaceChild: constant(function replaceChild(child, oldChild) {
+            if (oldChild.parentNode !== this) NotFoundError();
+
+            if (child.nodeType === TEXT_NODE) HierarchyRequestError();
+            if (child.nodeType === ELEMENT_NODE) {
+                // If we already have a root element and we're not replacing it
+                if (this.documentElement && this.documentElement !== oldChild)
+                    HierarchyRequestError();
+                // Or if we're trying to put the element before the doctype
+                // (replacing the doctype is okay)
+                if (this.doctype && oldChild.index < this.doctype.index)
+                    HierarchyRequestError();
+
+                this.documentElement = child;
+                if (oldChild === this.doctype) this.doctype = null;
+            }
+            else if (child.nodeType === DOCUMENT_TYPE_NODE) {
+                // If we already have a doctype and we're not replacing it
+                if (this.doctype && oldChild !== this.doctype)
+                    HierarchyRequestError();
+                // If we have a docuemnt element and the old child
+                // comes after it
+                if (this.documentElement &&
+                    oldChild.index > this.documentElement.index)
+                    HierarchyRequestError();
+
+                this.doctype = child;
+                if (oldChild === this.documentElement)
+                    this.documentElement = null;
+            }
+            else {
+                if (oldChild === this.documentElement)
+                    this.documentElement = null;
+                else if (oldChild === this.doctype)
+                    this.doctype = null;
+            }
+            return impl.Node.prototype.replaceChild.call(this, child, oldChild);
+        }),
+
+        removeChild: constant(function removeChild(child) {
+            if (child.nodeType === DOCUMENT_TYPE_NODE)
+                this.doctype = null;
+            else if (child.nodeType === ELEMENT_NODE)
+                this.documentElement = null;
+
+            // Now chain to our superclass
+            return impl.Node.prototype.removeChild.call(this, child);
+        }),
+
         getElementById: constant(function(id) {
             let n = this.byId[id];
             if (!n) return null;

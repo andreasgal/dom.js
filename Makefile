@@ -17,6 +17,7 @@ FILES= \
 	src/impl/DocumentFragment.js \
 	src/impl/DocumentType.js \
 	src/impl/DOMImplementation.js \
+	src/impl/TagNameNodeList.js \
 	src/idl/DOMException.js \
 	src/idl/EventTarget.js \
 	src/idl/Node.js \
