@@ -1,5 +1,5 @@
 // This file defines functions for satisfying the requirements of WebIDL
-
+// See also ../tools/idl2domjs
 
 // WebIDL requires value conversions in various places.
 
@@ -19,10 +19,21 @@ function undef2null(x) { return x === undefined ? null : x; }
 // If a WebIDL method argument is just DOMString, convert with String()
 // But if it is [TreatNullAs=EmptyString] DOMString then use this function.
 function StringOrEmpty(x) {
-    return (x === null) 
-        ? ""
-        : String(x);
+    return (x === null) ? "" : String(x);
 }
+
+function StringOrNull(x) {
+    return (x === null) ? null : String(x);
+}
+
+function OptionalBoolean(x) {
+    return (x === undefined) ? undefined : Boolean(x);
+}
+
+function OptionalObject(x) {
+    return (x === undefined) ? undefined : Object(x);
+}
+
 
 // The DOM has some nested type hierarchies and WebIDL has specific
 // requirements about property attributes, etc.  This function defines
@@ -43,6 +54,26 @@ function StringOrEmpty(x) {
 // implement the interface. It is an internal constructor.  The interface
 // property of the constructor function refers to the public interface
 // object that should be made available as a global property.
+// 
+// XXX
+// These public objects are not allowed to define any properties, so they
+// don't have any initialization to do, and the idea of creating a 
+// constructor for them in idl.Node or whatever is silly.  Maybe a factory
+// function instead. Also, the only place that the constructor or factory
+// is ever supposed to be called is in the wrap() function. So maybe just
+// just Object.create(idl.Node.prototype) or something instead of 
+// new idl.Node() or idl.Node().
+// 
+// The exception is for NodeLists and other objects that require proxies.
+// Those have to be created with Proxy.create:
+// Proxy.create(new idl.NodeList.proxyHandler(impl), idl.NodeList.prototype)
+// 
+// We can automatically generate calls to implementIDLInterface from idl
+// source code.  But the proxy handlers will be hand-coded.  Any IDL interface
+// with a getter (or setter, deleter, etc.) will have a proxy handler
+// 
+// 
+// 
 // 
 function implementIDLInterface(o) {
     let name = o.name || "";
@@ -96,7 +127,12 @@ function implementIDLInterface(o) {
 
     // If the interface does not already define a toString method, add one.
     // This will help to make debugging easier.
+    // 
     // XXX: I'm not sure if this is legal according to WebIDL and DOM Core.
+    // XXX Maybe I could move it down to an object on the prototype chain
+    // above Object.prototype.  But then I'd need some way to determine
+    // the type name.  Maybe the name of the public "constructor" function?
+    // But then I'd have to create that function with eval, I think.
     if (!hasOwnProperty(members, "toString")) {
         prototype.toString = function() { return "[object " + name + "]"; };
     }

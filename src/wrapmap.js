@@ -62,7 +62,7 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
                 n._idl = new type(n);
             }
             else {
-                // If now interface type was explicitly specified, then
+                // If no interface type was explicitly specified, then
                 // we're wrapping a node.
                 switch(n.nodeType) {
                 case ELEMENT_NODE:
