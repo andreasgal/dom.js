@@ -1,0 +1,159 @@
+#!/usr/local/bin/node
+
+/*
+ * idl2domjs: convert WebIDL interfaces into JavaScript source for dom.js
+ * 
+ * Reads WebIDL from the file specified on the command line and writes
+ * JavaScript code to standard output.  The output code is idiosyncratic
+ * to the dom.js project.  In particular, the code it generates uses functions
+ * defined in ../src/idl.js
+ * 
+ * This script uses darobin's JavaScript WebIDL parser:
+ * https://github.com/darobin/webidl.js and assumes that you've installed
+ * the webidl.js/node/WebIDLParser.js file appropriately so that this 
+ * program can require it.
+ */
+var infile = process.argv[2];
+var out = console.log.bind(console);
+
+if (!infile) {
+    console.error("No input file specified");
+    process.exit(1);
+}
+var sourceidl = require("fs").readFileSync(infile,"utf-8");
+var webidl = require("WebIDLParser.js");
+try {
+    var parsedidl = webidl.Parser.parse(sourceidl);
+//    console.log(JSON.stringify(parsedidl, null, 2));
+    for(var i = 0; i < parsedidl.length; i++) {
+        var item = parsedidl[i];
+        if (item.type === "interface") 
+            outputInterface(item);
+    }
+    
+}
+catch(e) {
+    console.error(e.name + " at " + e.line + ":" + e.column + " " + e.message);
+    process.exit(1);
+}
+
+
+function outputInterface(idl) {
+    out('defineLazyProperty(idl, "' + idl.name + '", function() {');
+    out('    return implementIDLInterface({');
+    out('        name: "' + idl.name + '",');
+    if (idl.inheritance) {
+        out('        superclass: idl.' + idl.inheritance[0] + ',');
+    }
+
+    var prefix = '            ';  // 12 spaces
+    var members = idl.members;
+    
+    // If the interface defines constants
+    if (members.some(function(m) { return m.type === "const" })) {
+        out('        constants: {');
+        members.forEach(function(m) {
+            if (m.type === "const") {
+                // XXX what if the constant value needs to be quoted?
+                // I suppose that technically I should check the type of 
+                // the constant.
+                out("%s%s: %s,", prefix, m.name, m.value);
+            }
+        });
+        out('        }');
+    }
+
+    out('        members: {');
+    members.forEach(function(m) {
+        if (m.type === "attribute")
+            outputAttribute(m, prefix);
+        else if (m.type === "operation") {
+            outputMethod(m, prefix);
+        }
+    });
+    out('        }');
+    out('    });');
+    out('});');
+}
+
+function outputMethod(m, prefix) {
+    out("%s%s: function %s(%s) {",
+        prefix, m.name, m.name, arglist(m));
+
+    out("%s    let rv = unwrap(this).%s(%s);",
+        prefix, m.name, invokeargs(m, prefix));
+
+    if (isWrappedType(m.idlType)) 
+        out("%s    return wrap(rv, idl.%s);",
+            prefix, typeName(m.idlType));
+    else
+        out("%s    return rv;", prefix);
+
+    out("%s},", prefix);
+    out();
+}
+
+// Return a comma-separated arg list for method m
+function arglist(m) {
+    return m.arguments.map(function(a) { return a.name }).join(", ");
+}
+
+// Convert the args and return a list suitable for an invocation
+function invokeargs(m, prefix) {
+    var rv = m.arguments.
+        map(function(a) { return convert(a.type, a.name)}).
+        join(",\n        " + prefix);
+    if (m.arguments.length > 1) rv = "\n        " + prefix + rv;
+    return rv;
+}
+
+function outputAttribute(a, prefix) {
+    out("%sget %s() {", prefix, a.name);
+    // XXX
+    if (isWrappedType(a.idlType)) 
+        out("%s    return wrap(unwrap(this).%s, idl.%s);",
+            prefix, a.name, typeName(a.idlType));
+    else 
+        out("%s    return unwrap(this).%s;", prefix, a.name);
+    out("%s},", prefix);
+
+    if (!a.readonly) {
+        // XXX output the setter method here
+        out("%sset %s(newval) {", prefix, a.name);
+        out("%s    unwrap(this).%s = %s;",
+            prefix, a.name, convert(a.idlType, "newval"));
+        out("%s},", prefix);
+    }
+
+    out();
+}
+
+function convert(t, v) {
+    var c;
+    if (isWrappedType(t))
+        c = "unwrap";
+    else if (t.idlType === "DOMString")
+        c = "String";
+    else if (t.idlType === "unsigned long")
+        c = "ToULong";
+    else
+        throw new Error("Need a converter function for: " +  t.idlType);
+
+    if (t.idlType.nullable) c += "OrNull";
+    // XXX how with TreatNullAs=EmptyString be reported?
+
+    return c + "(" + v + ")";
+}
+
+function typeName(t) {
+    var s = t.idlType;
+    if (t.array) s += "Array";
+    if (t.sequence) s+= "Sequence";
+    return s;
+}
+
+function isWrappedType(t) {
+    // WebIDL primitive types are all lower case plus DOMString
+    return (t.idlType !== "DOMString" &&
+            t.idlType !== t.idlType.toLowerCase())
+}

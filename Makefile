@@ -46,6 +46,11 @@ dom.js: LICENSE ${FILES} test/monkey.js
 	@echo '"use strict";' >> $@
 
 # Append each of the module files
+# Prefix each one with an //@line comment to specify the source filename
+# This gives the correct filename for static compilation errors when
+# run in the js shell with js -e 'options("atline")' -f dom.js
+# But it messes up the line numbers for runtime errors and always reports
+# the last filename in the file...
 	@for f in ${FILES} ;\
 	do \
 		echo >> $@ ;\
@@ -55,8 +60,10 @@ dom.js: LICENSE ${FILES} test/monkey.js
 		echo ' * ' $$f >> $@ ;\
 		echo ' ************************************************************************/' >> $@;\
 		echo >> $@ ;\
+		echo '//@line 1 "'$$f'"' >> $@ ;\
 		cat $$f >> $@ ;\
 	done
+
 
 # Close the function wrapper
 	@echo '}(this));' >> $@
