@@ -2,9 +2,10 @@ FILES= \
 	src/snapshot.js \
 	src/globals.js \
 	src/utils.js \
-	src/idl.js \
 	src/wrapmap.js \
 	src/xmlnames.js \
+	src/idl.js \
+	src/domcore.js \
 	src/impl/Node.js \
 	src/impl/Leaf.js \
 	src/impl/CharacterData.js \
@@ -18,20 +19,6 @@ FILES= \
 	src/impl/DocumentType.js \
 	src/impl/DOMImplementation.js \
 	src/impl/FilteredElementList.js \
-	src/idl/DOMException.js \
-	src/idl/EventTarget.js \
-	src/idl/Node.js \
-	src/idl/Element.js \
-	src/idl/Attr.js \
-	src/idl/Document.js \
-	src/idl/DOMImplementation.js \
-	src/idl/CharacterData.js \
-	src/idl/Comment.js \
-	src/idl/Text.js \
-	src/idl/ProcessingInstruction.js \
-	src/idl/DocumentType.js \
-	src/idl/DocumentFragment.js \
-	src/idl/NodeList.js \
 
 dom.js: LICENSE ${FILES} test/monkey.js
 # Output preamble
@@ -71,6 +58,13 @@ dom.js: LICENSE ${FILES} test/monkey.js
 # Output code that monkey patches everything to test that we don't use it
 #	@cat test/monkey.js >> $@
 
+	@chmod 444 $@
+	@echo "Created $@"
+
+
+src/domcore.js: src/domcore.idl tools/idl2domjs
+	@rm -f $@;
+	tools/idl2domjs src/domcore.idl > src/domcore.js
 	@chmod 444 $@
 	@echo "Created $@"
 

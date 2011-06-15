@@ -34,51 +34,35 @@ function OptionalObject(x) {
     return (x === undefined) ? undefined : Object(x);
 }
 
+function toCallback(x) {
+    let t = typeof x;
+    if (t === "function" || t === "object") return x;
+    else throw TypeError("Expected callback; got: " + x);
+}
 
-// The DOM has some nested type hierarchies and WebIDL has specific
-// requirements about property attributes, etc.  This function defines
-// a new DOM interface, returning a constructor function for internal
-// use and also creating an interface object that will be exposed
-// globally.
-// 
-// This function takes a single object as its argument and looks for
+function toCallbackOrNull(x) {
+    return (x === null) ? null : toCallback(x);
+}
+
+// This constructor takes a single object as its argument and looks for
 // the following properties of that object:
 //
 //    name         // The name of the interface
 //    superclass   // The superclass constructor
-//    init         // initialization function
+//    proxyHandler // The proxy handler constructor, if one is needed
 //    constants    // constants defined by the interface
 //    members      // interface attributes and methods
 //
-// This function returns a constructor object for creating objects that 
-// implement the interface. It is an internal constructor.  The interface
-// property of the constructor function refers to the public interface
-// object that should be made available as a global property.
-// 
-// XXX
-// These public objects are not allowed to define any properties, so they
-// don't have any initialization to do, and the idea of creating a 
-// constructor for them in idl.Node or whatever is silly.  Maybe a factory
-// function instead. Also, the only place that the constructor or factory
-// is ever supposed to be called is in the wrap() function. So maybe just
-// just Object.create(idl.Node.prototype) or something instead of 
-// new idl.Node() or idl.Node().
-// 
-// The exception is for NodeLists and other objects that require proxies.
-// Those have to be created with Proxy.create:
-// Proxy.create(new idl.NodeList.proxyHandler(impl), idl.NodeList.prototype)
-// 
-// We can automatically generate calls to implementIDLInterface from idl
-// source code.  But the proxy handlers will be hand-coded.  Any IDL interface
-// with a getter (or setter, deleter, etc.) will have a proxy handler
-// 
-// 
-// 
-// 
-function implementIDLInterface(o) {
+// It returns a new object with the following properties:
+//   publicInterface // The public interface to be placed in the global scope
+//   prototype       // The prototype object for the interface
+//                   // Also available as publicInterface.prototype
+//   create          // A factory function for creating an instance
+//
+function IDLInterface(o) {
     let name = o.name || "";
     let superclass = o.superclass;
-    let constructor = o.init || function() {};
+    let proxyHandler = o.proxyHandler;
     let constants = o.constants || {};
     let members = o.members || {};
     let prototype, interfaceObject;
@@ -92,10 +76,6 @@ function implementIDLInterface(o) {
     interfaceObject = function() { 
         throw new TypeError(name + " is not (supposed to be) a function");
     };
-
-    // Retain references to the prototype and interface objects for internal use
-    constructor.prototype = prototype;
-    constructor.publicInterface = interfaceObject
 
     // WebIDL says that the interface object has this prototype property
     defineHiddenConstantProp(interfaceObject, "prototype", prototype);
@@ -137,9 +117,19 @@ function implementIDLInterface(o) {
         prototype.toString = function() { return "[object " + name + "]"; };
     }
 
-    // Finally, return the constructor
-    // Note that this method does not export the interface object to
-    // the global object. The caller should get the interface object (from the
-    // interface property of the constructor) and export it appropriately.
-    return constructor;
+    // Now set up the fields of this object
+    this.prototype = prototype;
+    this.publicInterface = interfaceObject;
+    this.proxyHandler = proxyHandler;
+
+    // If there is a proxy handler, remember it.  Otherwise, override
+    // the factory function that we'd otherwise inherit from
+    // IDLInterface.prototype
+    if (proxyHandler) this.proxyHandler = proxyHandler;
+    else this.create = Object.create.bind(Object, prototype, {});
 }
+
+IDLInterface.prototype.create = function(impl) {
+    return Proxy.create(new this.proxyHandler(impl), this.prototype);
+};
+

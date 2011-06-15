@@ -1,6 +1,9 @@
 // This is the DOM Core IDL from the 5/31 Working Draft
 // http://www.w3.org/TR/domcore/
 // It is identical to the IDL in the 6/3 editor's draft.
+// Changes:
+// I changed the Document.createEvent() argument name from "interface"
+// to "eventInterface"
 
 exception DOMException {
   const unsigned short INDEX_SIZE_ERR = 1;
@@ -148,7 +151,7 @@ interface Document : Node {
   Node importNode(Node node, boolean deep);
   Node adoptNode(Node node);
 
-  Event createEvent(DOMString interface);
+  Event createEvent(DOMString eventInterface);
 };
 
 interface DOMImplementation {

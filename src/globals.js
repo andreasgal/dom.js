@@ -7,24 +7,6 @@ const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
 const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
 
-// DOM node type constants
-const ELEMENT_NODE = 1;
-const ATTRIBUTE_NODE = 2; // Historical, but we use it in wrap()
-const TEXT_NODE = 3;
-const PROCESSING_INSTRUCTION_NODE = 7;
-const COMMENT_NODE = 8;
-const DOCUMENT_NODE = 9;
-const DOCUMENT_TYPE_NODE = 10;
-const DOCUMENT_FRAGMENT_NODE = 11;
-
-// Constants used in the return value of compareDocumentPosition
-const DOCUMENT_POSITION_DISCONNECTED = 0x01;
-const DOCUMENT_POSITION_PRECEDING = 0x02;
-const DOCUMENT_POSITION_FOLLOWING = 0x04;
-const DOCUMENT_POSITION_CONTAINS = 0x08;
-const DOCUMENT_POSITION_CONTAINED_BY = 0x10;
-const DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20;
-
 // DOMException codes.  Pass one of these to the DOM.DOMException() constructor
 const INDEX_SIZE_ERR = 1;
 const HIERARCHY_REQUEST_ERR = 3;

@@ -54,40 +54,47 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
 
     // Return the interface object (a DOM node) for the implementation node n,
     // creating it if necessary
-    function wrap(n, type) {
+    function wrap(n, idltype) {
         if (n === null) return null;
 
         if (!n._idl) {
-            if (type) {
-                n._idl = new type(n);
+            if (idltype !== idl.Node) {
+                n._idl = idltype.create(n);
             }
             else {
-                // If no interface type was explicitly specified, then
-                // we're wrapping a node.
+                // Special case for Nodes. To wrap a Node, we have to create
+                // an object of the appropriate subtype. 
+                // 
+                // XXX Once we start on HTML5, we're going to have to
+                // expand this special case to handle lots of element
+                // subtypes based on n.tagName, I think. This may be a general
+                // issue with the DOM anywhere there is an IDL type hierarchy.
+                //
+                // Note that we know for sure that none of these types require
+                // a proxy handler, and therefore we do not have to pass
+                // the implementation object n to the factory function.
+                // 
                 switch(n.nodeType) {
                 case ELEMENT_NODE:
-                    n._idl = new idl.Element();
+                    n._idl = idl.Element.create();
                     break;
                 case TEXT_NODE:
-                    n._idl = new idl.Text();
+                    n._idl = idl.Text.create();
                     break;
                 case COMMENT_NODE:
-                    n._idl = new idl.Comment();
+                    n._idl = idl.Comment.create();
                     break;
                 case PROCESSING_INSTRUCTION_NODE:
-                    n._idl = new idl.ProcessingInstruction();
+                    n._idl = idl.ProcessingInstruction.create();
                     break;
                 case DOCUMENT_NODE:
-                    n._idl = new idl.Document();
+                    n._idl = idl.Document.create();
                     break;
                 case DOCUMENT_FRAGMENT_NODE:
-                    n._idl = new idl.DocumentFragment();
+                    n._idl = idl.DocumentFragment.create();
                     break;
                 case DOCUMENT_TYPE_NODE:
-                    n._idl = new idl.DocumentType();
-                    break;
-                case ATTRIBUTE_NODE: // Not technically a node type anymore
-                    n._idl = new idl.Attr();
+                    n._idl = idl.DocumentType.create();
                     break;
                 }
             }
