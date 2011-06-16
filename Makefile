@@ -5,6 +5,8 @@ FILES= \
 	src/wrapmap.js \
 	src/xmlnames.js \
 	src/idl.js \
+	src/NodeListProxyHandler.js \
+	src/DOMException.js \
 	src/domcore.js \
 	src/impl/Node.js \
 	src/impl/Leaf.js \
@@ -19,6 +21,7 @@ FILES= \
 	src/impl/DocumentType.js \
 	src/impl/DOMImplementation.js \
 	src/impl/FilteredElementList.js \
+	src/main.js
 
 dom.js: LICENSE ${FILES} test/monkey.js
 # Output preamble
