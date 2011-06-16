@@ -22,13 +22,8 @@
  * need a different kind of conversion than other interfaces: they're not
  * unwrapped, we just have to check that they are functions or objects.
  *
- * XXX
- * Still need to handle exceptions for DOMException
+ * XXX Still need to handle exceptions
  * 
- * XXX
- *   see the commeents in ../src/idl.js.  Need to make some changes in
- *   implementIDLInterface and in wrap() to match what I've done here.
- *
  * XXX: I can probably automatically generate some simple tests from the 
  * IDL file as well.  For each interface I, output a testI() function that
  * takes an instance of the interface and verifies simple things like 
