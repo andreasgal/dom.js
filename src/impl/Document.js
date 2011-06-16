@@ -202,7 +202,7 @@ defineLazyProperty(impl, "Document", function() {
             let filter;
             if (lname === "*")
                 filter = ftrue;
-            else if (this.ownerDocument.isHTML) 
+            else if (this.doc.isHTML) 
                 filter = htmlLocalNameElementFilter(lname);
             else 
                 filter = localNameElementFilter(lname);
@@ -383,7 +383,7 @@ defineLazyProperty(impl, "Document", function() {
     function htmlLocalNameElementFilter(lname) {
         let lclname = toLowerCase(lname);
         if (lclname === lname)
-            return localNameFilter(lname);
+            return localNameElementFilter(lname);
 
         return function(e) {
             return e.isHTML

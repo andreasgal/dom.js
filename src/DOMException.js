@@ -135,10 +135,10 @@ global.DOMException = (function() {
         // Get stack, lineNumber and fileName properties like a real
         // Error object has.
         let x = Error();
-        let frames = x.stack.split("\n");
-        frames.shift();
-        e.stack = frames.join("\n");
-        let parts = frames[0].match(/[^@]*@([^:]*):(\d*)/);
+        let frames = split(x.stack,"\n");
+        A.shift(frames);
+        e.stack = join(frames,"\n");
+        let parts = match(frames[0], /[^@]*@([^:]*):(\d*)/);
         e.fileName = parts[1];
         e.lineNumber = parts[2];
         

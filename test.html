@@ -37,6 +37,17 @@ try {
     html.setAttribute("id", "body");
     console.log(document.getElementById("body").tagName);
 
+    console.log(html.getElementsByTagName("body")[0] === body);
+    console.log(document.getElementsByTagName("body")[0] === body);
+
+    title.setAttribute("class", "foo bar baz");
+    console.log(document.getElementsByClassName("foo")[0].tagName);
+    console.log(document.getElementsByClassName("bar")[0].tagName);
+    console.log(document.getElementsByClassName("baz")[0].tagName);
+    console.log(document.getElementsByClassName("foo bar")[0].tagName);
+    console.log(document.getElementsByClassName("bar foo")[0].tagName);
+    console.log(document.getElementsByClassName("baz foo")[0].tagName);
+    console.log(document.getElementsByClassName("nope").length);
 }
 catch(e) {
     console.log(e.name, e.message);
