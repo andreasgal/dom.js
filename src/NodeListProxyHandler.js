@@ -7,7 +7,7 @@ function NodeListProxyHandler(list) {
     }
 
     this.list = list;
-    this.localprops = Object.create(NodeList.prototype);
+    this.localprops = Object.create(idl.NodeList.prototype);
 }
 
 NodeListProxyHandler.prototype = {
@@ -33,7 +33,7 @@ NodeListProxyHandler.prototype = {
     },
     getPropertyDescriptor: function(name) {
         var desc = this.getOwnPropertyDescriptor(name) ||
-            O.getOwnPropertyDescriptor(NodeList.prototype, name) ||
+            O.getOwnPropertyDescriptor(idl.NodeList.prototype, name) ||
             O.getOwnPropertyDescriptor(Object.prototype, name);
         if (desc) desc.configurable = true; // Proxies require this
         return desc;

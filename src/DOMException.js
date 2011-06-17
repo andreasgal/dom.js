@@ -3,29 +3,29 @@
 // WebIDL exceptions are in flux right now, so I'm just doing something
 // simple and approximately web compatible for now.
 //
-global.DOMException = (function() {
-    const INDEX_SIZE_ERR = 1;
-    const HIERARCHY_REQUEST_ERR = 3;
-    const WRONG_DOCUMENT_ERR = 4;
-    const INVALID_CHARACTER_ERR = 5;
-    const NO_MODIFICATION_ALLOWED_ERR = 7;
-    const NOT_FOUND_ERR = 8;
-    const NOT_SUPPORTED_ERR = 9;
-    const INVALID_STATE_ERR = 11;
-    const SYNTAX_ERR = 12;
-    const INVALID_MODIFICATION_ERR = 13;
-    const NAMESPACE_ERR = 14;
-    const INVALID_ACCESS_ERR = 15;
-    const TYPE_MISMATCH_ERR = 17;
-    const SECURITY_ERR = 18;
-    const NETWORK_ERR = 19;
-    const ABORT_ERR = 20;
-    const URL_MISMATCH_ERR = 21;
-    const QUOTA_EXCEEDED_ERR = 22;
-    const TIMEOUT_ERR = 23;
-    const INVALID_NODE_TYPE_ERR = 24;
-    const DATA_CLONE_ERR = 25;
+const INDEX_SIZE_ERR = 1;
+const HIERARCHY_REQUEST_ERR = 3;
+const WRONG_DOCUMENT_ERR = 4;
+const INVALID_CHARACTER_ERR = 5;
+const NO_MODIFICATION_ALLOWED_ERR = 7;
+const NOT_FOUND_ERR = 8;
+const NOT_SUPPORTED_ERR = 9;
+const INVALID_STATE_ERR = 11;
+const SYNTAX_ERR = 12;
+const INVALID_MODIFICATION_ERR = 13;
+const NAMESPACE_ERR = 14;
+const INVALID_ACCESS_ERR = 15;
+const TYPE_MISMATCH_ERR = 17;
+const SECURITY_ERR = 18;
+const NETWORK_ERR = 19;
+const ABORT_ERR = 20;
+const URL_MISMATCH_ERR = 21;
+const QUOTA_EXCEEDED_ERR = 22;
+const TIMEOUT_ERR = 23;
+const INVALID_NODE_TYPE_ERR = 24;
+const DATA_CLONE_ERR = 25;
 
+global.DOMException = (function() {
     // Code to name
     const names = [
         null,  // No error with code 0
