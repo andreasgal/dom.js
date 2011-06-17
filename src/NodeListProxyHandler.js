@@ -1,6 +1,11 @@
 function NodeListProxyHandler(list) {
     // This handler expects an object with a length property and an item() 
     // method.  If we pass it a plain array, it will add the item() method
+    // 
+    // We should avoid reading the length property of the list when possible
+    // because in lazy implementsions such as impl/FilteredElementList, 
+    // reading the length forces the filter to process the entire document
+    // tree undoing the laziness.  
     if (isArray(list)) {
         if (!hasOwnProperty(list, "item"))
             list.item = function(n) { return list[n]; };
@@ -10,26 +15,34 @@ function NodeListProxyHandler(list) {
     this.localprops = Object.create(idl.NodeList.prototype);
 }
 
+// For now, while the Proxy spec is still in flux, this handler
+// defines only the fundamental traps.  We can add the derived traps
+// later if there is a performance bottleneck.
 NodeListProxyHandler.prototype = {
-    isIndex: function(name) {
-        let idx = toULong(name);
-        return String(idx) === name && idx < this.list.length;
-    },
+    isIndex: function(name) { return String(toULong(name)) === name; },
 
     getOwnPropertyDescriptor: function getOwnPropertyDescriptor(name) {
         if (this.isIndex(name)) {
-            let self = this;
-            return {
-                get: function() { return wrap(self.list.item(name)); },
-                enumerable: true,
-                configurable: true // Proxies require configurable props
-            };
+            // If the index is greater than the length, then we'll just
+            // get null or undefined here and do nothing. That is better
+            // than testing length.
+            let v = this.list.item(name);
+            if (v) {
+                return { 
+                    value: wrap(v, idl.Node),
+                    writable: false,
+                    enumerable: true,
+                    configurable: true
+                };
+            }
+            else {
+                // We're never going to allow array index properties to be
+                // set on localprops, so we don't have to do the test
+                // below and can just return nothing now.
+                return;
+            }
         }
-        else {
-            let desc = O.getOwnPropertyDescriptor(this.localprops, name);
-            if (desc) desc.configurable = true; // Proxies require this
-            return desc;
-        }
+        return O.getOwnPropertyDescriptor(this.localprops, name);
     },
     getPropertyDescriptor: function(name) {
         var desc = this.getOwnPropertyDescriptor(name) ||
@@ -45,89 +58,47 @@ NodeListProxyHandler.prototype = {
         return concat(r, O.getOwnPropertyNames(this.localprops));
     },
     defineProperty: function(name, desc) {
-        // WebIDL seems to be moving toward forbidding the definition of
-        // any indexed property, whether or not it is currently in bounds.
+        // XXX
+        // The WebIDL algorithm says we should "Reject" these attempts by
+        // throwing or returning false, depending on the Throw argument, which
+        // is usually strict-mode dependent.  While this is being clarified
+        // I'll just throw here.  May need to change this to return false
+        // instead.
         if (this.isIndex(name)) 
             throw new TypeError(
-                "can't redefine an indexed property '" + name + "'");
+                "can't set or create indexed properties '" + name + "'");
 
         O.defineProperty(this.localprops, name, desc);
     },
     delete: function(name) {
         // Can't delete index properties
-        if (this.isIndex(name)) return false;
+        if (this.isIndex(name)) {
+            // If an item exists at that index, return false: won't delete it
+            // Otherwise, if no item, then the index was out of bounds and
+            // we return true to indicate that the deletion was "successful"
+            return !this.list.time(name);
+        }
         return delete this.localprops[name];
     },
 
-    // By definition, NodeLists are live, so we can't really
-    // allow them to be fixed...
+    // WebIDL: Host objects implementing an interface that supporst
+    // indexed or named properties defy being fixed; if Object.freeze,
+    // Object.seal or Object.preventExtensions is called on one, these
+    // the function MUST throw a TypeError.
     // 
-    // XXX: But WebIDL section 4.5.2 says what to do if the
-    // NodeList is non-extensible, so perhaps I do need to
-    // implement this method.
-    // Emailed public-script-coord about this issue.
-    fix: function() { },
-
-    hasOwn: function hasOwn(name) {
-        return this.isIndex(name) || hasOwnProperty(this.localprops, name);
-    },
-
-    has: function(name) {
-        return this.hasOwn(name) || (name in this.localprops);
-    },
-
-    get: function(receiver, name) {
-        if (this.isIndex(name)) {
-            return wrap(this.list.item(name), idl.Node);
-        }
-        else {
-            // I can't just return this.localprops[name] because when
-            // accessing the length property, this returns the length getter
-            // function from idl.NodeList.prototype (WebIDL mandates that length
-            // must be a getter) and then invokes that getter on the 
-            // localprops object rather than on the proxy object, so the
-            // call to unwrap(this) in the getter fails.  Therefore
-            // I have to implement property getting explicitly through
-            // the property descriptor.  
-            //
-            // XXX: the length property of a NodeList is probably frequently
-            // accessed, so this might be a bottleneck.
-            let d = 
-                O.getOwnPropertyDescriptor(this.localprops, name) ||
-                O.getOwnPropertyDescriptor(NodeList.prototype, name) ||
-                O.getOwnPropertyDescriptor(Object.prototype, name);
-            if (!d) return;
-            if (d.value) return d.value;
-            else return d.get.call(receiver);
-        }
-    },
-
-    set: function(receiver, name, value) {
-        // Don't allow indexed properties to be set
-        if (this.isIndex(name)) return false;
-
-        // Set any expando properties on the localprops object
-        this.localprops[name] = value;
-        return true;   // success
-    },
+    // Proxy proposal: When handler.fix() returns undefined, the
+    // corresponding call to Object.freeze, Object.seal, or
+    // Object.preventExtensions will throw a TypeError.
+    fix: function() {},
 
     // Get all enumerable properties
+    // XXX: Remove this method when this bug is fixed:
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=665198
     enumerate: function() {
         let r = [];
         for (let i = 0, n = this.list.length; i < n; i++)
             push(r, String(i));
         for(name in this.localprops) push(r, name);
-        return r;
-    },
-
-    // Get own properties that are also enumerable
-    keys: function() {
-        let r = [];
-        for (let i = 0, n = this.list.length; i < n; i++)
-            push(r, String(i));
-        for(name in this.localprops) {
-            if (hasOwnProperty(this.localprops,  name)) push(r, name);
-        }
         return r;
     }
 };
