@@ -6,6 +6,8 @@ FILES= \
 	src/xmlnames.js \
 	src/idl.js \
 	src/NodeListProxyHandler.js \
+	src/ArrayProxyHandler.js \
+	src/AttrArrayProxyHandler.js \
 	src/DOMException.js \
 	src/domcore.js \
 	src/impl/Node.js \
@@ -23,7 +25,7 @@ FILES= \
 	src/impl/FilteredElementList.js \
 	src/main.js
 
-dom.js: LICENSE ${FILES} test/monkey.js
+dom.js: LICENSE ${FILES}
 # Output preamble
 	@rm -f $@;
 	@echo '// This file was automatically generated; DO NOT EDIT.' >> $@
