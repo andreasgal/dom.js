@@ -29,12 +29,12 @@ ArrayProxyHandler.prototype = {
                 configurable: true
             };
         }
-        else if (this.isIndex(name)) {
+        else if (this.isArrayIndex(name)) {
             let idx = toULong(name);
             if (idx >= this.array.length) return;  // Out of bounds
 
             return {
-                value: wrap(this.array[idx], this.elementType);
+                value: wrap(this.array[idx], this.elementType),
                 writable: false,
                 enumerable: true,
                 configurable: true
@@ -69,7 +69,7 @@ ArrayProxyHandler.prototype = {
         // XXX
         // For now, we "Reject" by throwing TypeError.  Proxies may change
         // so we only have to return false.
-        if (this.isIndex(name) || name === "length")
+        if (this.isArrayIndex(name) || name === "length")
             throw new TypeError("read only array");
 
         desc.configurable = true;
@@ -81,7 +81,7 @@ ArrayProxyHandler.prototype = {
         if (name === "length") return false;
 
         // Can't delete array elements, but if they don't exist, don't complain
-        if (this.isIndex(name)) {
+        if (this.isArrayIndex(name)) {
             let idx = toULong(name);
             return idx >= this.array.length;
         }

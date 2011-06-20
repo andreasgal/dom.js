@@ -54,6 +54,7 @@ out("//");
 out();
 
 var callbackTypes = {};  // A set of names of [Callback] interfaces
+var arrayTypes = {};     // A set of array types we have to create
 
 // First, loop through the interfaces, looking for callbacks
 for(var i = 0; i < parsedidl.length; i++) {
@@ -64,6 +65,7 @@ for(var i = 0; i < parsedidl.length; i++) {
     }
 }
 
+// Now loop through the interfaces, outputing definitions for them all
 for(var i = 0; i < parsedidl.length; i++) {
     var item = parsedidl[i];
     if (item.type === "interface") 
@@ -71,6 +73,21 @@ for(var i = 0; i < parsedidl.length; i++) {
     else {
         console.warn("Skipping %s %s", item.type, item.name);
     }
+}
+
+// Now that we've output code for each of the IDL interfaces, we need
+// to output classes for any array types that the IDL used.  
+// XXX: probably for sequences, too, if any APIs use them
+for(var type in arrayTypes) {
+    out();
+
+    out('defineLazyProperty(idl, "%s", function() {', type);
+    out('    return new IDLInterface({');
+    out('        name: "%s",', type);
+    out('        superclass: Array,');
+    out('        proxyHandler: %sProxyHandler,', type);
+    out('    });')
+    out('});')
 }
 
 
@@ -285,7 +302,13 @@ function convert(a, v) {
 
 function typeName(t) {
     var s = t.idlType;
-    if (t.array) s += "Array";
+    if (t.array) {
+        s += "Array";
+
+        // Remember that we've seen this type so we can output an
+        // IDL interface for it later.
+        arrayTypes[s] = true;
+    }
     if (t.sequence) s+= "Sequence";
     return s;
 }
