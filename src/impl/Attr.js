@@ -5,10 +5,6 @@ defineLazyProperty(impl, "Attr", function() {
         // We need this to property handle mutations
         this.ownerElement = elt;
 
-        // DOM Attr objects are no longer Nodes, but we still give them a type
-        // because we need that property to make the wrap() method work.
-        this.nodeType = ATTRIBUTE_NODE;
-
         // localName and namespace are constant for any attr object.
         // But value may change.  And so can prefix, and so, therefore can name.
         this.localName = lname;

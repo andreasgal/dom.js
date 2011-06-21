@@ -46,10 +46,15 @@ defineLazyProperty(impl, "Element", function() {
             if (this.isHTML) qname = toLowerCase(qname);
             if (substring(qname, 0, 5) === "xmlns") NamespaceError();
 
+            // If id, class, or name changes, that may invalidate 
+            // NodeList or HTMLCollection caches.
+            if (qname === "id" || qname === "class" || qname === "name")
+                this.modify();
+
             for(let i = 0, n = this.attributes.length; i < n; i++) {
                 let attr = this.attributes[i];
                 if (attr.name === qname) {
-                    attr.value = value;     // Setter sends mutation event for us
+                    attr.value = value;  // Setter sends mutation event for us
                     return;
                 }
             }
@@ -69,6 +74,12 @@ defineLazyProperty(impl, "Element", function() {
                 let attr = this.attributes[i];
                 if (attr.name === qname) {
                     splice(this.attributes, i, 1);
+
+                    // If id, class, or name changes, that may invalidate 
+                    // NodeList or HTMLCollection caches.
+                    if (qname === "id" || qname === "class" || qname === "name")
+                        this.modify();
+                    
                     // Mutation event
                     if (this.root) this.root.mutateRemoveAttr(attr);
                     return;
@@ -113,6 +124,12 @@ defineLazyProperty(impl, "Element", function() {
                  !(qname === "xmlns" || prefix === "xmlns")))
                 NamespaceError();
 
+            // If id, class, or name changes, that may invalidate 
+            // NodeList or HTMLCollection caches.
+            if (ns === null &&
+                (qname === "id" || qname === "class" || qname === "name"))
+                this.modify();
+
             for(let i = 0, n = this.attributes.length; i < n; i++) {
                 let attr = this.attributes[i];
                 if (attr.namespaceURI === ns && attr.localName === lname) {
@@ -139,13 +156,26 @@ defineLazyProperty(impl, "Element", function() {
                 let attr = this.attributes[i];
                 if (attr.namespaceURI === ns && attr.localName === lname) {
                     splice(this.attributes, i, 1);
+
+                    // If id, class, or name changes, that may invalidate 
+                    // NodeList or HTMLCollection caches.
+                    if (ns === null &&
+                        (lname === "id"||lname === "class"||lname === "name"))
+                        this.modify();
+
                     if (this.root) this.root.mutateRemoveAttr(attr);
                     return;
                 }
             }
         }),
 
-        
+        children: attribute(function() {
+            if (!this._children) {
+                this._children = new ChildrenCollection(this);
+            }
+            return this._children;
+        }),
+
         firstElementChild: attribute(function() {
             let kids = this.childNodes;
             for(let i = 0, n = kids.length; i < n; i++) {
@@ -183,12 +213,9 @@ defineLazyProperty(impl, "Element", function() {
         }),
 
         childElementCount: attribute(function() {
-            let kids = this.childNodes, count = 0;
-            for(let i = 0, n = kids.length; i < n; i++) {
-                if (kids[i].nodeType === ELEMENT_NODE) count++
-            }
-            return count;
+            return this.children.length;
         }),
+
 
         // Return the next element, in source order, after this one or
         // null if there are no more.  If root element is specified,
@@ -230,6 +257,72 @@ defineLazyProperty(impl, "Element", function() {
             constant(impl.Document.prototype.getElementsByClassName),
 
     });
+
+    // The children property of an Element will be an instance of this class.
+    // It defines length, item() and namedItem() and will be wrapped by an
+    // HTMLCollection when exposed through the DOM.
+    function ChildrenCollection(e) {
+        this.element = e;
+    }
+
+    ChildrenCollection.prototype = {
+        get length() { 
+            this.updateCache();
+            return this.childrenByNumber.length;
+        },
+
+        item: function item(n) {
+            this.updateCache();
+            return this.childrenByNumber[n] || null;
+        },
+        
+        namedItem: function namedItem(name) {
+            this.updateCache();
+            return this.childrenByName[name] || null;
+        },
+
+        // This attribute returns the entire name->element map.
+        // It is not part of the HTMLCollection API, but we need it in
+        // src/HTMLCollectionProxy
+        get namedItems() {
+            this.updateCache();
+            return this.childrenByName;
+        },
+
+        updateCache: function updateCache() {
+            if (this.lastModified !== this.element.lastModified) {
+                this.lastModified = this.element.lastModified;
+                this.childrenByNumber = [];
+                this.childrenByName = {};
+
+                for(let i = 0, n = this.element.childNodes.length; i < n; i++) {
+                    let c = this.element.childNodes[i];
+                    if (c.nodeType == ELEMENT_NODE) {
+                        push(this.childrenByNumber, c);
+                        
+                        // XXX Are there any requirements about the namespace
+                        // of the id property?
+                        let id = c.getAttribute("id");
+
+                        // If there is an id that is not already in use...
+                        if (id && !this.childrenByName[id]) 
+                            this.childrenByName[id] = c;
+
+                        let namedElts = /^(a|applet|area|embed|form|frame|frameset|iframe|img|object)$/;
+
+                        // For certain HTML elements we check the name attribute
+                        let name = c.getAttribute("name");
+                        if (name && 
+                            this.element.namespaceURI === HTML_NAMESPACE &&
+                            namedElts.test(this.element.localName) &&
+                            !this.childrenByName[name])
+                            this.childrenByName[id] = c;
+                    }
+                }
+            }
+        }
+    };
+
 
     return Element;
 });

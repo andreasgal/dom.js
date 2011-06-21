@@ -6,6 +6,12 @@
 // I've removed DOMException, since WebIDL implementation requirements
 // for exceptions are not clear yet.  For now see DOMException.js for a 
 // hand-written implementation.
+//
+// I've also changed the return type of HTMLCollection.namedItem() to
+// Element? from object?.  DOMCore includes a note that this method can
+// only return elements, but for some historical reason must be declared
+// with object. In our case we need the real element type, so this change
+// must be made by hand.
 
 interface Event {
   readonly attribute DOMString type;
@@ -209,7 +215,7 @@ interface NodeList {
 interface HTMLCollection {
   readonly attribute unsigned long length;
   getter Element? item(unsigned long index);
-  getter object? namedItem(DOMString name); // only returns Element
+  getter Element? namedItem(DOMString name); // only returns Element
 };
 
 interface DOMStringList {

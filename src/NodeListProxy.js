@@ -1,9 +1,10 @@
-function NodeListProxyHandler(list) {
-    // This handler expects an object with a length property and an item() 
+// A factory function for NodeList proxy objects
+function NodeListProxy(list) {
+    // This function expects an object with a length property and an item() 
     // method.  If we pass it a plain array, it will add the item() method
     // 
     // We should avoid reading the length property of the list when possible
-    // because in lazy implementsions such as impl/FilteredElementList, 
+    // because in lazy implementations such as impl/FilteredElementList, 
     // reading the length forces the filter to process the entire document
     // tree undoing the laziness.  
     if (isArray(list)) {
@@ -11,18 +12,23 @@ function NodeListProxyHandler(list) {
             list.item = function(n) { return list[n]; };
     }
 
-    this.list = list;
-    this.localprops = O.create(idl.NodeList.prototype);
+    let handler = O.create(NodeListProxy.handler);
+    handler.list = list;
+    handler.localprops = O.create(null);
+
+    return Proxy.create(handler, idl.NodeList.prototype);
 }
 
+// This is the prototype object for the proxy handler object
+// 
 // For now, while the Proxy spec is still in flux, this handler
 // defines only the fundamental traps.  We can add the derived traps
 // later if there is a performance bottleneck.
-NodeListProxyHandler.prototype = {
-    isIndex: function(name) { return String(toULong(name)) === name; },
+NodeListProxy.handler = {
+    isArrayIndex: function(name) { return String(toULong(name)) === name; },
 
     getOwnPropertyDescriptor: function getOwnPropertyDescriptor(name) {
-        if (this.isIndex(name)) {
+        if (this.isArrayIndex(name)) {
             // If the index is greater than the length, then we'll just
             // get null or undefined here and do nothing. That is better
             // than testing length.
@@ -64,7 +70,7 @@ NodeListProxyHandler.prototype = {
         // is usually strict-mode dependent.  While this is being clarified
         // I'll just throw here.  May need to change this to return false
         // instead.
-        if (this.isIndex(name)) 
+        if (this.isArrayIndex(name)) 
             throw new TypeError(
                 "can't set or create indexed properties '" + name + "'");
 
@@ -72,7 +78,7 @@ NodeListProxyHandler.prototype = {
     },
     delete: function(name) {
         // Can't delete index properties
-        if (this.isIndex(name)) {
+        if (this.isArrayIndex(name)) {
             // If an item exists at that index, return false: won't delete it
             // Otherwise, if no item, then the index was out of bounds and
             // we return true to indicate that the deletion was "successful"
@@ -99,6 +105,7 @@ NodeListProxyHandler.prototype = {
         for (let i = 0, n = this.list.length; i < n; i++)
             push(r, String(i));
         for(name in this.localprops) push(r, name);
+        for(name in idl.NodeList.prototype) push(r, name);
         return r;
     }
 };

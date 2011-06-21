@@ -62,7 +62,7 @@ function toCallbackOrNull(x) {
 function IDLInterface(o) {
     let name = o.name || "";
     let superclass = o.superclass;
-    let proxyHandler = o.proxyHandler;
+    let proxyFactory = o.proxyFactory;
     let constants = o.constants || {};
     let members = o.members || {};
     let prototype, interfaceObject;
@@ -120,16 +120,8 @@ function IDLInterface(o) {
     // Now set up the fields of this object
     this.prototype = prototype;
     this.publicInterface = interfaceObject;
-    this.proxyHandler = proxyHandler;
-
-    // If there is a proxy handler, remember it.  Otherwise, override
-    // the factory function that we'd otherwise inherit from
-    // IDLInterface.prototype
-    if (proxyHandler) this.proxyHandler = proxyHandler;
-    else this.create = Object.create.bind(Object, prototype, {});
+    this.factory = proxyFactory
+        ? proxyFactory
+        : O.create.bind(Object, prototype, {});
 }
-
-IDLInterface.prototype.create = function(impl) {
-    return Proxy.create(new this.proxyHandler(impl), this.prototype);
-};
 

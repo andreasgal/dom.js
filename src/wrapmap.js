@@ -59,7 +59,7 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
 
         if (!n._idl) {
             if (idltype !== idl.Node) {
-                n._idl = idltype.create(n);
+                n._idl = idltype.factory(n);
             }
             else {
                 // Special case for Nodes. To wrap a Node, we have to create
@@ -76,25 +76,25 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
                 // 
                 switch(n.nodeType) {
                 case ELEMENT_NODE:
-                    n._idl = idl.Element.create();
+                    n._idl = idl.Element.factory();
                     break;
                 case TEXT_NODE:
-                    n._idl = idl.Text.create();
+                    n._idl = idl.Text.factory();
                     break;
                 case COMMENT_NODE:
-                    n._idl = idl.Comment.create();
+                    n._idl = idl.Comment.factory();
                     break;
                 case PROCESSING_INSTRUCTION_NODE:
-                    n._idl = idl.ProcessingInstruction.create();
+                    n._idl = idl.ProcessingInstruction.factory();
                     break;
                 case DOCUMENT_NODE:
-                    n._idl = idl.Document.create();
+                    n._idl = idl.Document.factory();
                     break;
                 case DOCUMENT_FRAGMENT_NODE:
-                    n._idl = idl.DocumentFragment.create();
+                    n._idl = idl.DocumentFragment.factory();
                     break;
                 case DOCUMENT_TYPE_NODE:
-                    n._idl = idl.DocumentType.create();
+                    n._idl = idl.DocumentType.factory();
                     break;
                 }
             }

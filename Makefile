@@ -5,11 +5,11 @@ FILES= \
 	src/wrapmap.js \
 	src/xmlnames.js \
 	src/idl.js \
-	src/NodeListProxyHandler.js \
-	src/ArrayProxyHandler.js \
-	src/AttrArrayProxyHandler.js \
-	src/DOMException.js \
 	src/domcore.js \
+	src/ArrayProxy.js \
+	src/NodeListProxy.js \
+	src/HTMLCollectionProxy.js \
+	src/DOMException.js \
 	src/impl/Node.js \
 	src/impl/Leaf.js \
 	src/impl/CharacterData.js \

@@ -84,8 +84,7 @@ for(var type in arrayTypes) {
     out('defineLazyProperty(idl, "%s", function() {', type);
     out('    return new IDLInterface({');
     out('        name: "%s",', type);
-    out('        superclass: Array,');
-    out('        proxyHandler: %sProxyHandler,', type);
+    out('        proxyFactory: %sProxy,', type);
     out('    });')
     out('});')
 }
@@ -142,7 +141,7 @@ function outputInterface(idl) {
     // If the interface needs a proxy (because it has an indexed getter, e.g.)
     // then specify that
     if (needsProxy(idl)) {
-        out('        proxyHandler: %sProxyHandler,', idl.name);
+        out('        proxyFactory: %sProxy,', idl.name);
     }
     
     // If the interface defines constants

@@ -1,25 +1,19 @@
-// This class is a proxy handler for read-only WebIDL array types, like the 
-// Element.attributes attribute, which has type Attr[]. See WebIDL §4.2.20.
+// This is a factory function for Array proxy objects. 
+//
+// The function takes the idl type of the array elements as its first argument
+// so we can create more specific factory functions with .bind().
+// See the end of the file for custom constructors for specific element types
 // 
-// The constructor takes the array to proxy, and also the IDL type of the
-// array (so the prototype can be set appropriately) and the IDL type of the
-// array elements, (so they can be wrapped appropriately).
-// 
-// We'll probably need to define a subtype or at least a custom factory method
-// for each array type that we actually need to use.
-// AttrArrayProxyHandler, for example.
-// 
-function ArrayProxyHandler(array, arrayType, elementType) {
-    this.array = array;
-    this.arrayType = arrayType;
-    this.elementType = elementType;
-    // The arrayType.prototype will inherit from Array.prototype
-    this.localprops = O.create(arrayType.prototype)
+function ArrayProxy(elementType, array) {
+    let handler = Object.create(ArrayProxy.handler);
+    handler.elementType = elementType;  
+    handler.array = array;
+    handler.localprops = O.create(null);
+    return Proxy.create(handler, Array.prototype);
 }
 
-ArrayProxyHandler.prototype = {
+ArrayProxy.handler = {
     isArrayIndex: function(name) { return String(toULong(name)) === name; },
-
     getOwnPropertyDescriptor: function getOwnPropertyDescriptor(name) {
         if (name === "length") {
             return {
@@ -51,7 +45,6 @@ ArrayProxyHandler.prototype = {
         // If ES6 implements Object.getPropertyDescriptor() we can use
         // that here instead of this long chain.
         var desc = this.getOwnPropertyDescriptor(name) ||
-            O.getOwnPropertyDescriptor(this.arrayType.prototype, name) ||
             O.getOwnPropertyDescriptor(A.prototype, name) ||
             O.getOwnPropertyDescriptor(O.prototype, name);
         if (desc) desc.configurable = true; // Proxies require this
@@ -101,7 +94,11 @@ ArrayProxyHandler.prototype = {
         let r = [];
         for (let i = 0, n = this.array.length; i < n; i++)
             push(r, String(i));
-        for(name in this.localprops) push(r, name);
+        for(let name in this.localprops) push(r, name);
+        for(let name in Array.prototype) push(r, name);
         return r;
     }
 }
+
+//const AttrArrayProxy = ArrayProxy.bind(null, idl.Attr);
+function AttrArrayProxy(array) { return ArrayProxy(idl.Attr, array); }

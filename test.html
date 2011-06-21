@@ -51,8 +51,25 @@ try {
     console.log(document.getElementsByClassName("nope").length);
 */
 
+/*
+    var a = body.attributes;
+    body.setAttribute("foo", "bar");
+    console.log(a, a instanceof Array, Array.isArray(a));
+*/
 
+    var c = html.children;
+    console.log(c.toString(), c.length, c[0].tagName, c[1].tagName);
 
+    c.expando = 99;
+    console.log(c.expando);
+    body.setAttribute("id", "expando")
+    console.log(c.expando);
+    delete c.expando;
+    console.log(c.expando);
+    c.expando = 88;
+    console.log(c.expando);
+    delete c.expando;
+    console.log(c.expando);
 }
 catch(e) {
     console.log(e.name, e.message);
