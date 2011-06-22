@@ -86,14 +86,20 @@ HTMLCollectionProxy.handler = {
     },
 
     defineProperty: function(name, desc) {
-        console.log("DEFINE");
-
         // XXX
         // For now, we "Reject" by throwing TypeError.  Proxies may change
         // so we only have to return false.
         if (this.isArrayIndex(name)) 
             throw new TypeError(
-                "can't set or create indexed properties '" + name + "'");
+                "can't set or create indexed property '" + name + "'");
+
+        // Don't allow named properties to overridden by expando properties,
+        // even with an explicit Object.defineProperty() call.  
+        // XXX
+        // The resolution of this issue is still pending on the mailing list.
+        if (name in this.collection.namedItems)
+            throw new TypeError(
+                "can't override named property '" + name + "'");
 
         desc.configurable = true;
         O.defineProperty(this.localprops, name, desc);
