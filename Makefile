@@ -73,3 +73,10 @@ src/domcore.js: src/domcore.idl tools/idl2domjs
 	@chmod 444 $@
 	@echo "Created $@"
 
+# Utility to copy dom.js to the test directory
+# DON'T CHECK THIS PART INTO GITHUB!!!
+deploy: dom.js
+	echo 'Deploying dom.js to resources directory'
+	cp dom.js ~/WebServerDocs/resources/
+	chmod 744 ~/WebServerDocs/resources/dom.js
+
