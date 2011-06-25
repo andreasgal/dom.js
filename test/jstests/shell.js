@@ -17,10 +17,10 @@ if (typeof version != 'undefined')
 function compareException(f, expectedErrName, description) {
     try {
         f();
-        throw { name: "NoExceptionThrown" };
+        throw { name: "No exception thrown." };
     }
     catch (e) {
-        reportCompare(e.name, expectedErrName, description);
+        reportCompare(expectedErrName, e.name, description);
     }
 }
 

@@ -39,28 +39,58 @@
 
 var SECTION = "dom.js -- DOM core";
 startTest();
-var TITLE   = "CharacterData.appendData";
+var TITLE = "DOMImplementation.createDocumentType";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
 // Some cruft to make the tests happy.
 document.location = { href: { match: function(){} }};
 
-function testAppend(node, type) {
-    new TestCase( SECTION,
-            "node = document.create" + type + "('test'); node.data",
-            'test',
-            node.data);
+var tests = [
+    ["foo", "", "", null],
+    ["1foo", "", "", "INVALID_CHARACTER_ERR"],
+    ["foo1", "", "", null],
+    ["f1oo", "", "", null],
+    ["@foo", "", "", "INVALID_CHARACTER_ERR"],
+    ["foo@", "", "", "INVALID_CHARACTER_ERR"],
+    ["f@oo", "", "", "INVALID_CHARACTER_ERR"],
+    ["f:oo", "", "", null],
+    [":foo", "", "", "NAMESPACE_ERR"],
+    ["foo:", "", "", "NAMESPACE_ERR"],
+    ["foo", "foo", "", null],
+    ["foo", "", "foo", null],
+    ["foo", "f'oo", "", null],
+    ["foo", "", "f'oo", null],
+    ["foo", 'f"oo', "", null],
+    ["foo", "", 'f"oo', null],
+    ["foo", "f'o\"o", "", null],
+    ["foo", "", "f'o\"o", null],
+    ["foo", "foo>", "", null],
+    ["foo", "", "foo>", null]
+]
 
-    node.appendData('test');
-    new TestCase( SECTION,
-            "node.appendData('test'); node.data",
-            'testtest',
-            node.data);
+for (i in tests) {
+    var t = tests[i],
+        qualifiedName = t[0],
+        publicId = t[1],
+        systemId = t[2],
+        expected = t[3];
+
+    if (expected != null) {
+        compareException(
+                function() { document.implementation.createDocumentType(qualifiedName, publicId, systemId); },
+                expected,
+                "document.implementation.createDocumentType(" + qualifiedName + "," + publicId + "," + systemId + ")");
+    }
+    else {
+        new TestCase( SECTION,
+                "document.implementation.createDocumentType(qualifiedName,publicId,systemId).nodeType " +
+                        " === Node.DOCUMENT_TYPE_NODE",
+                document.implementation.createDocumentType(qualifiedName, publicId, systemId).nodeType,
+                Node.DOCUMENT_TYPE_NODE);
+    }
 }
 
-testAppend(document.createTextNode("test"), "TextNode");
-testAppend(document.createComment("test"),  "Comment");
 
 test();
 

@@ -2,4 +2,9 @@ script CharacterData.appendData.js
 script CharacterData.insertData.js
 script CharacterData.deleteData.js
 script CharacterData.replaceData.js
+script DOMException.constants.js
+script DOMImplementation.createDocument.js
+script DOMImplementation.createDocumentType.js
+script DOMImplementation.createHTMLDocument.js
+script DOMImplementation.hasFeature.js
 

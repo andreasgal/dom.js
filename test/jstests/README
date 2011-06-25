@@ -1,0 +1,2 @@
+These tests are intended to be run with jstests.py.
+They have been converted from tests available in http://www.w3c-test.org/webapps/DOMCore/tests/submissions/Ms2ger/.
