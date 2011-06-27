@@ -6,10 +6,48 @@
 
 
 // explicitly turn on js185
-// XXX: The browser currently only supports up to version 1.8
-if (typeof version != 'undefined')
-{
+// Must be run before dom.js
+if (typeof version != 'undefined') {
   version(185);
+}
+
+var SECTION = "dom.js -- DOM core";
+
+var TITLE = '';
+
+// Used to set comment for a batch of tests
+var comment = null;
+
+function assert_equals(expected, actual, desc) {
+    desc = desc || comment;
+    new TestCase(SECTION,
+            desc,
+            expected,
+            actual);
+}
+
+function assert_true(b, desc) {
+    assert_equals(true, b, desc);
+}
+
+function assert_false(b, desc) {
+    assert_equals(false, b, desc);
+}
+
+// Replaces test function from DOMCore tests
+function testdc(f, desc) {
+    comment = desc;
+    comment = comment || TITLE;
+    try {
+        f();
+    }
+    catch (e) {
+        new TestCase(SECTION,
+                comment,
+                "unknown",
+                e.toString());
+    }
+    comment = null;
 }
 
 // Utility function to test thrown errors.
@@ -20,7 +58,16 @@ function compareException(f, expectedErrName, description) {
         throw { name: "No exception thrown." };
     }
     catch (e) {
-        reportCompare(expectedErrName, e.name, description);
+        new TestCase(SECTION,
+                description,
+                expectedErrName,
+                e.name);
     }
+}
+
+function assert_throws(expErr, f) {
+    // Assumes function is only one statement
+    var desc = f.toString().split(/\n/)[1];
+    compareException(f, expErr, desc);
 }
 

@@ -37,16 +37,17 @@
  * ***** END LICENSE BLOCK ***** */
 
 
-var SECTION = "dom.js -- DOM core";
 startTest();
-var TITLE   = "DOMImplementation.createDocument";
+TITLE   = "DOMImplementation.createDocument";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
 // Some cruft to make the tests happy.
 document.location = { href: { match: function(){} }};
 
-var tests = [
+
+testdc(function() {
+  var tests = [
     [null, null, null, null],
     [null, "", null, null],
     [null, "foo", null, null],
@@ -137,73 +138,62 @@ var tests = [
     ["foo:", "xml:foo", null, "NAMESPACE_ERR"],
     ["foo:", "xmlns:foo", null, "NAMESPACE_ERR"],
     ["foo:", "xmlfoo:bar", null, null],
-    [null, null, document.implementation.createDocumentType("foo", "", ""), null],
-    [null, null, document.doctype, "WRONG_DOCUMENT_ERR"], // This causes a horrible WebKit bug (now fixed in trunk).
-    [null, null, function() {
+  ]
+
+  try { // XXX merge?!
+    var tempTests = tests.concat([
+      [null, null, document.implementation.createDocumentType("foo", "", ""), null],
+      [null, null, document.doctype, "WRONG_DOCUMENT_ERR"], // This causes a horrible WebKit bug (now fixed in trunk).
+      [null, null, function() {
           var foo = document.implementation.createDocumentType("foo", "", "");
           document.implementation.createDocument(null, null, foo);
           return foo;
-    }(), "WRONG_DOCUMENT_ERR"], // DOCTYPE already associated with a document.
-    [null, null, function() {
+       }(), "WRONG_DOCUMENT_ERR"], // DOCTYPE already associated with a document.
+      [null, null, function() {
           var bar = document.implementation.createDocument(null, null, null);
           return bar.implementation.createDocumentType("bar", "", "");
-    }(), null], // DOCTYPE created by a different implementation.
-    [null, null, function() {
+       }(), null], // DOCTYPE created by a different implementation.
+      [null, null, function() {
           var bar = document.implementation.createDocument(null, null, null);
           var magic = bar.implementation.createDocumentType("bar", "", "");
           bar.implementation.createDocument(null, null, magic);
           return magic;
-    }(), "WRONG_DOCUMENT_ERR"], // DOCTYPE created by a different implementation and already associated with a document.
-    [null, "foo", document.implementation.createDocumentType("foo", "", ""), null],
-    ["foo", null, document.implementation.createDocumentType("foo", "", ""), null],
-    ["foo", "bar", document.implementation.createDocumentType("foo", "", ""), null],
-];
+       }(), "WRONG_DOCUMENT_ERR"], // DOCTYPE created by a different implementation and already associated with a document.
+      [null, "foo", document.implementation.createDocumentType("foo", "", ""), null],
+      ["foo", null, document.implementation.createDocumentType("foo", "", ""), null],
+      ["foo", "bar", document.implementation.createDocumentType("foo", "", ""), null],
+    ]);
+    tests = tempTests;
+  } catch (e) {
+    assert_unreached()
+  }
 
-for (var i in tests) {
-    var t = tests[i],
-        namespaceURI = t[0],
-        qualifiedName = t[1],
-        doctype = t[2],
-        expected = t[3];
-
-    if (expected != null) {
-        compareException(
-                function() { document.implementation.createDocument(namespaceURI, qualifiedName, doctype) },
-                expected,
-                "document.implementation.createDocument(" + namespaceURI + "," + qualifiedName + "," + doctype + ")");
-    } else {
-        var doc = document.implementation.createDocument(namespaceURI, qualifiedName, doctype);
-
-        new TestCase( SECTION,
-                "doc.nodeType === Node.DOCUMENT_NODE",
-                doc.nodeType,
-                Node.DOCUMENT_NODE);
-
-        new TestCase( SECTION,
-                "doc.nodeType === doc.DOCUMENT_NODE",
-                doc.nodeType,
-                doc.DOCUMENT_NODE);
-
+  for (var i in tests) {
+    testdc(function() {
+      var test = tests[i],
+          namespaceURI = test[0],
+          qualifiedName = test[1],
+          doctype = test[2],
+          expected = test[3]
+      if (expected != null) {
+        assert_throws(expected, function() { document.implementation.createDocument(namespaceURI, qualifiedName, doctype) })
+      } else {
+        var doc = document.implementation.createDocument(namespaceURI, qualifiedName, doctype)
+        assert_equals(doc.nodeType, Node.DOCUMENT_NODE)
+        assert_equals(doc.nodeType, doc.DOCUMENT_NODE)
         if(!qualifiedName) {
-            new TestCase( SECTION,
-                    "doc.documentElement",
-                    doc.documentElement,
-                    null);
+          assert_equals(doc.documentElement, null)
         }
         if(!doctype) {
-            new TestCase( SECTION,
-                    "doc.doctype",
-                    doc.doctype,
-                    null);
+          assert_equals(doc.doctype, null)
         }
         if(!qualifiedName && !doctype) {
-            new TestCase( SECTION,
-                    "doc.childNodes.length",
-                    doc.childNodes.length,
-                    0);
+          assert_equals(doc.childNodes.length, 0)
         }
-    }
-}
+      }
+    })
+  }
+});
 
 
 test();

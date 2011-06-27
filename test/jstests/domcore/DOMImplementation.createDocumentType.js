@@ -37,59 +37,50 @@
  * ***** END LICENSE BLOCK ***** */
 
 
-var SECTION = "dom.js -- DOM core";
 startTest();
-var TITLE = "DOMImplementation.createDocumentType";
+TITLE = "DOMImplementation.createDocumentType";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
 // Some cruft to make the tests happy.
 document.location = { href: { match: function(){} }};
 
-var tests = [
-    ["foo", "", "", null],
-    ["1foo", "", "", "INVALID_CHARACTER_ERR"],
-    ["foo1", "", "", null],
-    ["f1oo", "", "", null],
-    ["@foo", "", "", "INVALID_CHARACTER_ERR"],
-    ["foo@", "", "", "INVALID_CHARACTER_ERR"],
-    ["f@oo", "", "", "INVALID_CHARACTER_ERR"],
-    ["f:oo", "", "", null],
-    [":foo", "", "", "NAMESPACE_ERR"],
-    ["foo:", "", "", "NAMESPACE_ERR"],
-    ["foo", "foo", "", null],
-    ["foo", "", "foo", null],
-    ["foo", "f'oo", "", null],
-    ["foo", "", "f'oo", null],
-    ["foo", 'f"oo', "", null],
-    ["foo", "", 'f"oo', null],
-    ["foo", "f'o\"o", "", null],
-    ["foo", "", "f'o\"o", null],
-    ["foo", "foo>", "", null],
-    ["foo", "", "foo>", null]
-]
+testdc(function() {
+  var tests = [
+        ["foo", "", "", null],
+        ["1foo", "", "", "INVALID_CHARACTER_ERR"],
+        ["foo1", "", "", null],
+        ["f1oo", "", "", null],
+        ["@foo", "", "", "INVALID_CHARACTER_ERR"],
+        ["foo@", "", "", "INVALID_CHARACTER_ERR"],
+        ["f@oo", "", "", "INVALID_CHARACTER_ERR"],
+        ["f:oo", "", "", null],
+        [":foo", "", "", "NAMESPACE_ERR"],
+        ["foo:", "", "", "NAMESPACE_ERR"],
+        ["foo", "foo", "", null],
+        ["foo", "", "foo", null],
+        ["foo", "f'oo", "", null],
+        ["foo", "", "f'oo", null],
+        ["foo", 'f"oo', "", null],
+        ["foo", "", 'f"oo', null],
+        ["foo", "f'o\"o", "", null],
+        ["foo", "", "f'o\"o", null],
+        ["foo", "foo>", "", null],
+        ["foo", "", "foo>", null]
+     ]
 
-for (i in tests) {
-    var t = tests[i],
-        qualifiedName = t[0],
-        publicId = t[1],
-        systemId = t[2],
-        expected = t[3];
-
-    if (expected != null) {
-        compareException(
-                function() { document.implementation.createDocumentType(qualifiedName, publicId, systemId); },
-                expected,
-                "document.implementation.createDocumentType(" + qualifiedName + "," + publicId + "," + systemId + ")");
-    }
-    else {
-        new TestCase( SECTION,
-                "document.implementation.createDocumentType(qualifiedName,publicId,systemId).nodeType " +
-                        " === Node.DOCUMENT_TYPE_NODE",
-                document.implementation.createDocumentType(qualifiedName, publicId, systemId).nodeType,
-                Node.DOCUMENT_TYPE_NODE);
-    }
-}
+  for (i in tests) {
+    var test = tests[i],
+        qualifiedName = test[0],
+        publicId = test[1],
+        systemId = test[2],
+        expected = test[3]
+    if (expected != null)
+      assert_throws(expected, function() { document.implementation.createDocumentType(qualifiedName, publicId, systemId) })
+    else
+      assert_equals(document.implementation.createDocumentType(qualifiedName, publicId, systemId).nodeType, Node.DOCUMENT_TYPE_NODE)
+  }
+});
 
 
 test();

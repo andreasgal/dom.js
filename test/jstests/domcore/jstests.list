@@ -7,4 +7,13 @@ script DOMImplementation.createDocument.js
 script DOMImplementation.createDocumentType.js
 script DOMImplementation.createHTMLDocument.js
 script DOMImplementation.hasFeature.js
+script Document.createComment.js
+script Document.createElement.js
+script Document.createElementNS.js
+script Document.createProcessingInstruction-literal-1.js
+script Document.createProcessingInstruction-literal-2.js
+script Document.createProcessingInstruction.js
+script Document.getElementById.js
+script Document.getElementByTagName.js
+script Document.getElementByTagNameNS.js
 

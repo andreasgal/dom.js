@@ -37,30 +37,27 @@
  * ***** END LICENSE BLOCK ***** */
 
 
-var SECTION = "dom.js -- DOM core";
 startTest();
-var TITLE   = "CharacterData.appendData";
+TITLE   = "CharacterData.appendData";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
 // Some cruft to make the tests happy.
 document.location = { href: { match: function(){} }};
 
-function testAppend(node, type) {
-    new TestCase( SECTION,
-            "node = document.create" + type + "('test'); node.data",
-            'test',
-            node.data);
 
-    node.appendData('test');
-    new TestCase( SECTION,
-            "node.appendData('test'); node.data",
-            'testtest',
-            node.data);
+function testNode(node) {
+  testdc(function() {
+    assert_equals(node.data, "test")
+    node.appendData("test")
+    assert_equals(node.data, "testtest")
+  })
 }
+testdc(function() {
+  testNode(document.createTextNode("test"))
+  testNode(document.createComment("test"))
+})
 
-testAppend(document.createTextNode("test"), "TextNode");
-testAppend(document.createComment("test"),  "Comment");
 
 test();
 

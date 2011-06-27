@@ -37,41 +37,30 @@
  * ***** END LICENSE BLOCK ***** */
 
 
-var SECTION = "dom.js -- DOM core";
 startTest();
-var TITLE   = "CharacterData.insertData";
+TITLE   = "CharacterData.insertData";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
 // Some cruft to make the tests happy.
 document.location = { href: { match: function(){} }};
 
-var expErrName = "INDEX_SIZE_ERR";
-
-function testInsert(node, type) {
-    compareException(function() { node.insertData(5, "x"); },
-            expErrName,
-            type + ": node.insertData(5,'x') should throw exception");
-    compareException(function() { node.insertData(5, ""); },
-            expErrName,
-            type + ": node.insertData(5,'') should throw exception");
-
-    node.insertData(2, 'X');
-    new TestCase( SECTION,
-            type + ": node.insertData(2,'X'); node.data",
-            'teXst',
-            node.data);
-
-    node.data = "test";
-    node.insertData(4, "ing");
-    new TestCase( SECTION,
-            type + ": node.insertData(4, 'ing'); node.data",
-            'testing',
-            node.data);
+function testNode(node) {
+  testdc(function() {
+    assert_throws("INDEX_SIZE_ERR", function() { node.insertData(5, "x") })
+    assert_throws("INDEX_SIZE_ERR", function() { node.insertData(5, "") })
+    node.insertData(2, "X")
+    assert_equals(node.data, "teXst")
+    node.data = "test"
+    node.insertData(4, "ing")
+    assert_equals(node.data, "testing")
+  })
 }
 
-testInsert(document.createTextNode("test"), 'TextNode');
-testInsert(document.createComment("test"),  'Comment');
+testdc(function() {
+  testNode(document.createTextNode("test"))
+  testNode(document.createComment("test"))
+});
 
 test();
 

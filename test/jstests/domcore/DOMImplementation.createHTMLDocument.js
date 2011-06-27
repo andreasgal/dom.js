@@ -37,9 +37,8 @@
  * ***** END LICENSE BLOCK ***** */
 
 
-var SECTION = "dom.js -- DOM core";
 startTest();
-var TITLE   = "DOMImplementation.createHTMLDocument";
+TITLE   = "DOMImplementation.createHTMLDocument";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
@@ -47,61 +46,30 @@ writeHeaderToLog( SECTION + ": "+ TITLE);
 document.location = { href: { match: function(){} }};
 
 function checkDoc(title, expectedtitle, normalizedtitle) {
+  testdc(function() {
     var doc = document.implementation.createHTMLDocument(title);
-    new TestCase(SECTION,
-            title + ": doc.doctype.name",
-            "html",
-            doc.doctype.name);
-    new TestCase(SECTION,
-            title + ": doc.doctype.publicId",
-            "",
-            doc.doctype.publicId);
-    new TestCase(SECTION,
-            title + ": doc.doctype.systemId",
-            "",
-            doc.doctype.systemId);
-    new TestCase(SECTION,
-            title + ": doc.documentElement.localName",
-            "html",
-            doc.documentElement.localName);
-    new TestCase(SECTION,
-            title + ": doc.documentElement.firstChild.localName",
-            "head",
-            doc.documentElement.firstChild.localName);
-    new TestCase(SECTION,
-            title + ": doc.documentElement.firstChild.childNodes.length",
-            1,
-            doc.documentElement.firstChild.childNodes.length);
-    new TestCase(SECTION,
-            title + ": doc.documentElement.firstChild.firstChild.localName",
-            "title",
-            doc.documentElement.firstChild.firstChild.localName);
-    new TestCase(SECTION,
-            title + ": doc.documentElement.firstChild.firstChild.firstChild.data",
-            expectedtitle,
-            doc.documentElement.firstChild.firstChild.firstChild.data);
-    new TestCase(SECTION,
-            title + ": doc.documentElement.lastChild.localName",
-            "body",
-            doc.documentElement.lastChild.localName);
-    new TestCase(SECTION,
-            title + ": doc.documentElement.lastChild.childNodes.length",
-            0,
-            doc.documentElement.lastChild.childNodes.length);
-    new TestCase(SECTION,
-            title + ": doc.title",
-            normalizedtitle,
-            doc.title);
+    assert_equals(doc.doctype.name, "html")
+    assert_equals(doc.doctype.publicId, "")
+    assert_equals(doc.doctype.systemId, "")
+    assert_equals(doc.documentElement.localName, "html")
+    assert_equals(doc.documentElement.firstChild.localName, "head")
+    assert_equals(doc.documentElement.firstChild.childNodes.length, 1)
+    assert_equals(doc.documentElement.firstChild.firstChild.localName, "title")
+    assert_equals(doc.documentElement.firstChild.firstChild.firstChild.data,
+    expectedtitle)
+    assert_equals(doc.documentElement.lastChild.localName, "body")
+    assert_equals(doc.documentElement.lastChild.childNodes.length, 0)
+    assert_equals(doc.title, normalizedtitle)
+  })
 }
-
-checkDoc("", "", "");
-checkDoc(null, "null", "null");
-checkDoc(undefined, "undefined", "undefined");
-checkDoc("foo  bar baz", "foo  bar baz", "foo bar baz");
-checkDoc("foo\t\tbar baz", "foo\t\tbar baz", "foo bar baz");
-checkDoc("foo\n\nbar baz", "foo\n\nbar baz", "foo bar baz");
-checkDoc("foo\f\fbar baz", "foo\f\fbar baz", "foo bar baz");
-checkDoc("foo\r\rbar baz", "foo\r\rbar baz", "foo bar baz");
+checkDoc("", "", "")
+checkDoc(null, "null", "null")
+checkDoc(undefined, "undefined", "undefined")
+checkDoc("foo  bar baz", "foo  bar baz", "foo bar baz")
+checkDoc("foo\t\tbar baz", "foo\t\tbar baz", "foo bar baz")
+checkDoc("foo\n\nbar baz", "foo\n\nbar baz", "foo bar baz")
+checkDoc("foo\f\fbar baz", "foo\f\fbar baz", "foo bar baz")
+checkDoc("foo\r\rbar baz", "foo\r\rbar baz", "foo bar baz")
 
 
 test();

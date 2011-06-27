@@ -37,41 +37,31 @@
  * ***** END LICENSE BLOCK ***** */
 
 
-var SECTION = "dom.js -- DOM core";
 startTest();
-var TITLE   = "CharacterData.deleteData";
+TITLE   = "CharacterData.deleteData";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
 // Some cruft to make the tests happy.
 document.location = { href: { match: function(){} }};
 
-var expErrName = "INDEX_SIZE_ERR";
-
-function testDelete(node, type) {
-    compareException(function() { node.deleteData(5, 10); },
-            expErrName,
-            type + ": node.deleteData(5,10) should throw exception");
-    compareException(function() { node.deleteData(5, 0); },
-            expErrName,
-            type + ": node.deleteData(5,0) should throw exception");
-
-    node.deleteData(2, 10);
-    new TestCase( SECTION,
-            type + ": node.deleteData(2,10); node.data",
-            'te',
-            node.data);
-
-    node.data = "test";
-    node.deleteData(1, 1);
-    new TestCase( SECTION,
-            type + ": node.deleteData(1,1); node.data",
-            'tst',
-            node.data);
+function testNode(node) {
+  testdc(function() {
+    assert_throws("INDEX_SIZE_ERR", function() { node.deleteData(5, 10) })
+    assert_throws("INDEX_SIZE_ERR", function() { node.deleteData(5, 0) })
+    node.deleteData(2, 10)
+    assert_equals(node.data, "te")
+    node.data = "test"
+    node.deleteData(1, 1)
+    assert_equals(node.data, "tst")
+  })
 }
 
-testDelete(document.createTextNode("test"), 'TextNode');
-testDelete(document.createComment("test"),  'Comment');
+testdc(function() {
+  testNode(document.createTextNode("test"))
+  testNode(document.createComment("test"))
+});
+
 
 test();
 

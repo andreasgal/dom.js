@@ -46,7 +46,9 @@ writeHeaderToLog( SECTION + ": "+ TITLE);
 // Some cruft to make the tests happy.
 document.location = { href: { match: function(){} }};
 
-var constants = [
+
+testdc(function() {
+  var constants = [
     "INDEX_SIZE_ERR",
     "DOMSTRING_SIZE_ERR",
     "HIERARCHY_REQUEST_ERR",
@@ -72,15 +74,13 @@ var constants = [
     "TIMEOUT_ERR",
     "INVALID_NODE_TYPE_ERR",
     "DATA_CLONE_ERR"
-];
-
-for (var i = 0; i < constants.length; i++) {
+  ]
+  for (var i = 0; i < constants.length; i++) {
     var name = constants[i];
-    new TestCase( SECTION,
-            "DOMException[" + name + "]",
-            i+1,
-            DOMException[name]);
-}
+    if (name)
+      assert_equals(DOMException[name], i + 1, name)
+  }
+});
 
 
 test();

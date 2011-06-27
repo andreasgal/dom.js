@@ -38,7 +38,7 @@
 
 
 startTest();
-TITLE   = "CharacterData.replaceData";
+TITLE   = "Document.createElementNS";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
@@ -46,22 +46,40 @@ writeHeaderToLog( SECTION + ": "+ TITLE);
 document.location = { href: { match: function(){} }};
 
 
-function testNode(node) {
-  testdc(function() {
-    assert_throws("INDEX_SIZE_ERR", function() { node.replaceData(5, 1, "x") })
-    assert_throws("INDEX_SIZE_ERR", function() { node.replaceData(5, 0, "") })
-    node.replaceData(2, 10, "yo")
-    assert_equals(node.data, "teyo")
-    node.data = "test"
-    node.replaceData(1, 1, "waddup")
-    assert_equals(node.data, "twaddupst")
-    node.replaceData(1, 1, "yup")
-    assert_equals(node.data, "tyupaddupst")
-  })
-}
 testdc(function() {
-  testNode(document.createTextNode("test"))
-  testNode(document.createComment("test"))
+  var invalidNames = [
+    "",
+    "1foo",
+    "\u0300foo",
+    "}foo",
+    "f}oo",
+    "foo}",
+    "\ufffffoo",
+    "f\uffffoo",
+    "foo\uffff",
+    "<foo",
+    "foo>",
+    "<foo>",
+    "f<oo"
+  ],
+  invalidNSQNameCombinations = [
+    ["", ":foo"],
+    ["", "foo:"],
+    ["", "foo:foo"],
+    ["http://oops/", "xml:foo"],
+    ["http://oops/", "xmlns"],
+    ["http://oops/", "xmlns:foo"],
+    ["http://www.w3.org/2000/xmlns/", "xml:foo"],
+    ["http://www.w3.org/2000/xmlns/", "foo:xmlns"]
+  ]
+
+  for (var i = 0, il = invalidNames.length; i < il; i++) {
+    assert_throws("INVALID_CHARACTER_ERR", function() { document.createElementNS("", invalidNames[i]) })
+  }
+
+  for (var i = 0, il = invalidNSQNameCombinations.length; i < il; i++) {
+    assert_throws("NAMESPACE_ERR", function() { document.createElementNS(invalidNSQNameCombinations[i][0], invalidNSQNameCombinations[i][1]) })
+  }
 });
 
 

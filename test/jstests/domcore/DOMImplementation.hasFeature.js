@@ -37,9 +37,8 @@
  * ***** END LICENSE BLOCK ***** */
 
 
-var SECTION = "dom.js -- DOM core";
 startTest();
-var TITLE   = "DOMImplementaion.hasFeature";
+TITLE   = "DOMImplementaion.hasFeature";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
@@ -47,7 +46,8 @@ writeHeaderToLog( SECTION + ": "+ TITLE);
 document.location = { href: { match: function(){} }};
 console = { warn: function(){} };
 
-var tests = [
+testdc(function() {
+  var tests = [
         ["Core", "1.0", false],
         ["Core", "2.0", true],
         ["Core", "3.0", false],
@@ -171,16 +171,13 @@ var tests = [
         ["This is filler text.", "", false],
         [null, "", false],
         [undefined, "", false],
-];
+      ]
+  for (var i in tests) {
+    var test = tests[i]
+    assert_equals(document.implementation.hasFeature(test[0], test[1]), test[2], test[0] + " " + test[1])
+  }
+});
 
-for (var i in tests) {
-    var t = tests[i];
-    //assert_equals(document.implementation.hasFeature(t[0], t[1]), t[2], t[0] + " " + t[1]);
-    new TestCase(SECTION,
-            t[0] + " " + t[1],
-            t[2],
-            document.implementation.hasFeature(t[0], t[1]));
-}
 
 test();
 
