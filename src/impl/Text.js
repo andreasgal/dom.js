@@ -42,13 +42,8 @@ defineLazyProperty(impl, "Text", function() {
         replaceWholeText: constant(nyi),
    
         // Utility methods
-
         clone: constant(function clone() {
             return new impl.Text(this.ownerDocument, this._data);
-        }),
-
-        isEqual: constant(function isEqual(n) {
-            return this._data === n._data;
         }),
      
     });
