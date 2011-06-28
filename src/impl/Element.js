@@ -302,6 +302,22 @@ defineLazyProperty(impl, "Element", function() {
             return true;
         }),
 
+        // This is the "locate a namespace prefix" algorithm from the
+        // DOMCore specification.  It is used by Node.lookupPrefix()
+        locateNamespacePrefix: constant(function locateNamespacePrefix(ns) {
+            if (this.namespaceURI === ns && this.prefix !== null) 
+                return this.prefix;
+
+            for(let i = 0, n = this.attributes.length; i < n; i++) {
+                let a = this.attributes[i];
+                if (a.prefix === "xmlns" && a.data === ns)
+                    return a.localName;
+            }
+
+            let parent = this.parentElement;
+            if (parent) return parent.locateNamespacePrefix(ns);
+            else return null;
+        }),
 
     });
 

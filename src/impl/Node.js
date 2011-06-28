@@ -195,6 +195,23 @@ defineLazyProperty(impl, "Node", function() {
             return clone;
         }),
 
+        lookupPrefix: constant(function lookupPrefix(ns) {
+            let e;
+            if (ns === "") return null;
+            switch(this.nodeType) {
+            case ELEMENT_NODE:
+                return this.locateNamespacePrefix(ns);
+            case DOCUMENT_NODE:
+                e = this.documentElement;
+                return e ? e.locateNamespacePrefix(ns) : null;
+            case DOCUMENT_TYPE_NODE:
+            case DOCUMENT_FRAGMENT_NODE:
+                return null;
+            default: 
+                e = this.parentElement;
+                return e ? e.locateNamespacePrefix(ns) : null;
+            }
+        }),
 
 
         // These are the EventTarget methods.
