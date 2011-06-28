@@ -276,6 +276,33 @@ defineLazyProperty(impl, "Element", function() {
             return this.namespaceURI === HTML_NAMESPACE &&
                 this.ownerDocument.isHTML;
         }),
+
+        clone: constant(function clone() {
+            let e = new impl.Element(this.ownerDocument, this.localName,
+                                     this.namespaceURI, this.prefix);
+            for(let i = 0, n = this.attributes.length; i < n; i++) {
+                push(e.attributes, this.attributes[i].clone(e));
+            }
+
+            return e;
+        }),
+
+        isEqual: constant(function isEqual(n) {
+            if (this.localName !== n.localName ||
+                this.namespaceURI !== n.namespaceURI ||
+                this.prefix !== n.prefix ||
+                this.attributes.length !== n.attributes.length)
+                return false;
+
+            for(let i = 0, n = this.attributes.length; i < n; i++) {
+                if (!this.attributes[i].isEqual(n.attributes[i]))
+                    return false;
+            }
+
+            return true;
+        }),
+
+
     });
 
     // The children property of an Element will be an instance of this class.

@@ -40,7 +40,17 @@ defineLazyProperty(impl, "Text", function() {
         // the DOMCore specification is considering removing or altering them.
         wholeText: attribute(nyi),
         replaceWholeText: constant(nyi),
-        
+   
+        // Utility methods
+
+        clone: constant(function clone() {
+            return new impl.Text(this.ownerDocument, this._data);
+        }),
+
+        isEqual: constant(function isEqual(n) {
+            return this._data === n._data;
+        }),
+     
     });
 
     return Text;

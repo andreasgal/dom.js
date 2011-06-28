@@ -17,6 +17,11 @@ defineLazyProperty(impl, "Comment", function() {
         nodeValue: nodeValue,
         textContent: nodeValue,
         data: nodeValue,
+   
+        // Utility methods
+        clone: constant(function clone() {
+            return new impl.Comment(this.ownerDocument, this._data);
+        }),
     });
     
     return Comment;

@@ -11,6 +11,17 @@ defineLazyProperty(impl, "DocumentFragment", function() {
         // Copy the text content getter/setter from Element
         textContent: O.getOwnPropertyDescriptor(impl.Element.prototype,
                                                 "textContent"),
+
+        // Utility methods
+        clone: constant(function clone() {
+            return new DocumentFragment(this.ownerDocument);
+        }),
+        isEqual: constant(function isEqual(n) {
+            // Any two document fragments are shallowly equal.
+            // Node.isEqualNode() will test their children for equality
+            return true;
+        }),
+
     });
 
     return DocumentFragment;

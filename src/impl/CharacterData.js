@@ -97,7 +97,15 @@ defineLazyProperty(impl, "CharacterData", function() {
             suffix = substring(curtext, offset+count);
 
             this.data = prefix + data + suffix;
-        })
+        }),
+
+        // Utility method that Node.isEqualNode() calls to test Text and
+        // Comment nodes for equality.  It is okay to put it here, since
+        // Node will have already verified that nodeType is equal
+        isEqual: constant(function isEqual(n) {
+            return this._data === n._data;
+        }),
+
     });
 
     return CharacterData;

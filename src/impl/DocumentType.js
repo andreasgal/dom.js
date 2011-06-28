@@ -12,6 +12,17 @@ defineLazyProperty(impl, "DocumentType", function() {
         nodeType: constant(DOCUMENT_TYPE_NODE),
         nodeName: attribute(function() { return this.name; }),
         nodeValue: attribute(fnull, fnoop),
+
+        // Utility methods
+        clone: constant(function clone() {
+            DataCloneError();
+        }),
+        isEqual: constant(function isEqual(n) {
+            return this.name === n.name &&
+                this.publicId === n.publicId &&
+                this.systemId === n.systemId;
+        }),
+
     });
 
     return DocumentType;

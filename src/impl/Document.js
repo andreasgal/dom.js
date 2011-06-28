@@ -245,6 +245,16 @@ defineLazyProperty(impl, "Document", function() {
             return node;
         }),
 
+        // Utility methods
+        clone: constant(function clone() {
+            // Can't clone an entire document
+            DataCloneError();  
+        }),
+        isEqual: constant(function isEqual(n) {
+            // Any two documents are shallowly equal.
+            // Node.isEqualNode will also test the children
+            return true;
+        }),
 
         // Implementation-specific function.  Called when a text, comment, 
         // or pi value changes.

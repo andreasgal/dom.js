@@ -142,6 +142,61 @@ defineLazyProperty(impl, "Node", function() {
                         DOCUMENT_POSITION_CONTAINS);
         }),
 
+        isSameNode: constant(function isSameNode(node) {
+            return this === node;
+        }),
+        
+
+        // This method implements the generic parts of node equality testing
+        // and defers to the (non-recursive) type-specific isEqual() method
+        // defined by subclasses
+        isEqualNode: constant(function isEqualNode(node) {
+            if (!node) return false;
+            if (node.nodeType !== this.nodeType) return false;
+
+            // Check for same number of children
+            // Check for children this way because it is more efficient
+            // for childless leaf nodes.
+            let n; // number of child nodes
+            if (!this.firstChild) {
+                n = 0;
+                if (node.firstChild) return false;
+            }
+            else {
+                n = this.childNodes.length;
+                if (node.childNodes.length != n) return false;
+            }
+
+            // Check type-specific properties for equality
+            if (!this.isEqual(node)) return false;
+
+            // Now check children for equality
+            for(let i = 0; i < n; i++) {
+                let c1 = this.childNodes[i], c2 = node.childNodes[i];
+                if (!c1.isEqualNode(c2)) return false;
+            }
+            
+            return true;
+        }),
+
+        // This method delegates shallow cloning to a clone() method
+        // that each concrete subclass must implement
+        cloneNode: constant(function(deep) {
+            // Clone this node
+            let clone = this.clone();
+
+            // Handle the recursive case if necessary
+            if (deep && this.firstChild) {
+                for(let i = 0, n = this.childNodes.length; i < n; i++) {
+                    clone.appendChild(this.childNodes[i].cloneNode(true));
+                }
+            }
+
+            return clone;
+        }),
+
+
+
         // These are the EventTarget methods.
         // Since all nodes are event targets, we just put them here
         // rather than creating another level of prototype inheritance.

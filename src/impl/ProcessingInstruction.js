@@ -19,6 +19,16 @@ defineLazyProperty(impl, "ProcessingInstruction", function() {
         nodeValue: nodeValue,
         textContent: nodeValue,
         data: nodeValue,
+
+        // Utility methods
+        clone: constant(function clone() {
+            return new impl.ProcessingInstruction(this.ownerDocument,
+                                                  this.target, this._data);
+        }),
+        isEqual: constant(function isEqual(n) {
+            return this.target === n.target && this._data === n._data;
+        }),
+
     });
 
     return ProcessingInstruction;

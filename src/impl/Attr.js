@@ -21,7 +21,19 @@ defineLazyProperty(impl, "Attr", function() {
                              this.data = v;
                              if (this.ownerElement.root)
                                  this.ownerElement.root.mutateAttr(this,oldval);
-                         })
+                         }),
+
+        clone: constant(function clone(e) {
+            return new impl.Attr(e, this.localName, this.data, 
+                                 this.prefix, this.namespaceURI);
+        }),
+
+        isEqual: constant(function isEqual(n) {
+            return this.localName === n.localName &&
+                this.data === n.data &&
+                this.prefix === n.prefix &&
+                this.namespaceURI === n.namespaceURI;
+        }),
     });
 
     return Attr;
