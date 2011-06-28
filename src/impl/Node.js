@@ -9,6 +9,11 @@ defineLazyProperty(impl, "Node", function() {
 
     Node.prototype = Object.create(Object.prototype, {
         
+        // XXX: the baseURI attribute is defined by dom core, but 
+        // a correct implementation of it requires HTML features, so 
+        // we'll come back to this later.
+        baseURI: attribute(nyi),
+
         parentElement: attribute(function() {
             return (this.parentNode && this.parentNode.nodeType===ELEMENT_NODE)
                 ? this.parentNode
@@ -227,6 +232,18 @@ defineLazyProperty(impl, "Node", function() {
 
             // Send mutation events if necessary
             if (this.root) this.root.mutateRemove(this);
+        }),
+
+        // Remove all of this node's children.  This is a minor 
+        // optimization that only calls modify() once.
+        removeChildren: constant(function removeChildren() {
+            let root = this.root;
+            for(let i = 0, n = this.childNodes.length; i < n; i++) {
+                delete this.childNodes[i].parentNode;
+                if (root) root.mutateRemove(this.childNodes[i]);
+            }
+            this.childNodes.length = 0; // Forget all children
+            this.modify();              // Update last modified type once only
         }),
 
         // Insert this node as a child of parent at the specified index,

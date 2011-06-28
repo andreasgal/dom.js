@@ -16,15 +16,28 @@ defineLazyProperty(impl, "Element", function() {
         this.childNodes = [];
     }
 
+    let recursiveGetText = recursive(function(n,a) {
+        if (n.nodeType === TEXT_NODE) a.push(n._data);
+    });
+
+    function textContentGetter() {
+        let strings = [];
+        recursiveGetText(this, strings);
+        return strings.join("");
+    }
+
+    function textContentSetter(newtext) {
+        this.removeChildren();
+        if (newtext !== null && newtext !== "") {
+            this.appendChild(this.ownerDocument.createTextNode(newtext));
+        }
+    }
+
     Element.prototype = Object.create(impl.Node.prototype, {
         nodeType: constant(ELEMENT_NODE),
         nodeName: attribute(function() { return this.tagName; }),
         nodeValue: attribute(fnull, fnoop),
-        
-        isHTML: attribute(function() { 
-            return this.namespaceURI === HTML_NAMESPACE &&
-                this.ownerDocument.isHTML;
-        }),
+        textContent: attribute(textContentGetter, textContentSetter),
 
         getAttribute: constant(function getAttribute(qname) {
             if (this.isHTML) qname = toLowerCase(qname);
@@ -256,6 +269,13 @@ defineLazyProperty(impl, "Element", function() {
         getElementsByClassName:
             constant(impl.Document.prototype.getElementsByClassName),
 
+        
+        // Utility methods used by the public API methods above
+
+        isHTML: attribute(function() { 
+            return this.namespaceURI === HTML_NAMESPACE &&
+                this.ownerDocument.isHTML;
+        }),
     });
 
     // The children property of an Element will be an instance of this class.
