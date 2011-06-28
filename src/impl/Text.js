@@ -20,6 +20,27 @@ defineLazyProperty(impl, "Text", function() {
         nodeValue: nodeValue,
         textContent: nodeValue,
         data: nodeValue,
+
+        splitText: constant(function splitText(offset) {
+            if (offset > this._data.length) IndexSizeError();
+
+            let newdata = this._data.substring(offset),
+                newnode = this.ownerDocument.createTextNode(newdata);
+            this._data = this.data.substring(0, offset);
+
+            let parent = this.parentNode;
+            if (parent !== null)
+                parent.insertBefore(newnode, this.nextSibling);
+
+            return newnode;
+        }),
+
+        // XXX
+        // wholeText and replaceWholeText() are not implemented yet because
+        // the DOMCore specification is considering removing or altering them.
+        wholeText: attribute(nyi),
+        replaceWholeText: constant(nyi),
+        
     });
 
     return Text;

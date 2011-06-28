@@ -70,6 +70,16 @@ try {
     console.log(c.expando);
     delete c.expando;
     console.log(c.expando);
+
+    var text = document.createTextNode("foobar");
+    body.appendChild(text);
+    console.log("Original text", text.data);
+    var split = text.splitText(3);
+    console.log("new text: ", text.data);
+    console.log("split text: ", split.data);
+    console.log("adjacent: ",
+                text.nextSibling === split,
+                split.previousSibling === text);
 }
 catch(e) {
     console.log(e.name, e.message);
