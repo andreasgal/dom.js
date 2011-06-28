@@ -38,25 +38,15 @@
 
 
 startTest();
-TITLE   = "CharacterData.appendData";
+TITLE   = "Document.getElementByTagNameNS";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
-
-
-function testNode(node) {
-  testdc(function() {
-    assert_equals(node.data, "test")
-    node.appendData("test")
-    assert_equals(node.data, "testtest")
-  })
-}
 testdc(function() {
-  testNode(document.createTextNode("test"))
-  testNode(document.createComment("test"))
-})
+  assert_true(document.getElementsByTagNameNS("http://www.w3.org/1999/xhtml", "html") instanceof NodeList, "NodeList")
+  assert_false(document.getElementsByTagNameNS("http://www.w3.org/1999/xhtml", "html") instanceof HTMLCollection, "HTMLCollection")
+  assert_true(document.getElementsByTagNameNS("http://www.w3.org/1999/xhtml", "html") !== document.getElementsByTagNameNS("http://www.w3.org/1999/xhtml", "html"), "no caching")
+});
 
 
 test();

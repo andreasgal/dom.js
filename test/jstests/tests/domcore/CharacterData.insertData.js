@@ -38,19 +38,26 @@
 
 
 startTest();
-TITLE   = "Document.createProcessingInstruction-literal-2";
+TITLE   = "CharacterData.insertData";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
+function testNode(node) {
+  testdc(function() {
+    assert_throws("INDEX_SIZE_ERR", function() { node.insertData(5, "x") })
+    assert_throws("INDEX_SIZE_ERR", function() { node.insertData(5, "") })
+    node.insertData(2, "X")
+    assert_equals(node.data, "teXst")
+    node.data = "test"
+    node.insertData(4, "ing")
+    assert_equals(node.data, "testing")
+  })
+}
 
 testdc(function() {
-  var pienc = document.firstChild;
-  assert_true(pienc instanceof ProcessingInstruction)
-  assert_equals(pienc.target, "xml-stylesheet")
-  assert_equals(pienc.data, 'href="support/style.css" type="text/css"')
-})
+  testNode(document.createTextNode("test"))
+  testNode(document.createComment("test"))
+});
 
 test();
 

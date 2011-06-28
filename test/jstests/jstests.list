@@ -1,1 +1,1 @@
-include domcore/jstests.list
+include tests/jstests.list

@@ -38,38 +38,44 @@
 
 
 startTest();
-TITLE   = "DOMImplementation.createHTMLDocument";
+TITLE   = "DOMException constants";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
-
-function checkDoc(title, expectedtitle, normalizedtitle) {
-  testdc(function() {
-    var doc = document.implementation.createHTMLDocument(title);
-    assert_equals(doc.doctype.name, "html")
-    assert_equals(doc.doctype.publicId, "")
-    assert_equals(doc.doctype.systemId, "")
-    assert_equals(doc.documentElement.localName, "html")
-    assert_equals(doc.documentElement.firstChild.localName, "head")
-    assert_equals(doc.documentElement.firstChild.childNodes.length, 1)
-    assert_equals(doc.documentElement.firstChild.firstChild.localName, "title")
-    assert_equals(doc.documentElement.firstChild.firstChild.firstChild.data,
-    expectedtitle)
-    assert_equals(doc.documentElement.lastChild.localName, "body")
-    assert_equals(doc.documentElement.lastChild.childNodes.length, 0)
-    assert_equals(doc.title, normalizedtitle)
-  })
-}
-checkDoc("", "", "")
-checkDoc(null, "null", "null")
-checkDoc(undefined, "undefined", "undefined")
-checkDoc("foo  bar baz", "foo  bar baz", "foo bar baz")
-checkDoc("foo\t\tbar baz", "foo\t\tbar baz", "foo bar baz")
-checkDoc("foo\n\nbar baz", "foo\n\nbar baz", "foo bar baz")
-checkDoc("foo\f\fbar baz", "foo\f\fbar baz", "foo bar baz")
-checkDoc("foo\r\rbar baz", "foo\r\rbar baz", "foo bar baz")
+testdc(function() {
+  var constants = [
+    "INDEX_SIZE_ERR",
+    "DOMSTRING_SIZE_ERR",
+    "HIERARCHY_REQUEST_ERR",
+    "WRONG_DOCUMENT_ERR",
+    "INVALID_CHARACTER_ERR",
+    "NO_DATA_ALLOWED_ERR",
+    "NO_MODIFICATION_ALLOWED_ERR",
+    "NOT_FOUND_ERR",
+    "NOT_SUPPORTED_ERR",
+    "INUSE_ATTRIBUTE_ERR",
+    "INVALID_STATE_ERR",
+    "SYNTAX_ERR",
+    "INVALID_MODIFICATION_ERR",
+    "NAMESPACE_ERR",
+    "INVALID_ACCESS_ERR",
+    "VALIDATION_ERR",
+    "TYPE_MISMATCH_ERR",
+    "SECURITY_ERR",
+    "NETWORK_ERR",
+    "ABORT_ERR",
+    "URL_MISMATCH_ERR",
+    "QUOTA_EXCEEDED_ERR",
+    "TIMEOUT_ERR",
+    "INVALID_NODE_TYPE_ERR",
+    "DATA_CLONE_ERR"
+  ]
+  for (var i = 0; i < constants.length; i++) {
+    var name = constants[i];
+    if (name)
+      assert_equals(DOMException[name], i + 1, name)
+  }
+});
 
 
 test();

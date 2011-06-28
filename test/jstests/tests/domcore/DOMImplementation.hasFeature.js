@@ -42,10 +42,6 @@ TITLE   = "DOMImplementaion.hasFeature";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
-console = { warn: function(){} };
-
 testdc(function() {
   var tests = [
         ["Core", "1.0", false],

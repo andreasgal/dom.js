@@ -38,29 +38,20 @@
 
 
 startTest();
-TITLE   = "CharacterData.insertData";
+TITLE   = "Document.getElementById";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
-
-function testNode(node) {
-  testdc(function() {
-    assert_throws("INDEX_SIZE_ERR", function() { node.insertData(5, "x") })
-    assert_throws("INDEX_SIZE_ERR", function() { node.insertData(5, "") })
-    node.insertData(2, "X")
-    assert_equals(node.data, "teXst")
-    node.data = "test"
-    node.insertData(4, "ing")
-    assert_equals(node.data, "testing")
-  })
-}
+var elem = document.createElement('div');
+elem.setAttribute('id', '');
+delete elem;
 
 testdc(function() {
-  testNode(document.createTextNode("test"))
-  testNode(document.createComment("test"))
-});
+  assert_equals(document.getElementById(""), null)
+  // XXX needs more tests
+})
+
+
 
 test();
 

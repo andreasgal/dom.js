@@ -42,10 +42,6 @@ TITLE   = "DOMImplementation.createDocument";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
-
-
 testdc(function() {
   var tests = [
     [null, null, null, null],

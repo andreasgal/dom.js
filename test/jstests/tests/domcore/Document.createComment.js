@@ -38,48 +38,25 @@
 
 
 startTest();
-TITLE = "DOMImplementation.createDocumentType";
+TITLE   = "Document.createComment";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
-
 testdc(function() {
-  var tests = [
-        ["foo", "", "", null],
-        ["1foo", "", "", "INVALID_CHARACTER_ERR"],
-        ["foo1", "", "", null],
-        ["f1oo", "", "", null],
-        ["@foo", "", "", "INVALID_CHARACTER_ERR"],
-        ["foo@", "", "", "INVALID_CHARACTER_ERR"],
-        ["f@oo", "", "", "INVALID_CHARACTER_ERR"],
-        ["f:oo", "", "", null],
-        [":foo", "", "", "NAMESPACE_ERR"],
-        ["foo:", "", "", "NAMESPACE_ERR"],
-        ["foo", "foo", "", null],
-        ["foo", "", "foo", null],
-        ["foo", "f'oo", "", null],
-        ["foo", "", "f'oo", null],
-        ["foo", 'f"oo', "", null],
-        ["foo", "", 'f"oo', null],
-        ["foo", "f'o\"o", "", null],
-        ["foo", "", "f'o\"o", null],
-        ["foo", "foo>", "", null],
-        ["foo", "", "foo>", null]
-     ]
-
-  for (i in tests) {
-    var test = tests[i],
-        qualifiedName = test[0],
-        publicId = test[1],
-        systemId = test[2],
-        expected = test[3]
-    if (expected != null)
-      assert_throws(expected, function() { document.implementation.createDocumentType(qualifiedName, publicId, systemId) })
-    else
-      assert_equals(document.implementation.createDocumentType(qualifiedName, publicId, systemId).nodeType, Node.DOCUMENT_TYPE_NODE)
-  }
+  var c = document.createComment("a -- b");
+  assert_true(c instanceof Comment);
+  assert_true(c instanceof Node);
+  assert_equals(c.ownerDocument, document);
+  assert_equals(c.data, "a -- b");
+  assert_equals(c.nodeValue, "a -- b");
+  assert_equals(c.textContent, "a -- b");
+  assert_equals(c.length, 6);
+  assert_equals(c.nodeType, 8);
+  assert_equals(c.nodeName, "#comment");
+  assert_equals(c.hasChildNodes(), false);
+  assert_equals(c.childNodes.length, 0);
+  assert_equals(c.firstChild, null);
+  assert_equals(c.lastChild, null);
 });
 
 

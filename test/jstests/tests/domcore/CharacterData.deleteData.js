@@ -38,22 +38,26 @@
 
 
 startTest();
-TITLE   = "Document.getElementById";
+TITLE   = "CharacterData.deleteData";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
-
-var elem = document.createElement('div');
-elem.setAttribute('id', '');
-delete elem;
+function testNode(node) {
+  testdc(function() {
+    assert_throws("INDEX_SIZE_ERR", function() { node.deleteData(5, 10) })
+    assert_throws("INDEX_SIZE_ERR", function() { node.deleteData(5, 0) })
+    node.deleteData(2, 10)
+    assert_equals(node.data, "te")
+    node.data = "test"
+    node.deleteData(1, 1)
+    assert_equals(node.data, "tst")
+  })
+}
 
 testdc(function() {
-  assert_equals(document.getElementById(""), null)
-  // XXX needs more tests
-})
-
+  testNode(document.createTextNode("test"))
+  testNode(document.createComment("test"))
+});
 
 
 test();

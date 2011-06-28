@@ -38,49 +38,41 @@
 
 
 startTest();
-TITLE   = "Document.createElementNS";
+TITLE   = "Document.getElementByTagName";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
-
-
 testdc(function() {
-  var invalidNames = [
-    "",
-    "1foo",
-    "\u0300foo",
-    "}foo",
-    "f}oo",
-    "foo}",
-    "\ufffffoo",
-    "f\uffffoo",
-    "foo\uffff",
-    "<foo",
-    "foo>",
-    "<foo>",
-    "f<oo"
-  ],
-  invalidNSQNameCombinations = [
-    ["", ":foo"],
-    ["", "foo:"],
-    ["", "foo:foo"],
-    ["http://oops/", "xml:foo"],
-    ["http://oops/", "xmlns"],
-    ["http://oops/", "xmlns:foo"],
-    ["http://www.w3.org/2000/xmlns/", "xml:foo"],
-    ["http://www.w3.org/2000/xmlns/", "foo:xmlns"]
-  ]
-
-  for (var i = 0, il = invalidNames.length; i < il; i++) {
-    assert_throws("INVALID_CHARACTER_ERR", function() { document.createElementNS("", invalidNames[i]) })
-  }
-
-  for (var i = 0, il = invalidNSQNameCombinations.length; i < il; i++) {
-    assert_throws("NAMESPACE_ERR", function() { document.createElementNS(invalidNSQNameCombinations[i][0], invalidNSQNameCombinations[i][1]) })
-  }
-});
+  assert_true(document.getElementsByTagName("html") instanceof NodeList,
+      "document.getElementsByTagName('html') instanceof NodeList");
+  assert_false(document.getElementsByTagName("html") instanceof HTMLCollection, "HTMLCollection")
+  assert_true(document.getElementsByTagName("html") !== document.getElementsByTagName("html"), "no caching")
+})
+testdc(function() {
+  var l = document.getElementsByTagName("nosuchtag")
+  l[5] = "foopy"
+  assert_equals(l.item(5), null)
+}, "Expandos shouldn't affect item()")
+testdc(function() {
+  assert_equals(document.createElementNS("http://www.w3.org/1999/xhtml", "i").localName, "i") // Sanity
+  var i = document.body.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "I"))
+  assert_equals(i.localName, "I")
+  assert_equals(i.tagName, "I")
+  assert_equals(document.getElementsByTagName("I").length, 0)
+  assert_equals(document.getElementsByTagName("i").length, 0)
+  assert_equals(document.body.getElementsByTagName("I").length, 0)
+  assert_equals(document.body.getElementsByTagName("i").length, 0)
+})
+testdc(function() {
+  var t = document.body.appendChild(document.createElementNS("test", "te:st"))
+  assert_equals(document.getElementsByTagName("st").length, 0)
+  assert_equals(document.getElementsByTagName("te:st")[0], t)
+})
+testdc(function() {
+  var h = document.body.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "te:st"))
+  assert_equals(document.getElementsByTagName("st")[0], h)
+  assert_equals(document.getElementsByTagName("TE:ST").length, 0)
+})
 
 
 test();

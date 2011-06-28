@@ -38,19 +38,28 @@
 
 
 startTest();
-TITLE   = "Document.createProcessingInstruction-literal-1";
+TITLE   = "Document.adoptNode";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
+var y = document.getElementsByTagName("x<")[0];
 
-//FIXME: Not sure that I understand this test.  The original had the following title element:
-// <title>&lt;?xml?> is not a ProcessingInstruction</title>
+var x = document.createElement(":good:times:");
 
-testdc(function() {
-  assert_equals(document.firstChild, document.documentElement)
-})
+//FIXME: not sure how to deal with this case.
+//assert_equals(y.parentNode, document.body)
+
+document.adoptNode(y);
+assert_equals(y.parentNode, null)
+
+document.adoptNode(x);
+var doc = document.implementation.createDocument(null, null, null)
+doc.adoptNode(y);
+doc.adoptNode(x);
+
+  // these should
+assert_throws("NOT_SUPPORTED_ERR", function() { document.adoptNode(doc) })
+assert_throws("NOT_SUPPORTED_ERR", function() { document.adoptNode(document.doctype) })
 
 
 test();

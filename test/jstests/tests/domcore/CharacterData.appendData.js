@@ -38,29 +38,21 @@
 
 
 startTest();
-TITLE   = "CharacterData.deleteData";
+TITLE   = "CharacterData.appendData";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Some cruft to make the tests happy.
-document.location = { href: { match: function(){} }};
-
 function testNode(node) {
   testdc(function() {
-    assert_throws("INDEX_SIZE_ERR", function() { node.deleteData(5, 10) })
-    assert_throws("INDEX_SIZE_ERR", function() { node.deleteData(5, 0) })
-    node.deleteData(2, 10)
-    assert_equals(node.data, "te")
-    node.data = "test"
-    node.deleteData(1, 1)
-    assert_equals(node.data, "tst")
+    assert_equals(node.data, "test")
+    node.appendData("test")
+    assert_equals(node.data, "testtest")
   })
 }
-
 testdc(function() {
   testNode(document.createTextNode("test"))
   testNode(document.createComment("test"))
-});
+})
 
 
 test();
