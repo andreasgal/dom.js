@@ -16,4 +16,12 @@ script Document.createProcessingInstruction.js
 script Document.getElementById.js
 script Document.getElementByTagName.js
 script Document.getElementByTagNameNS.js
+script EventTarget.dispatchEvent.js
+script Node.cloneNode.js
+script Node.hasAttributes.js
+script Node.insertBefore.js
+script Node.isEqualNode.js
+script Node.nodeName.js
+script Node.parentNode.js
+script case.js
 
