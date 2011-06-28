@@ -23,5 +23,4 @@ script Node.insertBefore.js
 script Node.isEqualNode.js
 script Node.nodeName.js
 script Node.parentNode.js
-script case.js
 

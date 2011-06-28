@@ -25,6 +25,14 @@ FILES= \
 	src/impl/FilteredElementList.js \
 	src/main.js
 
+###  Details for jstests.py
+# Need to set these environment variables:
+#    JS_PATH -- The directory where the js executible is located
+#    JSTESTS_PATH -- The directory where jstests.py lives
+NUM_CORES=4
+TEST_PAT='' #override from command line to limit the tests
+
+
 dom.js: LICENSE ${FILES}
 # Output preamble
 	@rm -f $@;
@@ -73,10 +81,18 @@ src/domcore.js: src/domcore.idl tools/idl2domjs
 	@chmod 444 $@
 	@echo "Created $@"
 
-# Utility to copy dom.js to the test directory
-# DON'T CHECK THIS PART INTO GITHUB!!!
-deploy: dom.js
-	echo 'Deploying dom.js to resources directory'
-	cp dom.js ~/WebServerDocs/resources/
-	chmod 744 ~/WebServerDocs/resources/dom.js
+
+# copy dom.js to the jstests setup
+test/jstests/pre-dom/dom.js/shell.js: dom.js
+	- chmod 744 test/jstests/pre-dom/dom.js/shell.js
+	cp dom.js test/jstests/pre-dom/dom.js/shell.js
+
+# To limit the tests, specify a value for TEST_PAT from the command line.
+# For instance:
+#     make test-detailed TEST_PAT=DOMException
+test-summary: test/jstests/pre-dom/dom.js/shell.js
+	${JSTESTS_PATH}/jstests.py -d -j ${NUM_CORES} -m test/jstests/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
+
+test-detailed: test/jstests/pre-dom/dom.js/shell.js
+	${JSTESTS_PATH}/jstests.py -dso -j ${NUM_CORES} -m test/jstests/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
 

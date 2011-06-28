@@ -1,5 +1,7 @@
 These tests are intended to be run with jstests.py.  They have been converted from tests available in http://www.w3c-test.org/webapps/DOMCore/tests/submissions/Ms2ger/.
 
-The directory structure contains an extra level since code needs to be run both before and after dom.js is loaded.  The shell.js file in jstests/tests is dom.js, and should not be directly modified.
+pre-dom/dom.js/shell.js is a copy of dom.js, and should not be directly modified.
+
+There are two targets in the Makefile to run these tests, with more notes in the Makefile.
 
 Author: Tom Austin

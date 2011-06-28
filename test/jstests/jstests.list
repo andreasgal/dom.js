@@ -1,1 +1,1 @@
-include tests/jstests.list
+include pre-dom/jstests.list
