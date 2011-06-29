@@ -13,7 +13,10 @@ function nyi() {
 
 // Called by deprecated functions, etc.
 function warn(msg) {
-    console.warn(msg);
+    if (global.console) console.warn(msg);
+    else if (global.print) {
+        print("WARNING: " + msg);
+    }
 }
 
 // Pass in a function that operates on a node.

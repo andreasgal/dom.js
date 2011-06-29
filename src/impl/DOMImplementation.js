@@ -3,16 +3,27 @@ defineLazyProperty(impl, "DOMImplementation", function() {
     // Even though these objects have no state
     function DOMImplementation() {};
 
-    DOMImplementation.prototype = {
 
-        // XXX Since hasFeature is pretty strongly deprecated, can we
-        // get away with always just returning false?
+    // Feature/version pairs that DOMImplementation.hasFeature() returns
+    // true for.  It returns false for anything else.
+    const supportedFeatures = {
+        "xml": { "": true, "1.0": true, "2.0": true },   // DOM Core 
+        "core": { "": true, "2.0": true },               // DOM Core
+        "html": { "": true, "1.0": true, "2.0": true} ,  // HTML
+        "xhtml": { "": true, "1.0": true, "2.0": true} , // HTML
+    };
+
+    DOMImplementation.prototype = {
         hasFeature: function hasFeature(feature, version) {
             // Warning text directly modified slightly from the DOM Core spec:
-            warn("Authors are strongly discouraged from using hasFeature(), " +
-                 "as it is notoriously unreliable and imprecise. " +
+            warn("Authors are strongly discouraged from using " +
+                 "DOMImplementation.hasFeature(), as it is notoriously " +
+                 "unreliable and imprecise. " +
                  "Use explicit feature testing instead.");
-            return false;
+
+            let f = supportedFeatures[feature.toLowerCase()];
+
+            return (f && f[version]) || false;
         },
         
         createDocumentType: function createDocumentType(qualifiedName,

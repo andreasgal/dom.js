@@ -2,7 +2,6 @@ defineLazyProperty(impl, "Document", function() {
 
     function Document(isHTML) {
         this.isHTML = isHTML;
-        this.documentURI = null;    // XXX what should this be?
         this.implementation = new impl.DOMImplementation();
 
         // These will be initialized by our custom versions of
