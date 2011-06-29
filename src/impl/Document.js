@@ -235,7 +235,7 @@ defineLazyProperty(impl, "Document", function() {
                                            new classNamesElementFilter(names));
         }),
 
-        adoptNode: constant(function(node) {
+        adoptNode: constant(function adoptNode(node) {
             if (node.nodeType === DOCUMENT_NODE ||
                 node.nodeType === DOCUMENT_TYPE_NODE) NotSupportedError();
 
@@ -246,6 +246,11 @@ defineLazyProperty(impl, "Document", function() {
 
             return node;
         }),
+
+        importNode: constant(function importNode(node, deep) {
+            return this.adoptNode(node.cloneNode());
+        }),
+
 
         // Utility methods
         clone: constant(function clone() {
