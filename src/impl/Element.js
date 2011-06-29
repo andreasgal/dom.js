@@ -315,8 +315,25 @@ defineLazyProperty(impl, "Element", function() {
             }
 
             let parent = this.parentElement;
-            if (parent) return parent.locateNamespacePrefix(ns);
-            else return null;
+            return parent ? parent.locateNamespacePrefix(ns) : null;
+        }),
+
+        // This is the "locate a namespace" algorithm for Element nodes
+        // from the DOM Core spec.  It is used by Node.lookupNamespaceURI
+        locateNamespace: constant(function locateNamespace(prefix) {
+            if (this.prefix === prefix && this.namespaceURI !== null)
+                return this.namespaceURI;
+
+            for(let i = 0, n = this.attributes.length; i < n; i++) {
+                let a = this.attributes[i];
+                if ((a.prefix === "xmlns" && a.localName === prefix) ||
+                    (a.prefix === null && a.localName === "xmlns")) {
+                    return a.value || null;
+                }
+            }
+
+            let parent = this.parentElement;
+            return parent ? parent.locateNamespace(prefix) : null;
         }),
 
     });

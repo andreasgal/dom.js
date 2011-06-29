@@ -214,6 +214,29 @@ defineLazyProperty(impl, "Node", function() {
         }),
 
 
+        lookupNamespaceURI: constant(function lookupNamespaceURI(prefix) {
+            let e;
+            switch(this.nodeType) {
+            case ELEMENT_NODE:
+                return this.locateNamespace(prefix);
+            case DOCUMENT_NODE:
+                e = this.documentElement;
+                return e ? e.locateNamespace(prefix) : null;
+            case DOCUMENT_TYPE_NODE:
+            case DOCUMENT_FRAGMENT_NODE:
+                return null;
+            default: 
+                e = this.parentElement;
+                return e ? e.locateNamespacePrefix(ns) : null;
+            }
+        }),
+
+        isDefaultNamespace: constant(function isDefaultNamespace(ns) {
+            let defaultns = this.lookupNamespaceURI(null);
+            if (defaultns == null) defaultns = "";
+            return ns === defaultns;
+        }),
+
         // These are the EventTarget methods.
         // Since all nodes are event targets, we just put them here
         // rather than creating another level of prototype inheritance.

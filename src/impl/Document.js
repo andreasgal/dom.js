@@ -35,6 +35,8 @@ defineLazyProperty(impl, "Document", function() {
         nodeName: constant("#document"),
         nodeValue: attribute(fnull, fnoop),
 
+        // XXX: DOMCore may remove documentURI, so it is NYI for now
+        documentURI: attribute(nyi, nyi),
         compatMode: constant("CSS1Compat"),
         ownerDocument: constant(null),
         parentNode: constant(null),
