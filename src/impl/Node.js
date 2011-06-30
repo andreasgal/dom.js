@@ -240,8 +240,53 @@ defineLazyProperty(impl, "Node", function() {
         // These are the EventTarget methods.
         // Since all nodes are event targets, we just put them here
         // rather than creating another level of prototype inheritance.
-        addEventListener: constant(nyi),
-        removeEventListener: constant(nyi),
+        addEventListener: constant(function addEventListener(type,
+                                                             listener,
+                                                             capture) {
+            
+            if (!listener) return;
+
+            let listeners;
+            if (capture) {
+                if (!this._capturingListeners) this._capturingListeners = {};
+                listeners = this._capturingListeners;
+            }
+            else {
+                if (!this._listeners) this._listeners = {};
+                listeners = this._listeners;
+            }
+
+            if (type in listeners) {
+                let array = type[listeners], index = A.indexOf(array, listener);
+                if (index !== -1) return;  // It is already there
+                push(array, listener);
+            }
+            else {
+                type[listeners] = [listener];
+            }
+        }),
+
+        removeEventListener: constant(function removeEventListener(type,
+                                                                   listener,
+                                                                   capture) {
+            let listeners = capture
+                ? this._capturingListeners
+                : this._listeners;
+
+            if (listeners) {
+                let array = listeners[type];
+                if (array) {
+                    let index = A.indexOf(array, listener);
+                    if (index !== -1) {
+                        if (array.length === 1)
+                            delete listeners[type];
+                        else 
+                            splice(array, index, 1);
+                    }
+                }
+            }
+        }),
+
         dispatchEvent: constant(nyi),
 
         // Utility methods for nodes.  Not part of the DOM
