@@ -83,17 +83,12 @@ src/domcore.js: src/domcore.idl tools/idl2domjs
 	@echo "Created $@"
 
 
-# copy dom.js to the jstests setup
-${DOM_TEST_DIR}/pre-dom/dom.js/shell.js: dom.js
-	- chmod 744 ${DOM_TEST_DIR}/pre-dom/dom.js/shell.js
-	cp dom.js ${DOM_TEST_DIR}/pre-dom/dom.js/shell.js
-
 # To limit the tests, specify a value for TEST_PAT from the command line.
 # For instance:
 #     make test-detailed TEST_PAT=DOMException
-test-summary: ${DOM_TEST_DIR}/pre-dom/dom.js/shell.js
+test-summary: dom.js
 	${JSTESTS_PATH}/jstests.py -d -j ${NUM_CORES} -m ${DOM_TEST_DIR}/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
 
-test-detailed: ${DOM_TEST_DIR}/pre-dom/dom.js/shell.js
+test-detailed: dom.js
 	${JSTESTS_PATH}/jstests.py -dso -j ${NUM_CORES} -m ${DOM_TEST_DIR}/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
 
