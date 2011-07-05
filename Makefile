@@ -31,6 +31,7 @@ FILES= \
 #    JSTESTS_PATH -- The directory where jstests.py lives
 NUM_CORES=4
 TEST_PAT='' #override from command line to limit the tests
+DOM_TEST_DIR=jstests
 
 
 dom.js: LICENSE ${FILES}
@@ -83,16 +84,16 @@ src/domcore.js: src/domcore.idl tools/idl2domjs
 
 
 # copy dom.js to the jstests setup
-test/jstests/pre-dom/dom.js/shell.js: dom.js
-	- chmod 744 test/jstests/pre-dom/dom.js/shell.js
-	cp dom.js test/jstests/pre-dom/dom.js/shell.js
+${DOM_TEST_DIR}/pre-dom/dom.js/shell.js: dom.js
+	- chmod 744 ${DOM_TEST_DIR}/pre-dom/dom.js/shell.js
+	cp dom.js ${DOM_TEST_DIR}/pre-dom/dom.js/shell.js
 
 # To limit the tests, specify a value for TEST_PAT from the command line.
 # For instance:
 #     make test-detailed TEST_PAT=DOMException
-test-summary: test/jstests/pre-dom/dom.js/shell.js
-	${JSTESTS_PATH}/jstests.py -d -j ${NUM_CORES} -m test/jstests/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
+test-summary: ${DOM_TEST_DIR}/pre-dom/dom.js/shell.js
+	${JSTESTS_PATH}/jstests.py -d -j ${NUM_CORES} -m ${DOM_TEST_DIR}/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
 
-test-detailed: test/jstests/pre-dom/dom.js/shell.js
-	${JSTESTS_PATH}/jstests.py -dso -j ${NUM_CORES} -m test/jstests/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
+test-detailed: ${DOM_TEST_DIR}/pre-dom/dom.js/shell.js
+	${JSTESTS_PATH}/jstests.py -dso -j ${NUM_CORES} -m ${DOM_TEST_DIR}/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
 
