@@ -315,7 +315,7 @@ defineLazyProperty(impl, "Node", function() {
                 else {
                     
                     let listeners = event.eventPhase === CAPTURING_PHASE
-                        ? target._capturingListeners;
+                        ? target._capturingListeners
                         : target._listeners;
                     
                     if (!listeners) return;  // No listeners registered

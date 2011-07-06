@@ -20,6 +20,7 @@ defineLazyProperty(impl, "Text", function() {
         nodeValue: nodeValue,
         textContent: nodeValue,
         data: nodeValue,
+        length: attribute(function() { return this._data.length; }),
 
         splitText: constant(function splitText(offset) {
             if (offset > this._data.length) IndexSizeError();

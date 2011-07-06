@@ -10,17 +10,14 @@ script DOMImplementation.hasFeature.js
 script Document.createComment.js
 script Document.createElement.js
 script Document.createElementNS.js
-script Document.createProcessingInstruction-literal-1.js
-script Document.createProcessingInstruction-literal-2.js
 script Document.createProcessingInstruction.js
 script Document.getElementById.js
 script Document.getElementByTagName.js
 script Document.getElementByTagNameNS.js
 script EventTarget.dispatchEvent.js
 script Node.cloneNode.js
-script Node.hasAttributes.js
 script Node.insertBefore.js
 script Node.isEqualNode.js
 script Node.nodeName.js
-script Node.parentNode.js
+
 

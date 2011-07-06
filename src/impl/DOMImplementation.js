@@ -26,8 +26,16 @@ defineLazyProperty(impl, "DOMImplementation", function() {
             return (f && f[version]) || false;
         },
         
+
         createDocumentType: function createDocumentType(qualifiedName,
                                                         publicId, systemId) {
+            // XXX
+            // Awaiting resolution of this:
+            // http://lists.w3.org/Archives/Public/www-dom/2011JulSep/0015.html
+            //
+            if (!isValidName(qualifiedName)) InvalidCharacterError();
+            if (!isValidQName(qualifiedName)) NamespaceError();
+
             return new impl.DocumentType(qualifiedName, publicId, systemId);
         },
 

@@ -50,6 +50,9 @@ defineLazyProperty(impl, "Document", function() {
             return new impl.DocumentFragment(this);
         }),
         createProcessingInstruction: constant(function(target, data) {
+            if (this.isHTML) NotSupportedError();
+            if (!isValidName(target) || S.indexOf(data, "?>") !== -1)
+                InvalidCharacterError();
             return new impl.ProcessingInstruction(this, target, data);
         }),
 
@@ -199,6 +202,10 @@ defineLazyProperty(impl, "Document", function() {
         }),
 
 
+        // XXX: 
+        // Tests are currently failing for this function.
+        // Awaiting resolution of:
+        // http://lists.w3.org/Archives/Public/www-dom/2011JulSep/0016.html
         getElementsByTagName: constant(function getElementsByTagName(lname) {
             let filter;
             if (lname === "*")
