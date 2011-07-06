@@ -1,0 +1,21 @@
+These tests are intended to be run with jstests.py.  They have been converted from tests
+available in http://www.w3c-test.org/webapps/DOMCore/tests/submissions/Ms2ger/.
+
+There are two targets in the Makefile to run these tests.
+'test-summary' runs the tests and presents a short summary of the results.
+'test-detailed' runs the tests and shows the results of each test case.
+If you use the latter target, you may want to limit which tests you run.
+
+You can specify which tests to run by specifying TEST_PAT.
+For example:
+  make test-detailed TEST_PAT=CharacterData
+will return the results of running all of the tests in files matching the pattern *CharacterData*.js.
+
+To run the tests, you need to set JS_PATH and JSTESTS_PATH as environment variables.
+These should be the path to the directory containing your JavaScript shell
+and to the directory containing jstests.py, respectively.
+
+Note that the top shell.js is taken from jstests.py and sets up the testing infrastructure.
+
+Author: Tom Austin
+
