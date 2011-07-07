@@ -16,4 +16,6 @@ load('../dom.js');
 // Load utilities for running domcore tests
 load('test-utils.js');
 
+// FIXME: Remove this line once dom.js does this automatically
+document.body = document.getElementsByTagName("body")[0];
 
