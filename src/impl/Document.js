@@ -29,6 +29,22 @@ defineLazyProperty(impl, "Document", function() {
         this.modclock = 0;
     }
 
+    // Map from lowercase event category names (used as arguments to
+    // createEvent()) to the property name in the impl object of the
+    // event constructor.
+    var supportedEvents = {
+        event: "Event",
+        customevent: "CustomEvent"
+    };
+
+    // Certain arguments to document.createEvent() must be treated specially
+    var replacementEvent = {
+        htmlevents: "event",
+        mouseevents: "mouseevent",
+        mutationevents: "mutationevent",
+        uievents: "uievent"
+    };
+
     Document.prototype = Object.create(impl.Node.prototype, {
         nodeType: constant(DOCUMENT_NODE),
         nodeName: constant("#document"),
@@ -92,6 +108,18 @@ defineLazyProperty(impl, "Document", function() {
 
             return new impl.Element(this, localName, namespace, prefix);
         }),
+
+        createEvent: constant(function createEvent(interfaceName) {
+            interfaceName = toLowerCase(interfaceName);
+            let name = replacementEvent[interfaceName] || interfaceName;
+            let constructor = impl[supportedEvents[name]];
+
+            if (constructor) 
+                return new constructor();
+            else
+                NotSupportedError();
+        }),
+
 
         // Add some (surprisingly complex) document hierarchy validity
         // checks when adding, removing and replacing nodes into a

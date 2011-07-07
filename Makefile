@@ -10,6 +10,7 @@ FILES= \
 	src/NodeListProxy.js \
 	src/HTMLCollectionProxy.js \
 	src/DOMException.js \
+	src/impl/EventTarget.js \
 	src/impl/Node.js \
 	src/impl/Leaf.js \
 	src/impl/CharacterData.js \
@@ -23,6 +24,7 @@ FILES= \
 	src/impl/DocumentType.js \
 	src/impl/DOMImplementation.js \
 	src/impl/FilteredElementList.js \
+	src/impl/Event.js \
 	src/main.js
 
 ###  Details for jstests.py
