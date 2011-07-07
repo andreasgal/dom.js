@@ -20,13 +20,14 @@ defineLazyProperty(impl, "Text", function() {
         nodeValue: nodeValue,
         textContent: nodeValue,
         data: nodeValue,
+        length: attribute(function() { return this._data.length; }),
 
         splitText: constant(function splitText(offset) {
             if (offset > this._data.length) IndexSizeError();
 
-            let newdata = this._data.substring(offset),
+            let newdata = substring(this._data, offset),
                 newnode = this.ownerDocument.createTextNode(newdata);
-            this._data = this.data.substring(0, offset);
+            this._data = substring(this.data, 0, offset);
 
             let parent = this.parentNode;
             if (parent !== null)

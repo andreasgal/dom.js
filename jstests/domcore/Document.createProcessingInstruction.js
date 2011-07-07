@@ -14,7 +14,9 @@ testdc(function() {
 
 
 //From Document-createProcessingInstruction.xhtml
+// That means that this test has to run on an XML document
 testdc(function() {
+    var d = document.implementation.createDocument();
   var invalid = [
         ["A", "?>"],
         ["\u00B7A", "x"],
@@ -32,13 +34,13 @@ testdc(function() {
       ]
 
   for (var i = 0, il = invalid.length; i < il; i++) {
-    assert_throws("INVALID_CHARACTER_ERR", function() { document.createProcessingInstruction(invalid[i][0], invalid[i][1]) })
+    assert_throws("INVALID_CHARACTER_ERR", function() { d.createProcessingInstruction(invalid[i][0], invalid[i][1]) })
   }
   for (var i = 0, il = valid.length; i < il; ++i) {
-    var pi = document.createProcessingInstruction(valid[i][0], valid[i][1]);
+    var pi = d.createProcessingInstruction(valid[i][0], valid[i][1]);
     assert_equals(pi.target, valid[i][0]);
     assert_equals(pi.data, valid[i][1]);
-    assert_equals(pi.ownerDocument, document);
+    assert_equals(pi.ownerDocument, d);
   }
 });
 

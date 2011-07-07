@@ -29,6 +29,22 @@ defineLazyProperty(impl, "Document", function() {
         this.modclock = 0;
     }
 
+    // Map from lowercase event category names (used as arguments to
+    // createEvent()) to the property name in the impl object of the
+    // event constructor.
+    var supportedEvents = {
+        event: "Event",
+        customevent: "CustomEvent"
+    };
+
+    // Certain arguments to document.createEvent() must be treated specially
+    var replacementEvent = {
+        htmlevents: "event",
+        mouseevents: "mouseevent",
+        mutationevents: "mutationevent",
+        uievents: "uievent"
+    };
+
     Document.prototype = Object.create(impl.Node.prototype, {
         nodeType: constant(DOCUMENT_NODE),
         nodeName: constant("#document"),
@@ -50,6 +66,9 @@ defineLazyProperty(impl, "Document", function() {
             return new impl.DocumentFragment(this);
         }),
         createProcessingInstruction: constant(function(target, data) {
+            if (this.isHTML) NotSupportedError();
+            if (!isValidName(target) || S.indexOf(data, "?>") !== -1)
+                InvalidCharacterError();
             return new impl.ProcessingInstruction(this, target, data);
         }),
 
@@ -89,6 +108,18 @@ defineLazyProperty(impl, "Document", function() {
 
             return new impl.Element(this, localName, namespace, prefix);
         }),
+
+        createEvent: constant(function createEvent(interfaceName) {
+            interfaceName = toLowerCase(interfaceName);
+            let name = replacementEvent[interfaceName] || interfaceName;
+            let constructor = impl[supportedEvents[name]];
+
+            if (constructor) 
+                return new constructor();
+            else
+                NotSupportedError();
+        }),
+
 
         // Add some (surprisingly complex) document hierarchy validity
         // checks when adding, removing and replacing nodes into a
@@ -199,6 +230,10 @@ defineLazyProperty(impl, "Document", function() {
         }),
 
 
+        // XXX: 
+        // Tests are currently failing for this function.
+        // Awaiting resolution of:
+        // http://lists.w3.org/Archives/Public/www-dom/2011JulSep/0016.html
         getElementsByTagName: constant(function getElementsByTagName(lname) {
             let filter;
             if (lname === "*")

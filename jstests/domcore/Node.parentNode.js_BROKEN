@@ -7,10 +7,12 @@ writeHeaderToLog( SECTION + ": "+ TITLE);
 
 testdc(function() {
   // need to test for more node types
+    /* Attributes aren't nodes anymore, so this test is invalkd
   var el = document.createElement("div")
   el.setAttribute("foo", "bar")
   var a = el.attributes[0]
   assert_equals(a.firstChild.parentNode, a)
+    */
 });
 
 

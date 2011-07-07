@@ -7,7 +7,7 @@ defineLazyProperty(impl, "Node", function() {
     function Node() {
     }
 
-    Node.prototype = Object.create(Object.prototype, {
+    Node.prototype = Object.create(impl.EventTarget.prototype, {
         
         // XXX: the baseURI attribute is defined by dom core, but 
         // a correct implementation of it requires HTML features, so 
@@ -236,13 +236,6 @@ defineLazyProperty(impl, "Node", function() {
             if (defaultns == null) defaultns = "";
             return ns === defaultns;
         }),
-
-        // These are the EventTarget methods.
-        // Since all nodes are event targets, we just put them here
-        // rather than creating another level of prototype inheritance.
-        addEventListener: constant(nyi),
-        removeEventListener: constant(nyi),
-        dispatchEvent: constant(nyi),
 
         // Utility methods for nodes.  Not part of the DOM
 

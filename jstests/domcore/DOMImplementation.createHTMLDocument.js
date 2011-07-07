@@ -19,7 +19,8 @@ function checkDoc(title, expectedtitle, normalizedtitle) {
     expectedtitle)
     assert_equals(doc.documentElement.lastChild.localName, "body")
     assert_equals(doc.documentElement.lastChild.childNodes.length, 0)
-    assert_equals(doc.title, normalizedtitle)
+      // This is an HTML test; document.title is not defined by DOMCore
+      //    assert_equals(doc.title, normalizedtitle)
   })
 }
 checkDoc("", "", "")

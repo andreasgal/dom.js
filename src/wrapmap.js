@@ -20,9 +20,11 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
     let idlToImplMap = new WeakMap(), lastkey = {}, lastvalue = undefined;
 
     // Return the implementation object for the DOM Node n
-    // This method will throw a DOMException(NOT_FOUND_ERR) if n is
+    // This method will throw a TypeError if n is
     // null, undefined, a primitive, or an object with no mapping.
     // This provides basic error checking for methods like Node.appendChild().
+    // XXX: We used to throw NOT_FOUND_ERR here, but ms2ger's tests
+    // expect TypeError
     function unwrap(n) {
         // Simple optimization
         // If I ever remove or alter mappings, then this won't be valid anymore.
@@ -41,9 +43,10 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
         }
         catch(e) {
             // If n was null or not an object the WeakMap will raise a TypeError
-            // TypeError might be the best thing to propagate, but DOM precedent
-            // seems to be to do this:
-            NotFoundError();
+            // TypeError might be the best thing to propagate, but there is also
+            // some precendent for raising a DOMException with code
+            // NOT_FOUND_ERR;
+            throw TypeError();
         }
     }
 

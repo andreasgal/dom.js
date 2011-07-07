@@ -10,16 +10,19 @@ function isEqualNode(node) {
     assert_false(node.isEqualNode(null))
   })
 }
-isEqualNode(document.createElement("foo"))
-isEqualNode(document.createAttribute("foo"))
-isEqualNode(document.createTextNode("foo"))
-// XXX isEqualNode(document.createCDATASection("foo"))
-isEqualNode(document.createProcessingInstruction("foo", "bar"))
-isEqualNode(document.createComment("foo"))
-isEqualNode(document)
-isEqualNode(document.implementation.createDocumentType("html", "", ""))
-isEqualNode(document.createDocumentFragment())
 
+testdc(function() {
+    isEqualNode(document.createElement("foo"))
+      //isEqualNode(document.createAttribute("foo"))
+      isEqualNode(document.createTextNode("foo"))
+      // XXX isEqualNode(document.createCDATASection("foo"))
+      // XXX Not allowed in HTML documents
+      // isEqualNode(document.createProcessingInstruction("foo", "bar"))
+      isEqualNode(document.createComment("foo"))
+      isEqualNode(document)
+      isEqualNode(document.implementation.createDocumentType("html", "", ""))
+      isEqualNode(document.createDocumentFragment())
+});
 
 test();
 

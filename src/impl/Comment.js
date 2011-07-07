@@ -17,6 +17,7 @@ defineLazyProperty(impl, "Comment", function() {
         nodeValue: nodeValue,
         textContent: nodeValue,
         data: nodeValue,
+        length: attribute(function() { return this._data.length; }),
    
         // Utility methods
         clone: constant(function clone() {
