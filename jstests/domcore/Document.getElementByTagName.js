@@ -29,7 +29,7 @@ testdc(function() {
 testdc(function() {
   assert_equals(document.createElementNS("http://www.w3.org/1999/xhtml", "i").localName, "i") // Sanity
 
-  var i = body.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "I"))
+  var i = document.body.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "I"))
   assert_equals(i.localName, "I")
   assert_equals(i.tagName, "I")
   assert_equals(document.getElementsByTagName("I").length, 0)
