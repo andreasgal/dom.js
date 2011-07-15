@@ -21,7 +21,7 @@ function parse(s, f) {
     s = s.replace(/<script/g, "<script type='dontrun'");
 
     var frame = document.getElementById("parser");
-    frame.onload = function() {	f(frame.contentDocument); }
+    frame.onload = function() {        f(frame.contentDocument); }
     // XXX: base the mime type on the file or URL extension
     frame.src = "data:text/html," + encodeURIComponent(s);
 }
@@ -45,42 +45,42 @@ function gotdoc(testdoc) {
 
 function copynodes(from, to) {
     for(var n = from.firstChild; n !== null; n = n.nextSibling) {
-	switch(n.nodeType) {
-	case Node.ELEMENT_NODE:
-	    copy = to.ownerDocument.createElement(n.nodeValue);
-	    // copy attributes
-	    for(var i = 0, len = n.attributes.length; i < len; i++) {
-		var a = n.attributes[i];
-		copy.setAttributeNS(a.namespaceURI, a.qname, a.value);
-	    }
-	    // copy kids
-	    copynodes(n,copy);
-	    to.appendChild(copy);
+        switch(n.nodeType) {
+        case Node.ELEMENT_NODE:
+            copy = to.ownerDocument.createElement(n.nodeValue);
+            // copy attributes
+            for(var i = 0, len = n.attributes.length; i < len; i++) {
+                var a = n.attributes[i];
+                copy.setAttributeNS(a.namespaceURI, a.qname, a.value);
+            }
+            // copy kids
+            copynodes(n,copy);
+            to.appendChild(copy);
 
-	    // If it was a <script> tag, execute the script
-	    if (n.tagName === "SCRIPT" && !n.hasAttribute("src")) {
-		var script = n.firstChild.data;
-		runscript(script);
-	    }
+            // If it was a <script> tag, execute the script
+            if (n.tagName === "SCRIPT" && !n.hasAttribute("src")) {
+                var script = n.firstChild.data;
+                runscript(script);
+            }
 
-	    break;
-	case Node.TEXT_NODE:
-	    to.appendChild(to.ownerDocument.createTextNode(n.data));
-	    break;
-	case Node.COMMENT_NODE:
-	    to.appendChild(to.ownerDocument.createComment(n.data));
-	    break;
-	case Node.PROCESSING_INSTRUCTION_NODE:
-	    to.appendChild(to.ownerDocument.createProcessingInstruction(
-		n.target,
-		n.data));
-	    break;
-	case Node.DOCUMENT_TYPE_NODE:
-	    // XXX: do nothing for now
-	    break;
-	default:
-	    throw new Error("Unexpected node type in copynodes: " + n.nodeType);
-	}
+            break;
+        case Node.TEXT_NODE:
+            to.appendChild(to.ownerDocument.createTextNode(n.data));
+            break;
+        case Node.COMMENT_NODE:
+            to.appendChild(to.ownerDocument.createComment(n.data));
+            break;
+        case Node.PROCESSING_INSTRUCTION_NODE:
+            to.appendChild(to.ownerDocument.createProcessingInstruction(
+                n.target,
+                n.data));
+            break;
+        case Node.DOCUMENT_TYPE_NODE:
+            // XXX: do nothing for now
+            break;
+        default:
+            throw new Error("Unexpected node type in copynodes: " + n.nodeType);
+        }
     }
 }
 
