@@ -46,6 +46,7 @@
             if (typeof val !== "function") return;
             if (prop === "toSource") return; // Don't mess up console
             if (prop === "valueOf") return;  // Or the Web Console
+            if (prop === 'prototype') return; // Prototype is read-only
             if (substring(prop, 0, 2) == "__") return;
             // monkey patch the method to issue a warning
             o[prop] = function() {

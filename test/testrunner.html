@@ -8,7 +8,7 @@ dom.js<br/>
 
 <script>
 function dotest(f) {
-    r = new FileReader();
+    var r = new FileReader();
     r.readAsText(f);
     r.onload = function() {
         parse(r.result, gotdoc);
@@ -31,11 +31,11 @@ function gotdoc(testdoc) {
     // that holds the test case, but scripts should not have been run
 
     var mydom = document.getElementById("mydom");
-    mywin = mydom.contentWindow;
+    var mywin = mydom.contentWindow;
 
     // Start over with an empty document rather than a pre-populated
     // HTML document.
-    var mydoc = mywin.document = mywin.document.implementation.createDocument();
+    var mydoc = mywin.document.implementation.createDocument();
 
     // Now copy nodes from testdoc into mydoc, keeping in mind that they
     // are completely different DOM implementations.
