@@ -7,6 +7,8 @@ dom.js<br/>
         width="100%" height="40%"></iframe>
 
 <script>
+var mydoc, mydom;
+
 function dotest(f) {
     var r = new FileReader();
     r.readAsText(f);
@@ -30,12 +32,12 @@ function gotdoc(testdoc) {
     // When this function is called, testdoc should be an HTML document
     // that holds the test case, but scripts should not have been run
 
-    var mydom = document.getElementById("mydom");
+    mydom = document.getElementById("mydom");
     var mywin = mydom.contentWindow;
 
     // Start over with an empty document rather than a pre-populated
     // HTML document.
-    var mydoc = mywin.document.implementation.createDocument();
+    mydoc = mywin.document.implementation.createDocument();
 
     // Now copy nodes from testdoc into mydoc, keeping in mind that they
     // are completely different DOM implementations.
@@ -44,10 +46,11 @@ function gotdoc(testdoc) {
 }
 
 function copynodes(from, to) {
+    var ownerDocument = to.ownerDocument || mydoc;
     for(var n = from.firstChild; n !== null; n = n.nextSibling) {
         switch(n.nodeType) {
         case Node.ELEMENT_NODE:
-            copy = to.ownerDocument.createElement(n.nodeValue);
+            var copy = ownerDocument.createElement(n.nodeName);
             // copy attributes
             for(var i = 0, len = n.attributes.length; i < len; i++) {
                 var a = n.attributes[i];
@@ -55,7 +58,12 @@ function copynodes(from, to) {
             }
             // copy kids
             copynodes(n,copy);
-            to.appendChild(copy);
+            if (n.nodeName === 'HTML') {
+                mydom.appendChild(n);
+            }
+            else {
+                to.appendChild(copy);
+            }
 
             // If it was a <script> tag, execute the script
             if (n.tagName === "SCRIPT" && !n.hasAttribute("src")) {
@@ -65,13 +73,13 @@ function copynodes(from, to) {
 
             break;
         case Node.TEXT_NODE:
-            to.appendChild(to.ownerDocument.createTextNode(n.data));
+            to.appendChild(ownerDocument.createTextNode(n.data));
             break;
         case Node.COMMENT_NODE:
-            to.appendChild(to.ownerDocument.createComment(n.data));
+            to.appendChild(ownerDocument.createComment(n.data));
             break;
         case Node.PROCESSING_INSTRUCTION_NODE:
-            to.appendChild(to.ownerDocument.createProcessingInstruction(
+            to.appendChild(ownerDocument.createProcessingInstruction(
                 n.target,
                 n.data));
             break;
