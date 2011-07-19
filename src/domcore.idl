@@ -13,6 +13,7 @@
 // with object. In our case we need the real element type, so this change
 // must be made by hand.
 
+[Constructor(DOMString type, optional EventInit eventInitDict)]
 interface Event {
   readonly attribute DOMString type;
   readonly attribute EventTarget? target;
@@ -37,9 +38,18 @@ interface Event {
   void initEvent(DOMString type, boolean bubbles, boolean cancelable);
 };
 
+dictionary EventInit {
+  boolean bubbles;
+  boolean cancelable;
+};
+
+[Constructor(DOMString type, optional CustomEventInit eventInitDict)]
 interface CustomEvent : Event {
-  readonly attribute object? detail;
-  void initCustomEvent(DOMString type, boolean bubbles, boolean cancelable, object? detail);
+  readonly attribute any detail;
+};
+
+dictionary CustomEventInit : EventInit {
+  any detail;
 };
 
 interface EventTarget {

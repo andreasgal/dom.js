@@ -1,4 +1,9 @@
 #!/usr/local/bin/node
 var idl = require("fs").readFileSync(process.argv[2],"utf-8");
-var tree = require("WebIDLParser.js").Parser.parse(idl);
+try {
+    var tree = require("../webidl.js/node/WebIDLParser.js").Parser.parse(idl);
+}
+catch(e) {
+    console.log("%s:%d:%d: %s", e.name, e.line, e.column, e.message);
+}
 console.log(JSON.stringify(tree, null, 2));

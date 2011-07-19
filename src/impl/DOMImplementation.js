@@ -29,10 +29,6 @@ defineLazyProperty(impl, "DOMImplementation", function() {
 
         createDocumentType: function createDocumentType(qualifiedName,
                                                         publicId, systemId) {
-            // XXX
-            // Awaiting resolution of this:
-            // http://lists.w3.org/Archives/Public/www-dom/2011JulSep/0015.html
-            //
             if (!isValidName(qualifiedName)) InvalidCharacterError();
             if (!isValidQName(qualifiedName)) NamespaceError();
 
@@ -41,10 +37,12 @@ defineLazyProperty(impl, "DOMImplementation", function() {
 
         createDocument: function createDocument(namespace,
                                                 qualifiedName, doctype) {
-            // XXX
-            // Currently the DOM core spec indicates that this method never
-            // creates an HTML document, even if namespace and doctype are
-            // properly set.  I've asked for clarification.
+            // 
+            // Note that the current DOMCore spec makes it impossible to
+            // create an HTML document with this function, even if the 
+            // namespace and doctype are propertly set.  See this thread:
+            // http://lists.w3.org/Archives/Public/www-dom/2011AprJun/0132.html
+            // 
             let d = new impl.Document(false), e;
             
             if (qualifiedName) 
