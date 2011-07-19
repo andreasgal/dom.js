@@ -142,6 +142,21 @@ function outputInterface(idl) {
         out('        superclass: idl.' + idl.inheritance[0] + ',');
     }
 
+    // See if this interface has a callback
+    // XXX: eventually I'll have to handle multiple callbacks and 
+    // named callbacks as well.  For now, just enough for event callbacks.
+    if ("Constructor" in attrs) {
+        var c = attrs.Constructor;
+        out('        constructor: function %s%s{', idl.name, arglist(c,"        "));
+        out('            return wrap(new impl.%s(%s);',
+            idl.name,
+            invokeargs(c, prefix + "                   "));
+        
+        out('        },');
+    }
+
+
+
     // If the interface needs a proxy (because it has an indexed getter, e.g.)
     // then specify that
     if (needsProxy(idl)) {
@@ -257,9 +272,11 @@ function outputAttribute(a, prefix) {
     out();
 }
 
+// XXX: interfaces with more than one Constructor attribute will have
+// to do something different here.  Currently we'll only see the last one.
 function getExtAttrs(a) {
     var rv = {};
-    if (a.extAttrs) a.extAttrs.forEach(function(o) { rv[o.name] = o.value; });
+    if (a.extAttrs) a.extAttrs.forEach(function(o) { rv[o.name] = o; });
     return rv;
 }
 
@@ -297,7 +314,9 @@ function convert(a, v) {
     // WebIDL may be making this the default and using 
     // TreatNullAs=String for the current default behavior.
     var attrs = getExtAttrs(a);
-    if (t.idlType === "DOMString" && attrs["TreatNullAs"] === "EmptyString")
+    if (t.idlType === "DOMString" &&
+        attrs.TreatNullAs &&
+        attrs.TreatNullAs.value === "EmptyString")
         c += "OrEmpty";
 
     return c + "(" + v + ")";
