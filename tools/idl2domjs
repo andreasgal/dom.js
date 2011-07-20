@@ -57,8 +57,9 @@ out();
 
 var callbackTypes = {};  // A set of names of [Callback] interfaces
 var arrayTypes = {};     // A set of array types we have to create
+var dictionaryTypes = {} // A set of dictionary types
 
-// First, loop through the interfaces, looking for callbacks
+// First, loop through the interfaces, looking for callbacks and dictionaries
 for(var i = 0; i < parsedidl.length; i++) {
     var item = parsedidl[i];
     if (item.type === "interface") {
@@ -67,13 +68,20 @@ for(var i = 0; i < parsedidl.length; i++) {
            callbackTypes[item.name] = true;
         }       
     }
+    else if (item.type === "dictionary") {
+        dictionaryTypes[item.name] = item;
+    }
 }
 
 // Now loop through the interfaces, outputing definitions for them all
 for(var i = 0; i < parsedidl.length; i++) {
     var item = parsedidl[i];
-    if (item.type === "interface") 
+    if (item.type === "interface") {
         outputInterface(item);
+    }       
+    else if (item.type === "dictionary") {
+        outputDictionary(item);
+    }
     else {
         console.warn("Skipping %s %s", item.type, item.name);
     }
@@ -147,10 +155,13 @@ function outputInterface(idl) {
     // named callbacks as well.  For now, just enough for event callbacks.
     if ("Constructor" in attrs) {
         var c = attrs.Constructor;
-        out('        constructor: function %s%s{', idl.name, arglist(c,"        "));
-        out('            return wrap(new impl.%s(%s);',
+        out('        constructor: function %s%s{',
+            idl.name,
+            arglist(c,"        "));
+        out('            return wrap(new impl.%s(%s),',
             idl.name,
             invokeargs(c, prefix + "                   "));
+        out('                        idl.%s);', idl.name);
         
         out('        },');
     }
@@ -188,6 +199,71 @@ function outputInterface(idl) {
     out('    });');
     out('});');
 }
+
+/*
+ * WebIDL dictionary types don't have any public representation, and 
+ * the JS representation of dictionary instances are ordinary objects.
+ * So to output a dictionary we don't need to export anything to the global
+ * object.  But we do need to create a conversion function that converts
+ * an object passed in to a DOM API (like the Event()) constructor to a 
+ * type-checked legal object that we can pass to the implementation of that 
+ * API
+ */
+function outputDictionary(d) {
+    current_interface = d;
+    out();
+    out("//");
+    out("// Dictionary %s", d.name);
+    out("//");
+    out();
+    
+    // Looks like a constructor, but we're using it as a conversion func
+    out("function %s(o) {", d.name);
+    out("    var rv = Object.create(%s.prototype);", d.name);
+    outputDictionaryMemberConversions(d);
+    out("    return rv;");
+    out("}");
+
+    out("function Optional%s(o) {", d.name);
+    out("    return (o === undefined) ? undefined : %s(o);", d.name);
+    out("}");
+
+    if (d.inheritance)
+        out("%s.prototype = Object.create(%s.prototype);",
+            d.name, d.inheritance);
+    else
+        out("%s.prototype = {};", d.name);
+
+    for(var i = 0; i < d.members.length; i++) {
+        if (d.members[i].defaultValue) {
+            out("%s.prototype.%s = %s;",
+                d.name,
+                d.members[i].name,
+                d.members[i].defaultValue);
+        }
+    }
+}
+
+function outputDictionaryMemberConversions(d) {
+    if (d.inheritance) {
+        var s = dictionaryTypes[d.inheritance];
+        if (!s) {
+            console.warn("Unknown dictionary superclass %s", d.inheritance);
+        }
+        else {
+            outputDictionaryMemberConversions(s);
+        }
+    }
+
+    for(var i = 0; i < d.members.length; i++) {
+        var m = d.members[i];
+        out("    if ('%s' in o) rv['%s'] = %s;",
+            m.name,
+            m.name,
+            convert(m, "o['" + m.name + "']"));
+    }
+}
+
 
 function needsProxy(idl) {
     // If any of the members of this interface are getters, then
@@ -281,7 +357,7 @@ function getExtAttrs(a) {
 }
 
 // Return a string that invokes a conversion function on v, like Boolean(v)
-// A is an attribute or a method argument
+// A is an attribute or a method argument or a dictionary member
 function convert(a, v) {
     // a is an attribute record or an argument record
     var t = a.idlType || a.type;  // idlType for attributes, type for arguments
@@ -294,6 +370,8 @@ function convert(a, v) {
     var c;
     if (callbackTypes[t.idlType])
         c = "toCallback";
+    else if (isDictionaryType(t)) 
+        c = t.idlType;
     else if (isInterfaceType(t))
         c = "unwrap";
     else if (t.idlType === "DOMString")
@@ -304,6 +382,8 @@ function convert(a, v) {
         c = "Boolean";
     else if (t.idlType === "object") 
         c = "Object";
+    else if (t.idlType === "any")
+        c = "";
     else
         throw new Error("Need a converter function for: " +  t.idlType);
 
@@ -319,7 +399,10 @@ function convert(a, v) {
         attrs.TreatNullAs.value === "EmptyString")
         c += "OrEmpty";
 
-    return c + "(" + v + ")";
+    if (c)
+        return c + "(" + v + ")";
+    else
+        return v;
 }
 
 function typeName(t) {
@@ -333,6 +416,10 @@ function typeName(t) {
     }
     if (t.sequence) s+= "Sequence";
     return s;
+}
+
+function isDictionaryType(t) {
+    return t.idlType && dictionaryTypes[t.idlType];
 }
 
 function isInterfaceType(t) {

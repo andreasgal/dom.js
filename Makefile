@@ -25,6 +25,7 @@ FILES= \
 	src/impl/DOMImplementation.js \
 	src/impl/FilteredElementList.js \
 	src/impl/Event.js \
+	src/impl/CustomEvent.js \
 	src/main.js
 
 ###  Details for jstests.py

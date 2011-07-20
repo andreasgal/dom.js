@@ -52,12 +52,14 @@ function toCallbackOrNull(x) {
 //    proxyHandler // The proxy handler constructor, if one is needed
 //    constants    // constants defined by the interface
 //    members      // interface attributes and methods
+//    constructor  // optional public constructor. 
 //
 // It returns a new object with the following properties:
 //   publicInterface // The public interface to be placed in the global scope
+//                   // The input constructor or a synthetic no-op one.
 //   prototype       // The prototype object for the interface
 //                   // Also available as publicInterface.prototype
-//   create          // A factory function for creating an instance
+//   factory         // A factory function for creating an instance
 //
 function IDLInterface(o) {
     let name = o.name || "";
@@ -70,12 +72,17 @@ function IDLInterface(o) {
     // Set up the prototype object
     prototype = superclass ? O.create(superclass.prototype) : {};
 
-    // The interface object is supposed to work with instanceof, but is 
-    // not supposed to be callable.  We can't conform to both requirements
-    // so we make the interface object a function that throws when called.
-    interfaceObject = function() { 
-        throw new TypeError(name + " is not (supposed to be) a function");
-    };
+    if (o.hasOwnProperty("constructor")) {
+        interfaceObject = o.constructor;
+    }
+    else {
+        // The interface object is supposed to work with instanceof, but is 
+        // not supposed to be callable.  We can't conform to both requirements
+        // so we make the interface object a function that throws when called.
+        interfaceObject = function() { 
+            throw new TypeError(name + " is not (supposed to be) a function");
+        };
+    }
 
     // WebIDL says that the interface object has this prototype property
     defineHiddenConstantProp(interfaceObject, "prototype", prototype);
