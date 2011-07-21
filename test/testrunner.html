@@ -7,8 +7,10 @@ dom.js<br/>
         width="100%" height="40%"></iframe>
 
 <script>
+var mydoc, mydom;
+
 function dotest(f) {
-    r = new FileReader();
+    var r = new FileReader();
     r.readAsText(f);
     r.onload = function() {
         parse(r.result, gotdoc);
@@ -21,7 +23,7 @@ function parse(s, f) {
     s = s.replace(/<script/g, "<script type='dontrun'");
 
     var frame = document.getElementById("parser");
-    frame.onload = function() {	f(frame.contentDocument); }
+    frame.onload = function() {        f(frame.contentDocument); }
     // XXX: base the mime type on the file or URL extension
     frame.src = "data:text/html," + encodeURIComponent(s);
 }
@@ -30,12 +32,12 @@ function gotdoc(testdoc) {
     // When this function is called, testdoc should be an HTML document
     // that holds the test case, but scripts should not have been run
 
-    var mydom = document.getElementById("mydom");
-    mywin = mydom.contentWindow;
+    mydom = document.getElementById("mydom");
+    var mywin = mydom.contentWindow;
 
     // Start over with an empty document rather than a pre-populated
     // HTML document.
-    var mydoc = mywin.document = mywin.document.implementation.createDocument();
+    mydoc = mywin.document.implementation.createDocument();
 
     // Now copy nodes from testdoc into mydoc, keeping in mind that they
     // are completely different DOM implementations.
@@ -44,43 +46,49 @@ function gotdoc(testdoc) {
 }
 
 function copynodes(from, to) {
+    var ownerDocument = to.ownerDocument || mydoc;
     for(var n = from.firstChild; n !== null; n = n.nextSibling) {
-	switch(n.nodeType) {
-	case Node.ELEMENT_NODE:
-	    copy = to.ownerDocument.createElement(n.nodeValue);
-	    // copy attributes
-	    for(var i = 0, len = n.attributes.length; i < len; i++) {
-		var a = n.attributes[i];
-		copy.setAttributeNS(a.namespaceURI, a.qname, a.value);
-	    }
-	    // copy kids
-	    copynodes(n,copy);
-	    to.appendChild(copy);
+        switch(n.nodeType) {
+        case Node.ELEMENT_NODE:
+            var copy = ownerDocument.createElement(n.nodeName);
+            // copy attributes
+            for(var i = 0, len = n.attributes.length; i < len; i++) {
+                var a = n.attributes[i];
+                copy.setAttributeNS(a.namespaceURI, a.qname, a.value);
+            }
+            // copy kids
+            copynodes(n,copy);
+            if (n.nodeName === 'HTML') {
+                mydom.appendChild(n);
+            }
+            else {
+                to.appendChild(copy);
+            }
 
-	    // If it was a <script> tag, execute the script
-	    if (n.tagName === "SCRIPT" && !n.hasAttribute("src")) {
-		var script = n.firstChild.data;
-		runscript(script);
-	    }
+            // If it was a <script> tag, execute the script
+            if (n.tagName === "SCRIPT" && !n.hasAttribute("src")) {
+                var script = n.firstChild.data;
+                runscript(script);
+            }
 
-	    break;
-	case Node.TEXT_NODE:
-	    to.appendChild(to.ownerDocument.createTextNode(n.data));
-	    break;
-	case Node.COMMENT_NODE:
-	    to.appendChild(to.ownerDocument.createComment(n.data));
-	    break;
-	case Node.PROCESSING_INSTRUCTION_NODE:
-	    to.appendChild(to.ownerDocument.createProcessingInstruction(
-		n.target,
-		n.data));
-	    break;
-	case Node.DOCUMENT_TYPE_NODE:
-	    // XXX: do nothing for now
-	    break;
-	default:
-	    throw new Error("Unexpected node type in copynodes: " + n.nodeType);
-	}
+            break;
+        case Node.TEXT_NODE:
+            to.appendChild(ownerDocument.createTextNode(n.data));
+            break;
+        case Node.COMMENT_NODE:
+            to.appendChild(ownerDocument.createComment(n.data));
+            break;
+        case Node.PROCESSING_INSTRUCTION_NODE:
+            to.appendChild(ownerDocument.createProcessingInstruction(
+                n.target,
+                n.data));
+            break;
+        case Node.DOCUMENT_TYPE_NODE:
+            // XXX: do nothing for now
+            break;
+        default:
+            throw new Error("Unexpected node type in copynodes: " + n.nodeType);
+        }
     }
 }
 
