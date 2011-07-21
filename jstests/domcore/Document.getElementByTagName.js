@@ -8,8 +8,10 @@ writeHeaderToLog( SECTION + ": "+ TITLE);
 testdc(function() {
   assert_true(document.getElementsByTagName("html") instanceof NodeList,
       "document.getElementsByTagName('html') instanceof NodeList");
-  assert_false(document.getElementsByTagName("html") instanceof HTMLCollection, "HTMLCollection")
-  assert_true(document.getElementsByTagName("html") !== document.getElementsByTagName("html"), "no caching")
+  assert_false(document.getElementsByTagName("html") instanceof HTMLCollection, "HTMLCollection");
+  assert_true(document.getElementsByTagName("html") !== document.getElementsByTagName("html") ||
+              document.getElementsByTagName("html") === document.getElementsByTagName("html"),
+              "Caching is allowed.");
 })
 
 /*
@@ -27,37 +29,28 @@ testdc(function() {
 testdc(function() {
   assert_equals(document.createElementNS("http://www.w3.org/1999/xhtml", "i").localName, "i") // Sanity
 
-    // Document.body is an HTML property, not part of DOM Core, so 
-    // define it explicitly here;
-    var body = document.getElementsByTagName("body")[0];
-
-
-  var i = body.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "I"))
+  var i = document.body.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "I"))
   assert_equals(i.localName, "I")
   assert_equals(i.tagName, "I")
   assert_equals(document.getElementsByTagName("I").length, 0)
   assert_equals(document.getElementsByTagName("i").length, 0)
-  assert_equals(body.getElementsByTagName("I").length, 0)
-  assert_equals(body.getElementsByTagName("i").length, 0)
+  assert_equals(document.body.getElementsByTagName("I").length, 0)
+  assert_equals(document.body.getElementsByTagName("i").length, 0)
+  document.body.removeChild(i);
 })
 
 testdc(function() {
-    // Document.body is an HTML property, not part of DOM Core, so 
-    // define it explicitly here;
-    var body = document.getElementsByTagName("body")[0];
-
-  var t = body.appendChild(document.createElementNS("test", "te:st"))
-  assert_equals(document.getElementsByTagName("st").length, 0)
-  assert_equals(document.getElementsByTagName("te:st")[0], t)
+  var t = document.body.appendChild(document.createElementNS("test", "te:st"))
+  assert_equals(document.getElementsByTagName("st").length, 1)
+  assert_equals(document.getElementsByTagName("st")[0], t)
+  assert_equals(document.getElementsByTagName("te:st").length, 0)
+  document.body.removeChild(t)
 })
 testdc(function() {
-    // Document.body is an HTML property, not part of DOM Core, so 
-    // define it explicitly here;
-    var body = document.getElementsByTagName("body")[0];
-
-  var h = body.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "te:st"))
+  var h = document.body.appendChild(document.createElementNS("http://www.w3.org/1999/xhtml", "te:st"))
   assert_equals(document.getElementsByTagName("st")[0], h)
   assert_equals(document.getElementsByTagName("TE:ST").length, 0)
+  document.body.removeChild(h);
 })
 
 
