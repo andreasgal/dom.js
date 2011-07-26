@@ -66,29 +66,29 @@ const [isValidName, isValidQName] = (function() {
                                     ncname + ":" + ncname + ")$");
 
     function isValidName(s) {
-        if (simplename.test(s)) return true;  // Plain ASCII
-        if (name.test(s)) return true;        // Unicode BMP
+        if (test(simplename, s)) return true;  // Plain ASCII
+        if (test(name, s)) return true;        // Unicode BMP
 
         // Maybe the tests above failed because s includes surrogate pairs
         // Most likely, though, they failed for some more basic syntax problem
-        if (!hassurrogates.test(s)) return false;
+        if (!test(hassurrogates, s)) return false;
 
         // Is the string a valid name if we allow surrogates?
-        if (!surrogatename.test(s)) return false;
+        if (!test(surrogatename, s)) return false;
 
         // Finally, are the surrogates all correctly paired up?
-        let chars = s.match(surrogatechars), pairs = s.match(surrogatepairs);
+        let chars = match(s, surrogatechars), pairs = match(s, surrogatepairs);
         return pairs != null && 2*pairs.length === chars.length;
     }
 
 
     function isValidQName(s) {
-        if (simpleqname.test(s)) return true;  // Plain ASCII
-        if (qname.test(s)) return true;        // Unicode BMP
+        if (test(simpleqname, s)) return true;  // Plain ASCII
+        if (test(qname, s)) return true;        // Unicode BMP
         
-        if (!hassurrogates.test(s)) return false;
-        if (!surrogateqname.test(s)) return false;
-        let chars = s.match(surrogatechars), pairs = s.match(surrogatepairs);
+        if (!test(hassurrogates, s)) return false;
+        if (!test(surrogateqname, s)) return false;
+        let chars = match(s, surrogatechars), pairs = match(s, surrogatepairs);
         return pairs != null && 2*pairs.length === chars.length;
     }
 

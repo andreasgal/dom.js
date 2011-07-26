@@ -5,7 +5,7 @@
 // See the end of the file for custom constructors for specific element types
 // 
 function ArrayProxy(elementType, array) {
-    let handler = Object.create(ArrayProxy.handler);
+    let handler = O.create(ArrayProxy.handler);
     handler.elementType = elementType;  
     handler.array = array;
     handler.localprops = O.create(null);

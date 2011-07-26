@@ -1,7 +1,7 @@
 defineLazyProperty(impl, "EventTarget", function() {
     function EventTarget() {}
 
-    EventTarget.prototype = Object.create(Object.prototype, {
+    EventTarget.prototype = O.create(Object.prototype, {
 
         // XXX
         // See WebIDL §4.8 for details on object event handlers

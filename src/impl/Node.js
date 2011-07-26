@@ -7,7 +7,7 @@ defineLazyProperty(impl, "Node", function() {
     function Node() {
     }
 
-    Node.prototype = Object.create(impl.EventTarget.prototype, {
+    Node.prototype = O.create(impl.EventTarget.prototype, {
         
         // XXX: the baseURI attribute is defined by dom core, but 
         // a correct implementation of it requires HTML features, so 
@@ -105,7 +105,7 @@ defineLazyProperty(impl, "Node", function() {
             // If they're not owned by the same document or if one is rooted
             // and one is not, then they're disconnected.
             if (this.ownerDocument != that.ownerDocument ||
-                this.root !== that.root)
+                this.rooted !== that.rooted)
                 return (DOCUMENT_POSITION_DISCONNECTED +
                         DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC);
 
@@ -257,7 +257,7 @@ defineLazyProperty(impl, "Node", function() {
             // If they belong to different documents, then they're unrelated.
             if (this.ownerDocument != that.ownerDocument) return false;
             // If one is rooted and one isn't then they're not related
-            if (this.root !== that.root) return false;
+            if (this.rooted !== that.rooted) return false;
 
             // Otherwise check by traversing the parentNode chain
             for(let e = that; e; e = e.parentNode) {
@@ -319,13 +319,13 @@ defineLazyProperty(impl, "Node", function() {
             delete this.parentNode;
 
             // Send mutation events if necessary
-            if (this.root) this.root.mutateRemove(this);
+            if (this.rooted) this.ownerDocument.mutateRemove(this);
         }),
 
         // Remove all of this node's children.  This is a minor 
         // optimization that only calls modify() once.
         removeChildren: constant(function removeChildren() {
-            let root = this.root;
+            let root = this.rooted ? this.ownerDocument : null;
             for(let i = 0, n = this.childNodes.length; i < n; i++) {
                 delete this.childNodes[i].parentNode;
                 if (root) root.mutateRemove(this.childNodes[i]);
@@ -349,7 +349,7 @@ defineLazyProperty(impl, "Node", function() {
 
             // If both the child and the parent are rooted, then we want to
             // transplant the child without uprooting and rerooting it.
-            if (child.root && parent.root) {
+            if (child.rooted && parent.rooted) {
                 // Remove the child from its current position in the tree
                 // without calling remove(), since we don't want to uproot it.
                 let curpar = child.parentNode, curidx = child.index;
@@ -377,7 +377,7 @@ defineLazyProperty(impl, "Node", function() {
                 child._index = index;              // Optimization
                 
                 // And root the child if necessary
-                if (parent.root) parent.root.mutateInsert(child);
+                if (parent.rooted) parent.ownerDocument.mutateInsert(child);
             }
         }),
 
@@ -417,8 +417,13 @@ defineLazyProperty(impl, "Node", function() {
         // regardless of the node type
         doc: attribute(function() {
             return this.ownerDocument || this;
-        })
+        }),
 
+
+        // If the node has a nid (node id), then it is rooted in a document
+        rooted: attribute(function() {
+            return !!this._nid;
+        }),
 
     });
 

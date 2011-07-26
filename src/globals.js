@@ -6,6 +6,8 @@
 const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
 const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
+const MATHML_NAMESPACE = "http://www.w3.org/1998/Math/MathML";
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 
 // Anything I want to define lazily using defineLazyProperty above has

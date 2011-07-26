@@ -3,7 +3,7 @@ defineLazyProperty(impl, "Leaf", function() {
     // can never have children
     function Leaf() {}
 
-    Leaf.prototype = Object.create(impl.Node.prototype, {
+    Leaf.prototype = O.create(impl.Node.prototype, {
         hasChildNodes: constant(function() { return false; }),
         firstChild: constant(null),
         lastChild: constant(null),

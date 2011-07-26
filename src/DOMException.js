@@ -127,7 +127,7 @@ global.DOMException = (function() {
         e.__proto__ = DOMException.prototype;
 */
 
-        let e = Object.create(DOMException.prototype);
+        let e = O.create(DOMException.prototype);
         e.code = code;
         e.message = messages[code];
         e.name = names[code];
@@ -145,7 +145,7 @@ global.DOMException = (function() {
         return e;
     }
 
-    DOMException.prototype = Object.create(Error.prototype);
+    DOMException.prototype = O.create(Error.prototype);
 
     // Initialize the constants on DOMException and DOMException.prototype
     for(let c in constants) {

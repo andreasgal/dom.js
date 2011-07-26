@@ -72,7 +72,16 @@ defineLazyProperty(impl, "DOMImplementation", function() {
             title.appendChild(d.createTextNode(titleText));
             html.appendChild(d.createElement("body"));
             return d;
-        }
+        },
+
+
+        mozSetOutputMutationHandler: function(doc, handler) {
+            doc.mutationHandler = handler;
+        },
+
+        mozGetInputMutationHandler: function(doc) {
+            nyi();
+        },
     };
 
     return DOMImplementation;

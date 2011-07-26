@@ -19,6 +19,8 @@ FILES= \
 	src/impl/ProcessingInstruction.js \
 	src/impl/Element.js \
 	src/impl/Attr.js \
+	src/impl/MutationConstants.js \
+	src/impl/domstr.js \
 	src/impl/Document.js \
 	src/impl/DocumentFragment.js \
 	src/impl/DocumentType.js \

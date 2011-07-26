@@ -14,13 +14,15 @@ defineLazyProperty(impl, "Attr", function() {
         this.name = prefix ? prefix + ":" + lname : lname;
     }
 
-    Attr.prototype = Object.create(Object.prototype, {
+    Attr.prototype = O.create(Object.prototype, {
         value: attribute(function() { return this.data; },
                          function(v) { 
                              let oldval = this.data;
                              this.data = v;
-                             if (this.ownerElement.root)
-                                 this.ownerElement.root.mutateAttr(this,oldval);
+                             if (this.ownerElement.rooted)
+                                 this.ownerElement.ownerDocument.mutateAttr(
+                                     this,
+                                     oldval);
                          }),
 
         clone: constant(function clone(e) {
