@@ -5,7 +5,8 @@ dom.js<br/>
 <!-- this frame loads dom.js and the test harness stuff -->
 <iframe id="mydom"
         src="domjsframe.html";
-        width="100%" height="40%"></iframe>
+        width="100%" height="10%"></iframe>
+<iframe id="renderer" src="about:blank" width="100%" height="40%"></iframe>
 <script>
 function dotest(f) {
     var r = new FileReader();

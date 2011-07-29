@@ -138,11 +138,11 @@ var DOMSTR = (function() {
         // after NUL.  Throw an error if we reach the end of string
         function next() {
             if (n >= eos) throw new Error("Unexpected end of string");
-            var end = indexOf(s, NUL);
+            var end = indexOf(s, NUL, n);
             if (end === -1) end = eos;
             var token = substring(s, n, end);
             n = end+1;
-            return s;
+            return token;
         }
 
 

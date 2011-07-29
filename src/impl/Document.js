@@ -4,6 +4,9 @@ defineLazyProperty(impl, "Document", function() {
         this.isHTML = isHTML;
         this.implementation = new impl.DOMImplementation();
 
+        // DOMCore says that documents are always associated with themselves.
+        this.ownerDocument = this;
+
         // These will be initialized by our custom versions of
         // appendChild and insertBefore that override the inherited
         // Node methods.
@@ -54,7 +57,6 @@ defineLazyProperty(impl, "Document", function() {
         // XXX: DOMCore may remove documentURI, so it is NYI for now
         documentURI: attribute(nyi, nyi),
         compatMode: constant("CSS1Compat"),
-        ownerDocument: constant(null),
         parentNode: constant(null),
 
         createTextNode: constant(function(data) {
@@ -344,7 +346,7 @@ defineLazyProperty(impl, "Document", function() {
                     type: MUTATE_REMOVE_ATTR,
                     target: attr.ownerElement._nid,
                     name: attr.localName,
-                    ns: attr.namespaceURI,
+                    ns: attr.namespaceURI
                 });
             }
         }),
@@ -358,7 +360,7 @@ defineLazyProperty(impl, "Document", function() {
             if (this.mutationHander) {
                 this.mutationHandler({
                     type: MUTATE_REMOVE,
-                    target: node._nid;
+                    target: node._nid
                 });
             }
 

@@ -1,7 +1,12 @@
 <h1>dom.js</h1>
 <script src='../dom.js' type='application/javascript; version=1.8'></script>
-<script src=../src/impl/MutationConstants.js'></script>
-<script src=../src/impl/domstr.js'></script>
+<script>
+// dom.js creates an HTML document object with html, head, title and
+// body elements.  Delete these, since we'll get them from the parser
+while(document.firstChild) document.removeChild(document.firstChild);
+</script>
+<script src='../src/impl/MutationConstants.js'></script>
+<script src='../src/impl/domstr.js'></script>
 <script src='render.js'></script>
 <script src="monkey.js" type='application/javascript; version=1.8'></script>
 <script src="harness.js"></script>
