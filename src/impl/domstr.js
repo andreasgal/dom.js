@@ -106,22 +106,24 @@ var DOMSTR = (function() {
     }
 
 
-    function parse(s) {
+    function parse(s, d) {
         var n = 0,            // current character in s.
             eos = s.length;   // end-of-string
+
+        if (!d) d = document;
 
         return parseNode();
 
         function parseNode() {
             switch(s[n++]) {
             case "T":
-                return document.createTextNode(next());
+                return d.createTextNode(next());
             case "C":
-                return document.createComment(next());
+                return d.createComment(next());
             case "P":
-                return document.createProcessingInstruction(next(), next());
+                return d.createProcessingInstruction(next(), next());
             case "D":
-                return document.implementation.createDocType(next(),"","");
+                return d.implementation.createDocType(next(),"","");
             case "H":  // create with createElement
                 return parseElement("H");
             case "E":  // create with createElementNS
@@ -149,9 +151,9 @@ var DOMSTR = (function() {
         function parseElement(type) {
             var e;
             if (type === "H") 
-                e = document.createElement(next());
+                e = d.createElement(next());
             else
-                e = document.createElementNS(parseNamespace(), next());
+                e = d.createElementNS(parseNamespace(), next());
 
             var numattrs = parseLength();
             for(var i = 0; i < numattrs; i++) {
@@ -195,7 +197,7 @@ var DOMSTR = (function() {
         }
 
         function parseFragment() {
-            var f = document.createDocumentFragment();
+            var f = d.createDocumentFragment();
             var len = parseLength();
             for(var i = 0; i < len; i++) 
                 f.appendChild(parseNode());

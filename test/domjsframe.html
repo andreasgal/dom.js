@@ -1,9 +1,108 @@
 <h1>dom.js</h1>
 <script src='../dom.js' type='application/javascript; version=1.8'></script>
 <script>
-// dom.js creates an HTML document object with html, head, title and
-// body elements.  Delete these, since we'll get them from the parser
-while(document.firstChild) document.removeChild(document.firstChild);
+// Initialize things before running a test case
+function initialize() {
+    // Start with a new document
+    document = document.implementation.createHTMLDocument("");
+    
+    // Make sure it is completely empty
+    while(document.firstChild) document.removeChild(document.firstChild);
+
+
+    // Now initialize the renderer frame to the sae empty state
+    var render_frame = parent.document.getElementById("renderer");
+    var rdoc = render_frame.contentDocument;
+    while(rdoc.firstChild) rdoc.removeChild(rdoc.firstChild);
+
+
+    // And set up a mutation handler to keep the renderer frame in sync
+    // with the dom.js document.
+    document.implementation.mozSetOutputMutationHandler(document,
+                                                        mutation_handler);
+
+    // This object maps the integer node ids in mutation events to the
+    // corresponding nodes.  It starts out with a default mapping for
+    // the document object.
+    var nodes = {1: rdoc}; 
+
+    // The mutation handler function
+    function mutation_handler(o) {
+        var n, parent, child;
+        switch(o.type) {
+        case MUTATE_VALUE:
+            n = nodes[o.target];
+            n.data = o.data;
+            break;
+
+        case MUTATE_ATTR:
+            n = nodes[o.target];
+            if (o.namespaceURI === null && o.prefix === null)
+                n.setAttribute(o.name, o.value);
+            else
+                n.setAttributeNS(o.namespaceURI,
+                                 o.prefix ? o.prefix + ":" + o.name : o.name,
+                                 o.value);
+            break;
+
+        case MUTATE_REMOVE_ATTR:
+            n = nodes[o.target];
+            if (o.ns === null)
+                n.removeAttribute(o.name);
+            else
+                n.removeAttributeNS(o.ns, o.name);
+            break;
+
+        case MUTATE_REMOVE:
+            n = nodes[o.target];
+            n.parentNode.removeChild(n);
+            break;
+
+        case MUTATE_MOVE:
+            n = nodes[o.target];
+            parent = nodes[o.parent];
+            parent.insertBefore(n, parent.childNodes[o.index]);
+            break;
+
+        case MUTATE_INSERT:
+            parent = nodes[o.parent];
+            // Create the new child
+            child = DOMSTR.parse(o.child, rdoc);  
+
+            // Disable scripts.
+            // They were already run by dom.js, and we just want to 
+            // follow any changes to the document tree, not re-run them.
+            if (child.nodeType === Node.ELEMENT_NODE) disablescripts(child);
+
+            // Insert the child
+            parent.insertBefore(child, parent.childNodes[o.index] || null);
+
+            // Remember the nid of this new node and
+            // recursively assign nids to its children
+            setnid(child, o.nid);
+            break;
+        }
+
+
+        // Assign the specified nid to the specified node, then recurse
+        // and assign successor nids to the node's children.  Return the next
+        // available nid
+        function setnid(node, nid) {
+            nodes[nid++] = node;
+            var kids = node.childNodes;
+            for(var i = 0, n = kids.length; i < n; i++) {
+                nid = setnid(kids[i], nid);
+            }
+        }
+
+        function disablescripts(e) {
+            if (e.tagName === "SCRIPT") e.type = "x-script/do-not-run";
+            for(var i = 0, n = e.children.length; i < n; i++) {
+                disablescripts(e.children[i]);
+            }
+        }
+    }
+}
 </script>
 <script src='../src/impl/MutationConstants.js'></script>
 <script src='../src/impl/domstr.js'></script>
