@@ -11,7 +11,7 @@ if (typeof version != 'undefined') {
 }
 
 // Load dom.js
-load('../dom.js');
+load('../../dom.js');
 
 // Load utilities for running domcore tests
 load('test-utils.js');

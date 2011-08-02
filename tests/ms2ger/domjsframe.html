@@ -1,8 +1,11 @@
 <h1>dom.js</h1>
-<script src='../dom.js' type='application/javascript; version=1.8'></script>
+<script src='../../dom.js' type='application/javascript; version=1.8'></script>
 <script>
 // Initialize things before running a test case
 function initialize() {
+    // Start test numbering over at 0
+    testnum = 0;
+
     // Start with a new document
     document = document.implementation.createHTMLDocument("");
     
@@ -104,9 +107,8 @@ function initialize() {
     }
 }
 </script>
-<script src='../src/impl/MutationConstants.js'></script>
-<script src='../src/impl/domstr.js'></script>
-<script src='render.js'></script>
+<script src='../../src/impl/MutationConstants.js'></script>
+<script src='../../src/impl/domstr.js'></script>
 <script src="monkey.js" type='application/javascript; version=1.8'></script>
 <script src="harness.js"></script>
 

@@ -30,11 +30,11 @@ policies and contribution forms [3].
             window.monkey_patch_warnings = true;
             func();
             window.monkey_patch_warnings = false;
-            console.log("PASS", ++testnum);
+            top.log("PASS", ++testnum);
         }
         catch(e) {
             window.monkey_patch_warnings = false;
-            console.log("FAIL", ++testnum, e.message);
+            top.log("FAIL", ++testnum, e.message);
         }
     }
 

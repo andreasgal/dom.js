@@ -36,7 +36,7 @@ FILES= \
 #    JSTESTS_PATH -- The directory where jstests.py lives
 NUM_CORES=4
 TEST_PAT='' #override from command line to limit the tests
-DOM_TEST_DIR=jstests
+DOM_TEST_DIR=tests/cmdline
 
 
 dom.js: LICENSE ${FILES}
