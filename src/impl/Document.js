@@ -4,6 +4,9 @@ defineLazyProperty(impl, "Document", function() {
         this.isHTML = isHTML;
         this.implementation = new impl.DOMImplementation();
 
+        // DOMCore says that documents are always associated with themselves.
+        this.ownerDocument = this;
+
         // These will be initialized by our custom versions of
         // appendChild and insertBefore that override the inherited
         // Node methods.
@@ -13,13 +16,14 @@ defineLazyProperty(impl, "Document", function() {
         this.childNodes = [];
 
         // Documents are always rooted, by definition
-        this.root = this;
+        this._nid = 1;
+        this._nextnid = 2; // For numbering children of the document
 
         // This maintains the mapping from element ids to element nodes.
         // We may need to update this mapping every time a node is rooted
         // or uprooted, and any time an attribute is added, removed or changed
         // on a rooted element.
-        this.byId = Object.create(null); // inherit nothing
+        this.byId = O.create(null); // inherit nothing
 
         // This property holds a monotonically increasing value akin to 
         // a timestamp used to record the last modification time of nodes
@@ -45,7 +49,7 @@ defineLazyProperty(impl, "Document", function() {
         uievents: "uievent"
     };
 
-    Document.prototype = Object.create(impl.Node.prototype, {
+    Document.prototype = O.create(impl.Node.prototype, {
         nodeType: constant(DOCUMENT_NODE),
         nodeName: constant("#document"),
         nodeValue: attribute(fnull, fnoop),
@@ -53,7 +57,6 @@ defineLazyProperty(impl, "Document", function() {
         // XXX: DOMCore may remove documentURI, so it is NYI for now
         documentURI: attribute(nyi, nyi),
         compatMode: constant("CSS1Compat"),
-        ownerDocument: constant(null),
         parentNode: constant(null),
 
         createTextNode: constant(function(data) {
@@ -145,7 +148,7 @@ defineLazyProperty(impl, "Document", function() {
             }
 
             // Now chain to our superclass
-            return impl.Node.prototype.appendChild.call(this, child);
+            return call(impl.Node.prototype.appendChild, this, child);
         }),
 
         insertBefore: constant(function insertBefore(child, refChild) {
@@ -168,7 +171,7 @@ defineLazyProperty(impl, "Document", function() {
 
                 this.doctype = child;
             }
-            return impl.Node.prototype.insertBefore.call(this, child, refChild);
+            return call(impl.Node.prototype.insertBefore,this, child, refChild);
         }),        
 
         replaceChild: constant(function replaceChild(child, oldChild) {
@@ -207,7 +210,7 @@ defineLazyProperty(impl, "Document", function() {
                 else if (oldChild === this.doctype)
                     this.doctype = null;
             }
-            return impl.Node.prototype.replaceChild.call(this, child, oldChild);
+            return call(impl.Node.prototype.replaceChild, this,child,oldChild);
         }),
 
         removeChild: constant(function removeChild(child) {
@@ -217,7 +220,7 @@ defineLazyProperty(impl, "Document", function() {
                 this.documentElement = null;
 
             // Now chain to our superclass
-            return impl.Node.prototype.removeChild.call(this, child);
+            return call(impl.Node.prototype.removeChild, this, child);
         }),
 
         getElementById: constant(function(id) {
@@ -300,23 +303,35 @@ defineLazyProperty(impl, "Document", function() {
         // Implementation-specific function.  Called when a text, comment, 
         // or pi value changes.
         mutateValue: constant(function(node) {
+            if (this.mutationHandler) {
+                this.mutationHandler({
+                    type: MUTATE_VALUE,
+                    target: node._nid,
+                    data: node.data
+                });
+            }
         }),
 
         // Invoked when an attribute's value changes. Attr holds the new
         // value.  oldval is the old value.  Attribute mutations can also
         // involve changes to the prefix (and therefore the qualified name)
         mutateAttr: constant(function(attr, oldval) {
+            // Manage id->element mapping for getElementsById()
             if (attr.localName === "id" && attr.namespaceURI === null) {
                 if (oldval !== null) delId(oldval, attr.ownerElement);
                 addId(attr.value, attr.ownerElement);
             }
             
-            // XXX Send a mutation event
-        }),
-
-        // Invoked when a new attribute is added to an element
-        mutateAddAttr: constant(function(attr) { // Add a new attribute
-            this.mutateAttr(attr, null);
+            if (this.mutationHandler) {
+                this.mutationHandler({
+                    type: MUTATE_ATTR,
+                    target: attr.ownerElement._nid,
+                    name: attr.localName,
+                    ns: attr.namespaceURI,
+                    value: attr.value,
+                    prefix: attr.prefix
+                });
+            }
         }),
 
         // Used by removeAttribute and removeAttributeNS for attributes.
@@ -326,7 +341,14 @@ defineLazyProperty(impl, "Document", function() {
                 delId(attr.value, attr.ownerElement);
             }
 
-            // XXX send mutation event
+            if (this.mutationHandler) {
+                this.mutationHandler({
+                    type: MUTATE_REMOVE_ATTR,
+                    target: attr.ownerElement._nid,
+                    name: attr.localName,
+                    ns: attr.namespaceURI
+                });
+            }
         }),
 
         // Called by Node.removeChild, etc. to remove a rooted element from
@@ -334,34 +356,52 @@ defineLazyProperty(impl, "Document", function() {
         // node is removed, but must recursively mark all descendants as not
         // rooted.
         mutateRemove: constant(function(node) {
+            // Send a single mutation event
+            if (this.mutationHander) {
+                this.mutationHandler({
+                    type: MUTATE_REMOVE,
+                    target: node._nid
+                });
+            }
+
             // Mark this and all descendants as not rooted
             recursivelyUproot(node);
-
-            // XXX Send a single mutation event
         }),
 
         // Called when a new element becomes rooted.  It must recursively
         // generate mutation events for each of the children, and mark them all
         // as rooted.
         mutateInsert: constant(function(node) {
-            root(node);
+            // Mark node and its descendants as rooted
+            recursivelyRoot(node);
 
-            // XXX send the mutation event
-
-            // And now recurse on all kids 
-            let kids = node.childNodes;
-            for(let i = 0, n = kids.length; i < n; i++)
-                this.mutateInsert(kids[i]);
+            // Send a single mutation event
+            if (this.mutationHandler) {
+                this.mutationHandler({
+                    type: MUTATE_INSERT,
+                    parent: node.parentNode._nid,
+                    index: node.index,
+                    nid: node._nid,
+                    child: DOMSTR.stringify(node)
+                });
+            }
         }),
 
         // Called when a rooted element is moved within the document
         mutateMove: constant(function(node) {
+            if (this.mutationHandler) {
+                this.mutationHandler({
+                    type: MUTATE_MOVE,
+                    target: node._nid,
+                    parent: node.parentNode._nid,
+                    index: node.index
+                });
+            }
         }),
-        
     });
 
     function root(n) {
-        n.root = n.ownerDocument;
+        n._nid = n.ownerDocument._nextnid++;
         // Manage id to element mapping 
         if (n.nodeType === ELEMENT_NODE) {
             let id = n.getAttribute("id");
@@ -375,9 +415,11 @@ defineLazyProperty(impl, "Document", function() {
             let id = n.getAttribute("id");
             if (id) delId(id, n);
         }
-        delete n.root;
+        delete n._nid;
     }
-    let recursivelyUproot = recursive(uproot);
+
+    let recursivelyRoot = recursive(root),
+        recursivelyUproot = recursive(uproot);
 
     // Add a mapping from  id to n for n.ownerDocument
     function addId(id, n) {

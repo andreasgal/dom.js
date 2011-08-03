@@ -7,11 +7,11 @@ defineLazyProperty(impl, "Text", function() {
     var nodeValue = attribute(function() { return this._data; },
                               function(v) { 
                                   this._data = v;
-                                  if (this.root)
-                                      this.root.mutateValue(this);
+                                  if (this.rooted)
+                                      this.ownerDocument.mutateValue(this);
                               });
     
-    Text.prototype = Object.create(impl.CharacterData.prototype, {
+    Text.prototype = O.create(impl.CharacterData.prototype, {
         nodeType: constant(TEXT_NODE),
         nodeName: constant("#text"),
         // These three attributes are all the same.
@@ -45,6 +45,10 @@ defineLazyProperty(impl, "Text", function() {
         // Utility methods
         clone: constant(function clone() {
             return new impl.Text(this.ownerDocument, this._data);
+        }),
+
+        toObject: constant(function toObject() {
+            return { type: TEXT_NODE, data: this._data };
         }),
      
     });

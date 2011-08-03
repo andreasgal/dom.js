@@ -219,7 +219,7 @@ function outputDictionary(d) {
     
     // Looks like a constructor, but we're using it as a conversion func
     out("function %s(o) {", d.name);
-    out("    var rv = Object.create(%s.prototype);", d.name);
+    out("    var rv = O.create(%s.prototype);", d.name);
     outputDictionaryMemberConversions(d);
     out("    return rv;");
     out("}");
@@ -229,7 +229,7 @@ function outputDictionary(d) {
     out("}");
 
     if (d.inheritance)
-        out("%s.prototype = Object.create(%s.prototype);",
+        out("%s.prototype = O.create(%s.prototype);",
             d.name, d.inheritance);
     else
         out("%s.prototype = {};", d.name);

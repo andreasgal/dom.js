@@ -1,8 +1,6 @@
 // As a testing measure, monkeypatch all the builtin constructors,
 // functions and methods to issue a warning if I actually use any of them.
 // See also ../src/snapshot.js.
-// This code is designed to run outside the big function that encloses
-// the rest of dom.js.
 (function(global) {
     global.monkey_patch_warnings = false;  // Set this to turn on warnings
 
@@ -15,9 +13,7 @@
         match = String.match,
         getOwnPropNames = Object.getOwnPropertyNames,
         foreach = Array.forEach,
-        fpCall = Function.prototype.call,
-        fpApply = Function.prototype.apply,
-        apply = fpCall.bind(fpApply);
+        apply = Function.prototype.call.bind(Function.prototype.apply);
 
     function warn(n) {
         if (!global.monkey_patch_warnings) return;
@@ -46,11 +42,13 @@
             if (typeof val !== "function") return;
             if (prop === "toSource") return; // Don't mess up console
             if (prop === "valueOf") return;  // Or the Web Console
-            if (prop === 'prototype') return; // Prototype is read-only
             if (substring(prop, 0, 2) == "__") return;
             // monkey patch the method to issue a warning
             o[prop] = function() {
+                var state = global.monkey_patch_warnings;
+                global.monkey_patch_warnings = false;
                 warn(name + "." + prop);
+                global.monkey_patch_warnings = state;
                 return apply(val, this, arguments);
             }
         });
@@ -72,4 +70,3 @@
     // global constructors like Array() and String().
 
 }(this));
-

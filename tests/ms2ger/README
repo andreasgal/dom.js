@@ -1,0 +1,16 @@
+The file ms2ger_tests.html runs a small suite of domcore tests created
+by Ms2ger and available from the w3c.  Before running the tests, you
+must clone the w3c repo that contains them:
+
+   hg clone https://dvcs.w3.org/hg/webapps
+
+Once you've done that, the tests in question are here:
+
+   webapps/DOMCore/tests/submissions/Ms2ger/
+
+(Those tests load /resources/testharness.js and
+/resources/testharnessreport.js which probably refer to these files:
+http://w3c-test.org/resources/testharness.js
+http://w3c-test.org/resources/testharnessreport.js.  Note though that
+the way we run them here we've got our own harness.js file and don't
+need them)

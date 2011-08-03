@@ -8,7 +8,7 @@ defineLazyProperty(impl, "DocumentType", function() {
         this.systemId = systemId || "";
     }
 
-    DocumentType.prototype = Object.create(impl.Leaf.prototype, {
+    DocumentType.prototype = O.create(impl.Leaf.prototype, {
         nodeType: constant(DOCUMENT_TYPE_NODE),
         nodeName: attribute(function() { return this.name; }),
         nodeValue: attribute(fnull, fnoop),
@@ -21,6 +21,14 @@ defineLazyProperty(impl, "DocumentType", function() {
             return this.name === n.name &&
                 this.publicId === n.publicId &&
                 this.systemId === n.systemId;
+        }),
+        toObject: constant(function toObject() {
+            return {
+                type: DOCUMENT_TYPE_NODE,
+                name: this.name,
+                publicId: this.publicId,
+                systemId: this.sytemId
+            };
         }),
 
     });

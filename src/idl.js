@@ -72,7 +72,7 @@ function IDLInterface(o) {
     // Set up the prototype object
     prototype = superclass ? O.create(superclass.prototype) : {};
 
-    if (o.hasOwnProperty("constructor")) {
+    if (hasOwnProperty(o, "constructor")) {
         interfaceObject = o.constructor;
     }
     else {

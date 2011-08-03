@@ -20,6 +20,8 @@ FILES= \
 	src/impl/ProcessingInstruction.js \
 	src/impl/Element.js \
 	src/impl/Attr.js \
+	src/impl/MutationConstants.js \
+	src/impl/domstr.js \
 	src/impl/Document.js \
 	src/impl/DocumentFragment.js \
 	src/impl/DocumentType.js \
@@ -35,7 +37,7 @@ FILES= \
 #    JSTESTS_PATH -- The directory where jstests.py lives
 NUM_CORES=4
 TEST_PAT='' #override from command line to limit the tests
-DOM_TEST_DIR=jstests
+DOM_TEST_DIR=tests/cmdline
 
 
 

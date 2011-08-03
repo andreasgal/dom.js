@@ -12,8 +12,8 @@ policies and contribution forms [3].
 [3] http://www.w3.org/2004/10/27-testcases
 */
 
-(function ()
-{
+//(function ()
+//{
     var debug = false;
     // default timeout is 5 seconds, test can override if needed
     var default_timeout = 5000;
@@ -30,11 +30,11 @@ policies and contribution forms [3].
             window.monkey_patch_warnings = true;
             func();
             window.monkey_patch_warnings = false;
-            console.log("PASS", ++testnum);
+            top.log("PASS", ++testnum);
         }
         catch(e) {
             window.monkey_patch_warnings = false;
-            console.log("FAIL", ++testnum, e.message);
+            top.log("FAIL", ++testnum, e.message);
         }
     }
 
@@ -692,5 +692,5 @@ policies and contribution forms [3].
         return rv;
     }
 
-})();
+//})();
 // vim: set expandtab shiftwidth=4 tabstop=4:

@@ -33,7 +33,7 @@ defineLazyProperty(impl, "Element", function() {
         }
     }
 
-    Element.prototype = Object.create(impl.Node.prototype, {
+    Element.prototype = O.create(impl.Node.prototype, {
         nodeType: constant(ELEMENT_NODE),
         nodeName: attribute(function() { return this.tagName; }),
         nodeValue: attribute(fnull, fnoop),
@@ -77,7 +77,7 @@ defineLazyProperty(impl, "Element", function() {
             push(this.attributes, newattr);
 
             // Send mutation event
-            if (this.root) this.root.mutateAddAttr(newattr);
+            if (this.rooted) this.ownerDocument.mutateAttr(newattr, null);
         }),
 
         removeAttribute: constant(function removeAttribute(qname) {
@@ -94,7 +94,7 @@ defineLazyProperty(impl, "Element", function() {
                         this.modify();
                     
                     // Mutation event
-                    if (this.root) this.root.mutateRemoveAttr(attr);
+                    if (this.rooted) this.ownerDocument.mutateRemoveAttr(attr);
                     return;
                 }
             }
@@ -160,7 +160,7 @@ defineLazyProperty(impl, "Element", function() {
             }
             let newattr = new impl.Attr(this, lname, value, prefix, ns)
             push(this.attributes, newattr);
-            if (this.root) this.root.mutateAddAttr(newattr);
+            if (this.rooted) this.ownerDocument.mutateAddAttr(newattr);
         }),
 
 
@@ -176,7 +176,7 @@ defineLazyProperty(impl, "Element", function() {
                         (lname === "id"||lname === "class"||lname === "name"))
                         this.modify();
 
-                    if (this.root) this.root.mutateRemoveAttr(attr);
+                    if (this.rooted) this.ownerDocument.mutateRemoveAttr(attr);
                     return;
                 }
             }
@@ -240,7 +240,6 @@ defineLazyProperty(impl, "Element", function() {
             let next = this.firstElementChild || this.nextElementSibling;
             if (next) return next;
 
-            // XXX: still need to implement Document.documentElement
             if (!root) root = this.ownerDocument.documentElement;
 
             // If we can't go down or across, then we have to go up
@@ -301,6 +300,21 @@ defineLazyProperty(impl, "Element", function() {
 
             return true;
         }),
+
+        toObject: constant(function toObject() {
+            let obj= {
+                type: ELEMENT_NODE,
+                name: this.localName,
+                ns: this.namespaceURI,
+                prefix: this.prefix
+            };
+
+            // Hmmm...  Should I do this recursively and include children?
+            // XXX: define a separate library for serializing and parsing
+            // trees of nodes.  Don't use JSON or HTML: they are too hard
+            // to parse
+        }),
+
 
         // This is the "locate a namespace prefix" algorithm from the
         // DOMCore specification.  It is used by Node.lookupPrefix()

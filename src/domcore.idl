@@ -12,6 +12,9 @@
 // only return elements, but for some historical reason must be declared
 // with object. In our case we need the real element type, so this change
 // must be made by hand.
+//
+// I've added dom.js specific methods (with moz prefix) to DOMImplementation
+// to handle hooking up dom.js to a parser and a renderer
 
 [Constructor(DOMString type, optional EventInit eventInitDict)]
 interface Event {
@@ -149,7 +152,20 @@ interface DOMImplementation {
   DocumentType createDocumentType([TreatNullAs=EmptyString] DOMString qualifiedName, DOMString publicId, DOMString systemId);
   Document createDocument([TreatNullAs=EmptyString] DOMString namespace, [TreatNullAs=EmptyString] DOMString qualifiedName, DocumentType? doctype);
   Document createHTMLDocument(DOMString title);
+
+  // non-standard methods for hooking documents to parsers and renderers
+  // dom.js will call handler() for any document changes.
+  void mozSetOutputMutationHandler(Document doc, MozMutationHandler handler);
+  // Return a handler that a parser can call to build up the document
+  MozMutationHandler mozGetInputMutationHandler(Document doc);
 };
+
+// Non-standard callback function type
+[Callback, NoInterfaceObject]
+interface MozMutationHandler {
+  void mutate(any mutation);
+};
+
 
 interface Element : Node {
   readonly attribute DOMString? namespaceURI;

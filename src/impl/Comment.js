@@ -7,11 +7,11 @@ defineLazyProperty(impl, "Comment", function() {
     var nodeValue = attribute(function() { return this._data; },
                               function(v) { 
                                   this._data = v;
-                                  if (this.root)
-                                      this.root.mutateValue(this);
+                                  if (this.rooted)
+                                      this.ownerDocument.mutateValue(this);
                               });
     
-    Comment.prototype = Object.create(impl.CharacterData.prototype, {
+    Comment.prototype = O.create(impl.CharacterData.prototype, {
         nodeType: constant(COMMENT_NODE),
         nodeName: constant("#comment"),
         nodeValue: nodeValue,
@@ -22,6 +22,9 @@ defineLazyProperty(impl, "Comment", function() {
         // Utility methods
         clone: constant(function clone() {
             return new impl.Comment(this.ownerDocument, this._data);
+        }),
+        toObject: constant(function toObject() {
+            return { type: COMMENT_NODE, data: this._data };
         }),
     });
     

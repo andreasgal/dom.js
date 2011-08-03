@@ -9,11 +9,11 @@ defineLazyProperty(impl, "ProcessingInstruction", function() {
     var nodeValue = attribute(function() { return this._data; },
                               function(v) { 
                                   this._data = v;
-                                  if (this.root)
-                                      this.root.mutateValue(this);
+                                  if (this.rooted)
+                                      this.ownerDocument.mutateValue(this);
                               });
 
-    ProcessingInstruction.prototype = Object.create(impl.Leaf.prototype, {
+    ProcessingInstruction.prototype = O.create(impl.Leaf.prototype, {
         nodeType: constant(PROCESSING_INSTRUCTION_NODE),
         nodeName: attribute(function() { return this.target; }),
         nodeValue: nodeValue,
@@ -27,6 +27,13 @@ defineLazyProperty(impl, "ProcessingInstruction", function() {
         }),
         isEqual: constant(function isEqual(n) {
             return this.target === n.target && this._data === n._data;
+        }),
+        toObject: constant(function toObject() {
+            return {
+                type: PROCESSING_INSTRUCTION_NODE,
+                target: this.target,
+                data: this._data
+            };
         }),
 
     });
