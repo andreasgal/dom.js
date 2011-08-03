@@ -24,3 +24,27 @@ object has a corresponding implementation object, and a WeakMap
 maintains the mapping from interfaces to implementations so that the
 interface object does not require a property that refers to the
 implementation.
+
+Installing
+======
+
+Get a copy of the dom.js source.
+
+Install node.js
+    http://nodejs.org/#download
+
+Install spidermonkey
+    https://developer.mozilla.org/En/SpiderMonkey/Build_Documentation
+
+Building
+======
+
+Run make. This assembles the dom.js and src/domcore.js files from the other source files in the project.
+
+Testing
+======
+
+Run either make test-summary or make test-detailed. The JS_PATH environment variable should be set to the directory that contains the spidermonkey "js" executable, and the JSTESTS_PATH environment variable should be set to the directory that contains jstests.py. Example:
+
+JS_PATH=~/Code/mozilla-central/js/src/build-release JSTESTS_PATH=~/Code/mozilla-central/js/src/tests make test-detailed
+

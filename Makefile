@@ -6,6 +6,7 @@ FILES= \
 	src/xmlnames.js \
 	src/idl.js \
 	src/domcore.js \
+	src/html5.js \
 	src/ArrayProxy.js \
 	src/NodeListProxy.js \
 	src/HTMLCollectionProxy.js \
@@ -35,6 +36,7 @@ FILES= \
 NUM_CORES=4
 TEST_PAT='' #override from command line to limit the tests
 DOM_TEST_DIR=jstests
+
 
 
 dom.js: LICENSE ${FILES}
@@ -82,6 +84,12 @@ dom.js: LICENSE ${FILES}
 src/domcore.js: src/domcore.idl tools/idl2domjs
 	@rm -f $@;
 	tools/idl2domjs src/domcore.idl > src/domcore.js
+	@chmod 444 $@
+	@echo "Created $@"
+
+src/html5.js: src/html5.idl tools/idl2domjs
+	@rm -f $@;
+	tools/idl2domjs src/html5.idl > src/html5.js
 	@chmod 444 $@
 	@echo "Created $@"
 
