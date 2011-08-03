@@ -1,6 +1,6 @@
 // This is a modified and simplified version of:
 // http://w3c-test.org/resources/testharness.js
-
+// It also includes functions from ms2ger's attributes.js file
 
 /*
 Distributed under both the W3C Test Suite License [1] and the W3C
@@ -692,5 +692,22 @@ policies and contribution forms [3].
         return rv;
     }
 
+
+
 //})();
 // vim: set expandtab shiftwidth=4 tabstop=4:
+
+function attr_is(attr, v, ln, ns, p, n) {
+  assert_equals(attr.value, v)
+  assert_equals(attr.localName, ln)
+  assert_equals(attr.namespaceURI, ns)
+  assert_equals(attr.prefix, p)
+  assert_equals(attr.name, n)
+}
+
+function attributes_are(el, l) {
+  for (var i = 0, il = l.length; i < il; i++) {
+    attr_is(el.attributes[i], l[i][1], l[i][0], (l[i].length < 3) ? null : l[i][2], null, l[i][0])
+//    assert_equals(el.attributes[i].ownerElement, el)
+  }
+}

@@ -1,3 +1,5 @@
+
+
 interface HTMLElement : Element {
     // dynamic markup insertion
     attribute DOMString innerHTML;

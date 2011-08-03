@@ -123,7 +123,7 @@ var DOMSTR = (function() {
             case "P":
                 return d.createProcessingInstruction(next(), next());
             case "D":
-                return d.implementation.createDocType(next(),"","");
+                return d.implementation.createDocumentType(next(),"","");
             case "H":  // create with createElement
                 return parseElement("H");
             case "E":  // create with createElementNS

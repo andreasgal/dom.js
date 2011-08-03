@@ -23,7 +23,10 @@ var tests = [
     "webapps/DOMCore/tests/submissions/Ms2ger/DOMException-constants.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/DOMImplementation-createDocument.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/DOMImplementation-createDocumentType.html",
-    "webapps/DOMCore/tests/submissions/Ms2ger/DOMImplementation-createHTMLDocument.html",
+
+// This one tests for document.title, which is not part of DOM Core
+//    "webapps/DOMCore/tests/submissions/Ms2ger/DOMImplementation-createHTMLDocument.html",
+
     "webapps/DOMCore/tests/submissions/Ms2ger/DOMImplementation-hasFeature.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Document-adoptNode.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Document-createComment.html",
@@ -31,6 +34,9 @@ var tests = [
     "webapps/DOMCore/tests/submissions/Ms2ger/Document-createElementNS.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Document-createProcessingInstruction.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Document-getElementById.html",
+
+// Expect one failure in this test. It isn't up to date with the
+// webidl prohibition on creating indexed expando properties
     "webapps/DOMCore/tests/submissions/Ms2ger/Document-getElementsByTagName.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Document-getElementsByTagNameNS.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Element-childElement-null.html",
@@ -45,16 +51,22 @@ var tests = [
     "webapps/DOMCore/tests/submissions/Ms2ger/Element-previousElementSibling.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Element-removeAttributeNS.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Element-siblingElement-null.html",
+// Expect the second test to fail, since it uses DOMParser
     "webapps/DOMCore/tests/submissions/Ms2ger/Element-tagName.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/EventTarget-dispatchEvent.html",
-    "webapps/DOMCore/tests/submissions/Ms2ger/Node-appendChild.html",
+// The test case below below uses frames[] so I can't run it yet 
+//    "webapps/DOMCore/tests/submissions/Ms2ger/Node-appendChild.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Node-cloneNode.html",
-    "webapps/DOMCore/tests/submissions/Ms2ger/Node-hasAttributes.html",
-    "webapps/DOMCore/tests/submissions/Ms2ger/Node-insertBefore.html",
+// This testcase tests for node.hasAttributes() which has been
+// explicitly removed from DOM Core
+//    "webapps/DOMCore/tests/submissions/Ms2ger/Node-hasAttributes.html",
+// This test treats Attr objects like nodes
+//    "webapps/DOMCore/tests/submissions/Ms2ger/Node-insertBefore.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Node-nodeName.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Node-parentElement.html",
     "webapps/DOMCore/tests/submissions/Ms2ger/Node-parentNode.html",
-    "webapps/DOMCore/tests/submissions/Ms2ger/Node-removeChild.html",
+// This testcase uses frames[] so I can't run it yet.
+//    "webapps/DOMCore/tests/submissions/Ms2ger/Node-removeChild.html",
 ];
 
 var testcase = 0;
@@ -152,7 +164,9 @@ function parse(s) {
                     n.data));
                 break;
             case Node.DOCUMENT_TYPE_NODE:
-                // XXX: do nothing for now
+                to.appendChild(doc.implementation.createDocumentType(n.name,
+                                                                     n.publicId,
+                                                                     n.systemId));
                 break;
             default:
                 throw new Error("Unexpected node type in copynodes: " + n.nodeType);

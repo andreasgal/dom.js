@@ -8,6 +8,14 @@ defineLazyProperty(impl, "Node", function() {
     }
 
     Node.prototype = O.create(impl.EventTarget.prototype, {
+
+        // Node that are not inserted into the tree inherit a null parent
+        // XXX
+        // Can't use constant(null) here because then I couldn't set a non-null
+        // value that would override the inherited constant.  Perhaps that 
+        // means I shouldn't use the prototype and should just set the
+        // value in each node constructor?
+        parentNode: { value: null, writable: true },
         
         // XXX: the baseURI attribute is defined by dom core, but 
         // a correct implementation of it requires HTML features, so 
