@@ -68,7 +68,11 @@ function buildStaffDocument() {
     addresses[2].setAttribute("street", "No");
     addresses[2].appendChild(doc.createTextNode("PO Box 27 Irving, texas 98553"));
     names[2].appendChild(doc.createTextNode("Roger\n Jones")) ;
-    genders[2].appendChild(doc.createTextNode("&ent4;"));//Text("&ent4"));
+    var entElement = doc.createElement("entElement");
+    entElement.setAttribute("domestic", "Yes");
+    entElement.appendChild(doc.createTextNode("Element data"));
+    genders[2].appendChild(entElement);
+    genders[2].appendChild(doc.createProcessingInstruction("PItarget", "PIdata"));
     positions[2].appendChild(doc.createTextNode("Department Manager"));
 
     ids[3].appendChild(doc.createTextNode("EMP0004"));

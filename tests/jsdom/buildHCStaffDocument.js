@@ -1,7 +1,12 @@
+function buildHCNoDTDStaffDocument() {
+    return document.implementation.createDocument("html");
+}
+
 function buildHCStaffDocument() {
 
-    var doc = document.implementation.createHTMLDocument("");
-    while(doc.firstChild) doc.removeChild(doc.firstChild);
+    var doctype = document.implementation.createDocumentType("xml")
+    var doc = document.implementation.createDocument("", "", doctype);
+//    while(doc.firstChild) doc.removeChild(doc.firstChild);
 
     doc.appendChild(doc.createComment(" This is comment number 1."));
 

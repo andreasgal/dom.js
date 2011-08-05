@@ -77,7 +77,7 @@ var domTestHelper = {
     assertEqualsCollection : function(test, expected, actual, descr) {
         //
         //  if they aren't the same size, they aren't equal
-        test.strictEqual(expected.length, actual.length, descr);
+        test.equal(expected.length, actual.length, descr);
         //
         //  if there length is the same, then every entry in the expected list
         //     must appear once and only once in the actual list

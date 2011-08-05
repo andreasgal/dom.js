@@ -11,7 +11,8 @@ function run(tests) {
             }
             else {
                 this.fail++;
-                print("Assertion failed: " + msg);
+                print("Assertion failed: " + msg + ": expected " + expected +
+                     " but got " + actual);
             }
         },
 

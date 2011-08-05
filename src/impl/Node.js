@@ -397,8 +397,9 @@ defineLazyProperty(impl, "Node", function() {
         // time; it is simply a counter incremented on each document
         // modification)
         lastModified: attribute(function() {
-            if (!this._lastModified)
+            if (!this._lastModified) {
                 this._lastModified = this.doc.modclock;
+            }
                 
             return this._lastModified;
         }),
@@ -413,9 +414,11 @@ defineLazyProperty(impl, "Node", function() {
         // _lastModified property.
         modify: constant(function() {
             let time = ++this.doc.modclock;
-            for(let n = this; n; n = n.parentElement)
-                if (n._lastModified) n._lastModified = time;
-
+            for(let n = this; n; n = n.parentElement) {
+                if (n._lastModified) {
+                    n._lastModified = time;
+                }
+            }
         }),
 
         // This attribute is not part of the DOM but is quite helpful.
