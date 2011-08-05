@@ -96,7 +96,8 @@ defineLazyProperty(impl, "Node", function() {
 
             let refChild = oldChild.nextSibling;
             oldChild.remove();
-            return parent.insertBefore(newChild, refChild);
+            parent.insertBefore(newChild, refChild);
+            return oldChild;
         }),
 
         compareDocumentPosition:constant(function compareDocumentPosition(that){
@@ -346,6 +347,20 @@ defineLazyProperty(impl, "Node", function() {
         // firing mutation events as necessary
         insert: constant(function insert(parent, index) {
             let child = this, kids = parent.childNodes;
+
+            // If we are already a child of the specified parent, then t
+            // the index may have to be adjusted.
+            if (child.parentNode === parent) {
+                let currentIndex = child.index;
+                // If we're not moving the node, we're done now
+                // XXX: or do DOM mutation events still have to be fired?
+                if (currentIndex === index) return;
+
+                // If the child is before the spot it is to be inserted at,
+                // then when it is removed, the index of that spot will be
+                // reduced.
+                if (currentIndex < index) index--;
+            }
 
             // Special case for document fragments
             if (child.nodeType === DOCUMENT_FRAGMENT_NODE) {

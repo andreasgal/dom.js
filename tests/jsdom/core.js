@@ -426,8 +426,10 @@ run({
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#ID-6531BCCF
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#xpointer(id('ID-6531BCCF')/raises/exception[@name='DOMException']/descr/p[substring-before(.,':')='INDEX_SIZE_ERR'])
      */
-    // djf: currently failing. This test may no longer be valid, but
-    // I'm checking
+    // djf: commenting out this test, since the current DOMCore and
+    // WebIDL specs seem clear that a negative argument should wrap
+    // around and become positive.
+/*
     characterdataindexsizeerrdeletedatacountnegative: function(test) {
         var success;
         var doc;
@@ -454,6 +456,7 @@ run({
 
         test.done();
     },
+*/
 
     /**
      *
@@ -655,8 +658,11 @@ run({
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#ID-6531BCCF
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#xpointer(id('ID-6531BCCF')/raises/exception[@name='DOMException']/descr/p[substring-before(.,':')='INDEX_SIZE_ERR'])
      */
-    // djf: currently failing. This test may no longer be valid, but
-    // I'm checking
+    // djf: commenting out this test, since the current DOMCore and
+    // WebIDL specs seem clear that a negative argument should wrap
+    // around and become positive.
+/*
+
     characterdataindexsizeerrreplacedatacountnegative: function(test) {
         var success;
         var doc;
@@ -683,6 +689,7 @@ run({
 
         test.done();
     },
+*/
 
     /**
      *
@@ -794,8 +801,10 @@ run({
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#ID-6531BCCF
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#xpointer(id('ID-6531BCCF')/raises/exception[@name='DOMException']/descr/p[substring-before(.,':')='INDEX_SIZE_ERR'])
      */
-    // djf: currently failing. This test may no longer be valid, but
-    // I'm checking
+    // djf: commenting out this test, since the current DOMCore and
+    // WebIDL specs seem clear that a negative argument should wrap
+    // around and become positive.
+/*
     characterdataindexsizeerrsubstringcountnegative: function(test) {
         var success;
         var doc;
@@ -823,6 +832,7 @@ run({
 
         test.done();
     },
+*/
 
     /**
      *
@@ -2853,8 +2863,10 @@ run({
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#ID-6531BCCF
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#xpointer(id('ID-6531BCCF')/raises/exception[@name='DOMException']/descr/p[substring-before(.,':')='INDEX_SIZE_ERR'])
      */
-    // djf: currently failing. This test may no longer be valid, but
-    // I'm checking
+    // djf: commenting out this test, since the current DOMCore and
+    // WebIDL specs seem clear that a negative argument should wrap
+    // around and become positive.
+/*
     hc_characterdataindexsizeerrdeletedatacountnegative: function(test) {
         var success;
         var doc;
@@ -2882,6 +2894,7 @@ run({
 
         test.done();
     },
+*/
 
     /**
      *
@@ -3078,8 +3091,10 @@ run({
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#ID-6531BCCF
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#xpointer(id('ID-6531BCCF')/raises/exception[@name='DOMException']/descr/p[substring-before(.,':')='INDEX_SIZE_ERR'])
      */
-    // djf: currently failing. This test may no longer be valid, but
-    // I'm checking
+    // djf: commenting out this test, since the current DOMCore and
+    // WebIDL specs seem clear that a negative argument should wrap
+    // around and become positive.
+/*
     hc_characterdataindexsizeerrreplacedatacountnegative: function(test) {
         var success;
         var doc;
@@ -3107,6 +3122,7 @@ run({
 
         test.done();
     },
+*/
 
     /**
      *
@@ -3215,8 +3231,10 @@ run({
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#ID-6531BCCF
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#xpointer(id('ID-6531BCCF')/raises/exception[@name='DOMException']/descr/p[substring-before(.,':')='INDEX_SIZE_ERR'])
      */
-    // djf: currently failing. This test may no longer be valid, but
-    // I'm checking
+    // djf: commenting out this test, since the current DOMCore and
+    // WebIDL specs seem clear that a negative argument should wrap
+    // around and become positive.
+/*
     hc_characterdataindexsizeerrsubstringcountnegative: function(test) {
         var success;
         var doc;
@@ -3244,6 +3262,7 @@ run({
 
         test.done();
     },
+*/
 
     /**
      *
@@ -8443,7 +8462,7 @@ run({
     namednodemapreturnfirstitem: function(test) {
         var doc = buildStaffDocument();
         var child = doc.getElementsByTagName("address").item(1).attributes[0];
-        var name = child.nodeName;
+        var name = child.name;
         test.ok((("domestic" == name) || ("street" == name)), 'namednodemapReturnFirstItemAssert')
         test.done();
     },
@@ -8467,7 +8486,7 @@ run({
     namednodemapreturnlastitem: function(test) {
         var doc = buildStaffDocument();
         var child = doc.getElementsByTagName("address").item(1).attributes[1];
-        var name = child.nodeName;
+        var name = child.name;
         test.ok((("domestic" == name) || ("street" == name)), 'namednodemapReturnFirstItemAssert')
         test.done();
     },
@@ -8959,7 +8978,7 @@ run({
 
         for(var indexN10065 = 0;indexN10065 < attributes.length; indexN10065++) {
             attributeNode = attributes[indexN10065];
-            attributeName = attributeNode.nodeName;
+            attributeName = attributeNode.name;
 
             result[result.length] = attributeName;
 
@@ -9698,7 +9717,7 @@ run({
 
         for(var indexN1005C = 0;indexN1005C < addrAttr.length; indexN1005C++) {
             attrNode = addrAttr[indexN1005C];
-            attrName = attrNode.nodeName;
+            attrName = attrNode.name;
 
             attrList[attrList.length] = attrName;
 
@@ -10095,6 +10114,8 @@ run({
      * @author Mary Brady
      * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core#node-ownerDoc
      */
+    // djf: dom core explicitly changes this so that the owner document
+    // of a document is itself, so change the test to match
     nodegetownerdocumentnull: function(test) {
         var success;
         var doc;
@@ -10103,7 +10124,7 @@ run({
         doc = buildStaffDocument();
         ownerDocument = doc.ownerDocument;
 
-        test.equal(ownerDocument, null, 'documentOwnerDocumentNull');
+        test.equal(ownerDocument, doc, 'documentOwnerDocumentNull');
 
         test.done();
     },

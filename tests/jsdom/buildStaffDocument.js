@@ -92,7 +92,8 @@ function buildStaffDocument() {
     genders[4].appendChild(doc.createTextNode("male"));
     positions[4].appendChild(doc.createTextNode("Computer Specialist"));
 
-    doc.appendChild(doc.createProcessingInstruction("TEST-STYLE", "PIDATA"));
+    doc.insertBefore(doc.createProcessingInstruction("TEST-STYLE", "PIDATA"),
+                     doc.firstChild);
     doc.appendChild(doc.createComment(" This is comment number 1."));
     doc.appendChild(staff);
 
