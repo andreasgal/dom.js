@@ -150,9 +150,9 @@ function outputInterface(idl) {
         out('        superclass: idl.' + idl.inheritance[0] + ',');
     }
 
-    // See if this interface has a callback
-    // XXX: eventually I'll have to handle multiple callbacks and 
-    // named callbacks as well.  For now, just enough for event callbacks.
+    // See if this interface has a constructor
+    // XXX: eventually I'll have to handle multiple constructor and 
+    // named constructors as well.  For now, just enough for event constructors.
     if ("Constructor" in attrs) {
         var c = attrs.Constructor;
         out('        constructor: function %s%s{',
@@ -165,8 +165,6 @@ function outputInterface(idl) {
         
         out('        },');
     }
-
-
 
     // If the interface needs a proxy (because it has an indexed getter, e.g.)
     // then specify that
@@ -276,6 +274,15 @@ function needsProxy(idl) {
 
 
 function outputMethod(m, prefix) {
+    // Don't output special operation methods if they are omittable or if
+    // they don't have a name.  
+    if (m.getter || m.setter || m.deleter || m.creator || m.caller) {
+        if (m.name === "" || m.omittable) return;
+    }
+
+    // Except for stringifiers: if a stringifier doesn't have a name,
+    // then name it toString.
+    // XXX What to do if a stringifier does have a name?
     if (m.stringifier) {
         if (m.name === "")
             m.name = "toString";
@@ -285,7 +292,6 @@ function outputMethod(m, prefix) {
             return;
         }
     }
-    else if (m.omittable) return;
 
     out("%s%s: function %s%s{", // intentionally missing spaces
         prefix, m.name, m.name, arglist(m, prefix));
