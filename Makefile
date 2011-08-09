@@ -6,7 +6,7 @@ FILES= \
 	src/xmlnames.js \
 	src/idl.js \
 	src/domcore.js \
-	src/html5.js \
+	src/htmlelts.js \
 	src/ArrayProxy.js \
 	src/NodeListProxy.js \
 	src/HTMLCollectionProxy.js \
@@ -89,9 +89,9 @@ src/domcore.js: src/domcore.idl tools/idl2domjs
 	@chmod 444 $@
 	@echo "Created $@"
 
-src/html5.js: src/html5.idl tools/idl2domjs
+src/htmlelts.js: src/htmlelts.idl tools/idl2domjs
 	@rm -f $@;
-	tools/idl2domjs src/html5.idl > src/html5.js
+	tools/idl2domjs src/htmlelts.idl > src/htmlelts.js
 	@chmod 444 $@
 	@echo "Created $@"
 

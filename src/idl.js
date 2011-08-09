@@ -12,6 +12,10 @@ function toULong(x) {
     return x >>> 0;  // The >>> operator does ToUint32
 }
 
+function toLong(x) {
+    return x & 0xFFFFFFFF; // This should do ToInt32
+}
+
 function undef2null(x) { return x === undefined ? null : x; }
 
 // Convert x to a string as with the String() conversion function.
