@@ -272,113 +272,112 @@ interface DOMSettableTokenList : DOMTokenList {
 // The HTML spec says that all documents define the HTMLDocument members
 // So this interface from the HTML spec is here with the DOM Core Document
 // interface.
-
-[OverrideBuiltins]
-interface HTMLDocument {
-  // resource metadata management
-  [PutForwards=href] readonly attribute Location? location;
-  readonly attribute DOMString URL;
-           attribute DOMString domain;
-  readonly attribute DOMString referrer;
-           attribute DOMString cookie;
-  readonly attribute DOMString lastModified;
-  readonly attribute DOMString readyState;
-
-  // DOM tree accessors
-  // XXX The getter is commented out for now, since 
-  // I'm not ready to write DocumentProxy yet.
-  //  getter any (in DOMString name);
-           attribute DOMString title;
-           attribute DOMString dir;
-           attribute HTMLElement? body;
-  readonly attribute HTMLHeadElement? head;
-  readonly attribute HTMLCollection images;
-  readonly attribute HTMLCollection embeds;
-  readonly attribute HTMLCollection plugins;
-  readonly attribute HTMLCollection links;
-  readonly attribute HTMLCollection forms;
-  readonly attribute HTMLCollection scripts;
-  NodeList getElementsByName(in DOMString elementName);
-  NodeList getItems(in optional DOMString typeNames); // microdata 
-  readonly attribute DOMElementMap cssElementMap;
-
-  // dynamic markup insertion
-           attribute DOMString innerHTML;
-  HTMLDocument open(in optional DOMString type, in optional DOMString replace);
-  WindowProxy open(in DOMString url, in DOMString name, in DOMString features, in optional boolean replace);
-  void close();
-  void write(in DOMString... text);
-  void writeln(in DOMString... text);
-
-  // user interaction
-  readonly attribute WindowProxy? defaultView;
-  readonly attribute Element? activeElement;
-  boolean hasFocus();
-           attribute DOMString designMode;
-  boolean execCommand(in DOMString commandId);
-  boolean execCommand(in DOMString commandId, in boolean showUI);
-  boolean execCommand(in DOMString commandId, in boolean showUI, in DOMString value);
-  boolean queryCommandEnabled(in DOMString commandId);
-  boolean queryCommandIndeterm(in DOMString commandId);
-  boolean queryCommandState(in DOMString commandId);
-  boolean queryCommandSupported(in DOMString commandId);
-  DOMString queryCommandValue(in DOMString commandId);
-  readonly attribute HTMLCollection commands;
-
-  // event handler IDL attributes
-           attribute Function? onabort;
-           attribute Function? onblur;
-           attribute Function? oncanplay;
-           attribute Function? oncanplaythrough;
-           attribute Function? onchange;
-           attribute Function? onclick;
-           attribute Function? oncontextmenu;
-           attribute Function? oncuechange;
-           attribute Function? ondblclick;
-           attribute Function? ondrag;
-           attribute Function? ondragend;
-           attribute Function? ondragenter;
-           attribute Function? ondragleave;
-           attribute Function? ondragover;
-           attribute Function? ondragstart;
-           attribute Function? ondrop;
-           attribute Function? ondurationchange;
-           attribute Function? onemptied;
-           attribute Function? onended;
-           attribute Function? onerror;
-           attribute Function? onfocus;
-           attribute Function? oninput;
-           attribute Function? oninvalid;
-           attribute Function? onkeydown;
-           attribute Function? onkeypress;
-           attribute Function? onkeyup;
-           attribute Function? onload;
-           attribute Function? onloadeddata;
-           attribute Function? onloadedmetadata;
-           attribute Function? onloadstart;
-           attribute Function? onmousedown;
-           attribute Function? onmousemove;
-           attribute Function? onmouseout;
-           attribute Function? onmouseover;
-           attribute Function? onmouseup;
-           attribute Function? onmousewheel;
-           attribute Function? onpause;
-           attribute Function? onplay;
-           attribute Function? onplaying;
-           attribute Function? onprogress;
-           attribute Function? onratechange;
-           attribute Function? onreadystatechange;
-           attribute Function? onreset;
-           attribute Function? onscroll;
-           attribute Function? onseeked;
-           attribute Function? onseeking;
-           attribute Function? onselect;
-           attribute Function? onshow;
-           attribute Function? onstalled;
-           attribute Function? onsubmit;
-           attribute Function? onsuspend;
-           attribute Function? ontimeupdate;
-           attribute Function? onvolumechange;
-           attribute Function? onwaiting;
-};
-Document implements HTMLDocument;
+//[OverrideBuiltins]
+//interface HTMLDocument {
+//  // resource metadata management
+//  [PutForwards=href] readonly attribute Location? location;
+//  readonly attribute DOMString URL;
+//           attribute DOMString domain;
+//  readonly attribute DOMString referrer;
+//           attribute DOMString cookie;
+//  readonly attribute DOMString lastModified;
+//  readonly attribute DOMString readyState;
+//
+//  // DOM tree accessors
+//  // XXX The getter is commented out for now, since 
+//  // I'm not ready to write DocumentProxy yet.
+//  //  getter any (in DOMString name);
+//           attribute DOMString title;
+//           attribute DOMString dir;
+//           attribute HTMLElement? body;
+//  readonly attribute HTMLHeadElement? head;
+//  readonly attribute HTMLCollection images;
+//  readonly attribute HTMLCollection embeds;
+//  readonly attribute HTMLCollection plugins;
+//  readonly attribute HTMLCollection links;
+//  readonly attribute HTMLCollection forms;
+//  readonly attribute HTMLCollection scripts;
+//  NodeList getElementsByName(in DOMString elementName);
+//  NodeList getItems(in optional DOMString typeNames); // microdata 
+//  readonly attribute DOMElementMap cssElementMap;
+//
+//  // dynamic markup insertion
+//           attribute DOMString innerHTML;
+//  HTMLDocument open(in optional DOMString type, in optional DOMString replace);
+//  WindowProxy open(in DOMString url, in DOMString name, in DOMString features, in optional boolean replace);
+//  void close();
+//  void write(in DOMString... text);
+//  void writeln(in DOMString... text);
+//
+//  // user interaction
+//  readonly attribute WindowProxy? defaultView;
+//  readonly attribute Element? activeElement;
+//  boolean hasFocus();
+//           attribute DOMString designMode;
+//  boolean execCommand(in DOMString commandId);
+//  boolean execCommand(in DOMString commandId, in boolean showUI);
+//  boolean execCommand(in DOMString commandId, in boolean showUI, in DOMString value);
+//  boolean queryCommandEnabled(in DOMString commandId);
+//  boolean queryCommandIndeterm(in DOMString commandId);
+//  boolean queryCommandState(in DOMString commandId);
+//  boolean queryCommandSupported(in DOMString commandId);
+//  DOMString queryCommandValue(in DOMString commandId);
+//  readonly attribute HTMLCollection commands;
+//
+//  // event handler IDL attributes
+//           attribute Function? onabort;
+//           attribute Function? onblur;
+//           attribute Function? oncanplay;
+//           attribute Function? oncanplaythrough;
+//           attribute Function? onchange;
+//           attribute Function? onclick;
+//           attribute Function? oncontextmenu;
+//           attribute Function? oncuechange;
+//           attribute Function? ondblclick;
+//           attribute Function? ondrag;
+//           attribute Function? ondragend;
+//           attribute Function? ondragenter;
+//           attribute Function? ondragleave;
+//           attribute Function? ondragover;
+//           attribute Function? ondragstart;
+//           attribute Function? ondrop;
+//           attribute Function? ondurationchange;
+//           attribute Function? onemptied;
+//           attribute Function? onended;
+//           attribute Function? onerror;
+//           attribute Function? onfocus;
+//           attribute Function? oninput;
+//           attribute Function? oninvalid;
+//           attribute Function? onkeydown;
+//           attribute Function? onkeypress;
+//           attribute Function? onkeyup;
+//           attribute Function? onload;
+//           attribute Function? onloadeddata;
+//           attribute Function? onloadedmetadata;
+//           attribute Function? onloadstart;
+//           attribute Function? onmousedown;
+//           attribute Function? onmousemove;
+//           attribute Function? onmouseout;
+//           attribute Function? onmouseover;
+//           attribute Function? onmouseup;
+//           attribute Function? onmousewheel;
+//           attribute Function? onpause;
+//           attribute Function? onplay;
+//           attribute Function? onplaying;
+//           attribute Function? onprogress;
+//           attribute Function? onratechange;
+//           attribute Function? onreadystatechange;
+//           attribute Function? onreset;
+//           attribute Function? onscroll;
+//           attribute Function? onseeked;
+//           attribute Function? onseeking;
+//           attribute Function? onselect;
+//           attribute Function? onshow;
+//           attribute Function? onstalled;
+//           attribute Function? onsubmit;
+//           attribute Function? onsuspend;
+//           attribute Function? ontimeupdate;
+//           attribute Function? onvolumechange;
+//           attribute Function? onwaiting;
+//};
+//Document implements HTMLDocument;
