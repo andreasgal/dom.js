@@ -1,0 +1,777 @@
+
+interface HTMLFormControlsCollection : HTMLCollection {
+  // inherits length and item()
+  caller getter object? namedItem(in DOMString name); // overrides inherited namedItem()
+};
+
+interface RadioNodeList : NodeList {
+          attribute DOMString value;
+};
+
+interface HTMLOptionsCollection : HTMLCollection {
+  // inherits item()
+           attribute unsigned long length; // overrides inherited length
+  caller getter object? namedItem(in DOMString name); // overrides inherited namedItem()
+  setter creator void (in unsigned long index, in HTMLOptionElement option);
+  void add(in HTMLElement element, in optional HTMLElement? before);
+  void add(in HTMLElement element, in long before);
+  void remove(in long index);
+           attribute long selectedIndex;
+};
+
+interface HTMLPropertiesCollection : HTMLCollection {
+  // inherits length and item()
+  caller getter PropertyNodeList? namedItem(in DOMString name); // overrides inherited namedItem()
+  readonly attribute DOMStringList names;
+};
+
+typedef sequence<any> PropertyValueArray;
+
+interface PropertyNodeList : NodeList {
+  PropertyValueArray getValues();
+};
+
+interface DOMStringMap {
+  getter DOMString (in DOMString name);
+  setter void (in DOMString name, in DOMString value);
+  creator void (in DOMString name, in DOMString value);
+  deleter void (in DOMString name);
+};
+
+interface DOMElementMap {
+  getter DOMString (in DOMString name);
+  setter void (in DOMString name, in Element value);
+  creator void (in DOMString name, in Element value);
+  deleter void (in DOMString name);
+};
+
+interface HTMLElement : Element {
+  // dynamic markup insertion
+           attribute DOMString innerHTML;
+           attribute DOMString outerHTML;
+  void insertAdjacentHTML(in DOMString position, in DOMString text);
+
+  // metadata attributes
+           attribute DOMString id;
+           attribute DOMString title;
+           attribute DOMString lang;
+           attribute DOMString dir;
+           attribute DOMString className;
+  readonly attribute DOMTokenList classList;
+  readonly attribute DOMStringMap dataset;
+
+  // microdata 
+           attribute boolean itemScope;
+           attribute DOMString itemType;
+           attribute DOMString itemId;
+  [PutForwards=value] readonly attribute DOMSettableTokenList itemRef;
+  [PutForwards=value] readonly attribute DOMSettableTokenList itemProp;
+  readonly attribute HTMLPropertiesCollection properties;
+           attribute any itemValue;
+
+  // user interaction
+           attribute boolean hidden;
+  void click();
+           attribute long tabIndex;
+  void focus();
+  void blur();
+           attribute DOMString accessKey;
+  readonly attribute DOMString accessKeyLabel;
+           attribute boolean draggable;
+  [PutForwards=value] readonly attribute DOMSettableTokenList dropzone;
+           attribute DOMString contentEditable;
+  readonly attribute boolean isContentEditable;
+           attribute HTMLMenuElement? contextMenu;
+           attribute boolean spellcheck;
+
+  // command API
+  readonly attribute DOMString? commandType;
+  readonly attribute DOMString? commandLabel;
+  readonly attribute DOMString? commandIcon;
+  readonly attribute boolean? commandHidden;
+  readonly attribute boolean? commandDisabled;
+  readonly attribute boolean? commandChecked;
+
+  // styling
+  readonly attribute CSSStyleDeclaration style;
+
+  // event handler IDL attributes
+           attribute Function? onabort;
+           attribute Function? onblur;
+           attribute Function? oncanplay;
+           attribute Function? oncanplaythrough;
+           attribute Function? onchange;
+           attribute Function? onclick;
+           attribute Function? oncontextmenu;
+           attribute Function? oncuechange;
+           attribute Function? ondblclick;
+           attribute Function? ondrag;
+           attribute Function? ondragend;
+           attribute Function? ondragenter;
+           attribute Function? ondragleave;
+           attribute Function? ondragover;
+           attribute Function? ondragstart;
+           attribute Function? ondrop;
+           attribute Function? ondurationchange;
+           attribute Function? onemptied;
+           attribute Function? onended;
+           attribute Function? onerror;
+           attribute Function? onfocus;
+           attribute Function? oninput;
+           attribute Function? oninvalid;
+           attribute Function? onkeydown;
+           attribute Function? onkeypress;
+           attribute Function? onkeyup;
+           attribute Function? onload;
+           attribute Function? onloadeddata;
+           attribute Function? onloadedmetadata;
+           attribute Function? onloadstart;
+           attribute Function? onmousedown;
+           attribute Function? onmousemove;
+           attribute Function? onmouseout;
+           attribute Function? onmouseover;
+           attribute Function? onmouseup;
+           attribute Function? onmousewheel;
+           attribute Function? onpause;
+           attribute Function? onplay;
+           attribute Function? onplaying;
+           attribute Function? onprogress;
+           attribute Function? onratechange;
+           attribute Function? onreadystatechange;
+           attribute Function? onreset;
+           attribute Function? onscroll;
+           attribute Function? onseeked;
+           attribute Function? onseeking;
+           attribute Function? onselect;
+           attribute Function? onshow;
+           attribute Function? onstalled;
+           attribute Function? onsubmit;
+           attribute Function? onsuspend;
+           attribute Function? ontimeupdate;
+           attribute Function? onvolumechange;
+           attribute Function? onwaiting;
+};
+
+interface HTMLUnknownElement : HTMLElement { };
+
+interface HTMLHtmlElement : HTMLElement {};
+
+interface HTMLHeadElement : HTMLElement {};
+
+interface HTMLTitleElement : HTMLElement {
+           attribute DOMString text;
+};
+
+interface HTMLBaseElement : HTMLElement {
+           attribute DOMString href;
+           attribute DOMString target;
+};
+
+interface HTMLLinkElement : HTMLElement {
+           attribute boolean disabled;
+           attribute DOMString href;
+           attribute DOMString rel;
+  readonly attribute DOMTokenList relList;
+           attribute DOMString media;
+           attribute DOMString hreflang;
+           attribute DOMString type;
+  [PutForwards=value] readonly attribute DOMSettableTokenList sizes;
+};
+HTMLLinkElement implements LinkStyle;
+
+interface HTMLMetaElement : HTMLElement {
+           attribute DOMString name;
+           attribute DOMString httpEquiv;
+           attribute DOMString content;
+};
+
+interface HTMLStyleElement : HTMLElement {
+           attribute boolean disabled;
+           attribute DOMString media;
+           attribute DOMString type;
+           attribute boolean scoped;
+};
+HTMLStyleElement implements LinkStyle;
+
+interface HTMLScriptElement : HTMLElement {
+           attribute DOMString src;
+           attribute boolean async;
+           attribute boolean defer;
+           attribute DOMString type;
+           attribute DOMString charset;
+           attribute DOMString text;
+};
+
+interface HTMLBodyElement : HTMLElement {
+           attribute Function? onafterprint;
+           attribute Function? onbeforeprint;
+           attribute Function? onbeforeunload;
+           attribute Function? onblur;
+           attribute Function? onerror;
+           attribute Function? onfocus;
+           attribute Function? onhashchange;
+           attribute Function? onload;
+           attribute Function? onmessage;
+           attribute Function? onoffline;
+           attribute Function? ononline;
+           attribute Function? onpopstate;
+           attribute Function? onpagehide;
+           attribute Function? onpageshow;
+           attribute Function? onredo;
+           attribute Function? onresize;
+           attribute Function? onscroll;
+           attribute Function? onstorage;
+           attribute Function? onundo;
+           attribute Function? onunload;
+};
+
+interface HTMLHeadingElement : HTMLElement {};
+
+interface HTMLParagraphElement : HTMLElement {};
+
+interface HTMLHRElement : HTMLElement {};
+
+interface HTMLPreElement : HTMLElement {};
+
+interface HTMLQuoteElement : HTMLElement {
+           attribute DOMString cite;
+};
+
+interface HTMLOListElement : HTMLElement {
+           attribute boolean reversed;
+           attribute long start;
+           attribute DOMString type;
+};
+
+interface HTMLUListElement : HTMLElement {};
+
+interface HTMLLIElement : HTMLElement {
+           attribute long value;
+};
+
+interface HTMLDListElement : HTMLElement {};
+
+interface HTMLDivElement : HTMLElement {};
+
+interface HTMLAnchorElement : HTMLElement {
+  stringifier attribute DOMString href;
+           attribute DOMString target;
+
+           attribute DOMString download;
+           attribute DOMString ping;
+
+           attribute DOMString rel;
+  readonly attribute DOMTokenList relList;
+           attribute DOMString media;
+           attribute DOMString hreflang;
+           attribute DOMString type;
+
+           attribute DOMString text;
+
+  // URL decomposition IDL attributes
+           attribute DOMString protocol;
+           attribute DOMString host;
+           attribute DOMString hostname;
+           attribute DOMString port;
+           attribute DOMString pathname;
+           attribute DOMString search;
+           attribute DOMString hash;
+};
+
+interface HTMLTimeElement : HTMLElement {
+           attribute DOMString dateTime;
+           attribute boolean pubDate;
+  readonly attribute Date? valueAsDate;
+};
+
+interface HTMLSpanElement : HTMLElement {};
+
+interface HTMLBRElement : HTMLElement {};
+
+interface HTMLModElement : HTMLElement {
+           attribute DOMString cite;
+           attribute DOMString dateTime;
+};
+
+[NamedConstructor=Image(),
+ NamedConstructor=Image(in unsigned long width),
+ NamedConstructor=Image(in unsigned long width, in unsigned long height)]
+interface HTMLImageElement : HTMLElement {
+           attribute DOMString alt;
+           attribute DOMString src;
+           attribute DOMString crossOrigin;
+           attribute DOMString useMap;
+           attribute boolean isMap;
+           attribute unsigned long width;
+           attribute unsigned long height;
+  readonly attribute unsigned long naturalWidth;
+  readonly attribute unsigned long naturalHeight;
+  readonly attribute boolean complete;
+};
+
+interface HTMLIFrameElement : HTMLElement {
+           attribute DOMString src;
+           attribute DOMString srcdoc;
+           attribute DOMString name;
+  [PutForwards=value] readonly attribute DOMSettableTokenList sandbox;
+           attribute boolean seamless;
+           attribute DOMString width;
+           attribute DOMString height;
+  readonly attribute Document? contentDocument;
+  readonly attribute WindowProxy? contentWindow;
+};
+
+interface HTMLEmbedElement : HTMLElement {
+           attribute DOMString src;
+           attribute DOMString type;
+           attribute DOMString width;
+           attribute DOMString height;
+};
+
+interface HTMLObjectElement : HTMLElement {
+           attribute DOMString data;
+           attribute DOMString type;
+           attribute boolean typeMustMatch;
+           attribute DOMString name;
+           attribute DOMString useMap;
+  readonly attribute HTMLFormElement? form;
+           attribute DOMString width;
+           attribute DOMString height;
+  readonly attribute Document? contentDocument;
+  readonly attribute WindowProxy? contentWindow;
+
+  readonly attribute boolean willValidate;
+  readonly attribute ValidityState validity;
+  readonly attribute DOMString validationMessage;
+  boolean checkValidity();
+  void setCustomValidity(in DOMString error);
+};
+
+interface HTMLParamElement : HTMLElement {
+           attribute DOMString name;
+           attribute DOMString value;
+};
+
+interface HTMLVideoElement : HTMLMediaElement {
+           attribute unsigned long width;
+           attribute unsigned long height;
+  readonly attribute unsigned long videoWidth;
+  readonly attribute unsigned long videoHeight;
+           attribute DOMString poster;
+};
+
+[NamedConstructor=Audio(),
+ NamedConstructor=Audio(in DOMString src)]
+interface HTMLAudioElement : HTMLMediaElement {};
+
+interface HTMLSourceElement : HTMLElement {
+           attribute DOMString src;
+           attribute DOMString type;
+           attribute DOMString media;
+};
+
+interface HTMLTrackElement : HTMLElement {
+           attribute DOMString kind;
+           attribute DOMString src;
+           attribute DOMString srclang;
+           attribute DOMString label;
+           attribute boolean default;
+
+  readonly attribute TextTrack track;
+};
+
+
+interface HTMLMapElement : HTMLElement {
+           attribute DOMString name;
+  readonly attribute HTMLCollection areas;
+  readonly attribute HTMLCollection images;
+};
+
+interface HTMLAreaElement : HTMLElement {
+           attribute DOMString alt;
+           attribute DOMString coords;
+           attribute DOMString shape;
+  stringifier attribute DOMString href;
+           attribute DOMString target;
+
+           attribute DOMString download;
+           attribute DOMString ping;
+
+           attribute DOMString rel;
+  readonly attribute DOMTokenList relList;
+           attribute DOMString media;
+           attribute DOMString hreflang;
+           attribute DOMString type;
+
+  // URL decomposition IDL attributes
+           attribute DOMString protocol;
+           attribute DOMString host;
+           attribute DOMString hostname;
+           attribute DOMString port;
+           attribute DOMString pathname;
+           attribute DOMString search;
+           attribute DOMString hash;
+};
+
+interface HTMLTableElement : HTMLElement {
+           attribute HTMLTableCaptionElement? caption;
+  HTMLElement createCaption();
+  void deleteCaption();
+           attribute HTMLTableSectionElement? tHead;
+  HTMLElement createTHead();
+  void deleteTHead();
+           attribute HTMLTableSectionElement? tFoot;
+  HTMLElement createTFoot();
+  void deleteTFoot();
+  readonly attribute HTMLCollection tBodies;
+  HTMLElement createTBody();
+  readonly attribute HTMLCollection rows;
+  HTMLElement insertRow(in optional long index);
+  void deleteRow(in long index);
+           attribute DOMString border;
+};
+
+interface HTMLTableCaptionElement : HTMLElement {};
+
+interface HTMLTableColElement : HTMLElement {
+           attribute unsigned long span;
+};
+
+interface HTMLTableSectionElement : HTMLElement {
+  readonly attribute HTMLCollection rows;
+  HTMLElement insertRow(in optional long index);
+  void deleteRow(in long index);
+};
+
+interface HTMLTableRowElement : HTMLElement {
+  readonly attribute long rowIndex;
+  readonly attribute long sectionRowIndex;
+  readonly attribute HTMLCollection cells;
+  HTMLElement insertCell(in optional long index);
+  void deleteCell(in long index);
+};
+
+interface HTMLTableDataCellElement : HTMLTableCellElement {};
+
+interface HTMLTableHeaderCellElement : HTMLTableCellElement {
+           attribute DOMString scope;
+};
+
+interface HTMLTableCellElement : HTMLElement {
+           attribute unsigned long colSpan;
+           attribute unsigned long rowSpan;
+  [PutForwards=value] readonly attribute DOMSettableTokenList headers;
+  readonly attribute long cellIndex;
+};
+
+[OverrideBuiltins]
+interface HTMLFormElement : HTMLElement {
+           attribute DOMString acceptCharset;
+           attribute DOMString action;
+           attribute DOMString autocomplete;
+           attribute DOMString enctype;
+           attribute DOMString encoding;
+           attribute DOMString method;
+           attribute DOMString name;
+           attribute boolean noValidate;
+           attribute DOMString target;
+
+  readonly attribute HTMLFormControlsCollection elements;
+  readonly attribute long length;
+  caller getter any (in unsigned long index);
+  caller getter any (in DOMString name);
+
+  void submit();
+  void reset();
+  boolean checkValidity();
+};
+
+interface HTMLFieldSetElement : HTMLElement {
+           attribute boolean disabled;
+  readonly attribute HTMLFormElement? form;
+           attribute DOMString name;
+
+  readonly attribute DOMString type;
+
+  readonly attribute HTMLFormControlsCollection elements;
+
+  readonly attribute boolean willValidate;
+  readonly attribute ValidityState validity;
+  readonly attribute DOMString validationMessage;
+  boolean checkValidity();
+  void setCustomValidity(in DOMString error);
+};
+
+interface HTMLLegendElement : HTMLElement {
+  readonly attribute HTMLFormElement? form;
+};
+
+interface HTMLLabelElement : HTMLElement {
+  readonly attribute HTMLFormElement? form;
+           attribute DOMString htmlFor;
+  readonly attribute HTMLElement? control;
+};
+
+interface HTMLInputElement : HTMLElement {
+           attribute DOMString accept;
+           attribute DOMString alt;
+           attribute DOMString autocomplete;
+           attribute boolean autofocus;
+           attribute boolean defaultChecked;
+           attribute boolean checked;
+           attribute DOMString dirName;
+           attribute boolean disabled;
+  readonly attribute HTMLFormElement? form;
+  readonly attribute FileList? files;
+           attribute DOMString formAction;
+           attribute DOMString formEnctype;
+           attribute DOMString formMethod;
+           attribute boolean formNoValidate;
+           attribute DOMString formTarget;
+           attribute DOMString height;
+           attribute boolean indeterminate;
+  readonly attribute HTMLElement? list;
+           attribute DOMString max;
+           attribute long maxLength;
+           attribute DOMString min;
+           attribute boolean multiple;
+           attribute DOMString name;
+           attribute DOMString pattern;
+           attribute DOMString placeholder;
+           attribute boolean readOnly;
+           attribute boolean required;
+           attribute unsigned long size;
+           attribute DOMString src;
+           attribute DOMString step;
+           attribute DOMString type;
+           attribute DOMString defaultValue;
+           attribute DOMString value;
+           attribute Date valueAsDate;
+           attribute double valueAsNumber;
+  readonly attribute HTMLOptionElement? selectedOption;
+           attribute DOMString width;
+
+  void stepUp(in optional long n);
+  void stepDown(in optional long n);
+
+  readonly attribute boolean willValidate;
+  readonly attribute ValidityState validity;
+  readonly attribute DOMString validationMessage;
+  boolean checkValidity();
+  void setCustomValidity(in DOMString error);
+
+  readonly attribute NodeList labels;
+
+  void select();
+           attribute unsigned long selectionStart;
+           attribute unsigned long selectionEnd;
+           attribute DOMString selectionDirection;
+  void setSelectionRange(in unsigned long start, in unsigned long end, in optional DOMString direction);
+};
+
+interface HTMLButtonElement : HTMLElement {
+           attribute boolean autofocus;
+           attribute boolean disabled;
+  readonly attribute HTMLFormElement? form;
+           attribute DOMString formAction;
+           attribute DOMString formEnctype;
+           attribute DOMString formMethod;
+           attribute DOMString formNoValidate;
+           attribute DOMString formTarget;
+           attribute DOMString name;
+           attribute DOMString type;
+           attribute DOMString value;
+
+  readonly attribute boolean willValidate;
+  readonly attribute ValidityState validity;
+  readonly attribute DOMString validationMessage;
+  boolean checkValidity();
+  void setCustomValidity(in DOMString error);
+
+  readonly attribute NodeList labels;
+};
+
+interface HTMLSelectElement : HTMLElement {
+           attribute boolean autofocus;
+           attribute boolean disabled;
+  readonly attribute HTMLFormElement? form;
+           attribute boolean multiple;
+           attribute DOMString name;
+           attribute boolean required;
+           attribute unsigned long size;
+
+  readonly attribute DOMString type;
+
+  readonly attribute HTMLOptionsCollection options;
+           attribute unsigned long length;
+  getter any item(in unsigned long index);
+  any namedItem(in DOMString name);
+  void add(in HTMLElement element, in optional HTMLElement? before);
+  void add(in HTMLElement element, in long before);
+  void remove(in long index);
+  setter creator void (in unsigned long index, in HTMLOptionElement option);
+
+  readonly attribute HTMLCollection selectedOptions;
+           attribute long selectedIndex;
+           attribute DOMString value;
+
+  readonly attribute boolean willValidate;
+  readonly attribute ValidityState validity;
+  readonly attribute DOMString validationMessage;
+  boolean checkValidity();
+  void setCustomValidity(in DOMString error);
+
+  readonly attribute NodeList labels;
+};
+
+interface HTMLDataListElement : HTMLElement {
+  readonly attribute HTMLCollection options;
+};
+
+interface HTMLOptGroupElement : HTMLElement {
+           attribute boolean disabled;
+           attribute DOMString label;
+};
+
+[NamedConstructor=Option(),
+ NamedConstructor=Option(in DOMString text),
+ NamedConstructor=Option(in DOMString text, in DOMString value),
+ NamedConstructor=Option(in DOMString text, in DOMString value, in boolean defaultSelected),
+ NamedConstructor=Option(in DOMString text, in DOMString value, in boolean defaultSelected, in boolean selected)]
+interface HTMLOptionElement : HTMLElement {
+           attribute boolean disabled;
+  readonly attribute HTMLFormElement? form;
+           attribute DOMString label;
+           attribute boolean defaultSelected;
+           attribute boolean selected;
+           attribute DOMString value;
+
+           attribute DOMString text;
+  readonly attribute long index;
+};
+
+interface HTMLTextAreaElement : HTMLElement {
+           attribute boolean autofocus;
+           attribute unsigned long cols;
+           attribute DOMString dirName;
+           attribute boolean disabled;
+  readonly attribute HTMLFormElement? form;
+           attribute long maxLength;
+           attribute DOMString name;
+           attribute DOMString placeholder;
+           attribute boolean readOnly;
+           attribute boolean required;
+           attribute unsigned long rows;
+           attribute DOMString wrap;
+
+  readonly attribute DOMString type;
+           attribute DOMString defaultValue;
+           attribute DOMString value;
+  readonly attribute unsigned long textLength;
+
+  readonly attribute boolean willValidate;
+  readonly attribute ValidityState validity;
+  readonly attribute DOMString validationMessage;
+  boolean checkValidity();
+  void setCustomValidity(in DOMString error);
+
+  readonly attribute NodeList labels;
+
+  void select();
+           attribute unsigned long selectionStart;
+           attribute unsigned long selectionEnd;
+           attribute DOMString selectionDirection;
+  void setSelectionRange(in unsigned long start, in unsigned long end, in optional DOMString direction);
+};
+
+interface HTMLKeygenElement : HTMLElement {
+           attribute boolean autofocus;
+           attribute DOMString challenge;
+           attribute boolean disabled;
+  readonly attribute HTMLFormElement? form;
+           attribute DOMString keytype;
+           attribute DOMString name;
+
+  readonly attribute DOMString type;
+
+  readonly attribute boolean willValidate;
+  readonly attribute ValidityState validity;
+  readonly attribute DOMString validationMessage;
+  boolean checkValidity();
+  void setCustomValidity(in DOMString error);
+
+  readonly attribute NodeList labels;
+};
+
+interface HTMLOutputElement : HTMLElement {
+  [PutForwards=value] readonly attribute DOMSettableTokenList htmlFor;
+  readonly attribute HTMLFormElement? form;
+           attribute DOMString name;
+
+  readonly attribute DOMString type;
+           attribute DOMString defaultValue;
+           attribute DOMString value;
+
+  readonly attribute boolean willValidate;
+  readonly attribute ValidityState validity;
+  readonly attribute DOMString validationMessage;
+  boolean checkValidity();
+  void setCustomValidity(in DOMString error);
+
+  readonly attribute NodeList labels;
+};
+
+interface HTMLProgressElement : HTMLElement {
+           attribute double value;
+           attribute double max;
+  readonly attribute double position;
+  readonly attribute NodeList labels;
+};
+
+interface HTMLMeterElement : HTMLElement {
+           attribute double value;
+           attribute double min;
+           attribute double max;
+           attribute double low;
+           attribute double high;
+           attribute double optimum;
+  readonly attribute NodeList labels;
+};
+
+
+interface ValidityState {
+  readonly attribute boolean valueMissing;
+  readonly attribute boolean typeMismatch;
+  readonly attribute boolean patternMismatch;
+  readonly attribute boolean tooLong;
+  readonly attribute boolean rangeUnderflow;
+  readonly attribute boolean rangeOverflow;
+  readonly attribute boolean stepMismatch;
+  readonly attribute boolean customError;
+  readonly attribute boolean valid;
+};
+
+interface HTMLDetailsElement : HTMLElement {
+           attribute boolean open;
+};
+
+interface HTMLCommandElement : HTMLElement {
+           attribute DOMString type;
+           attribute DOMString label;
+           attribute DOMString icon;
+           attribute boolean disabled;
+           attribute boolean checked;
+           attribute DOMString radiogroup;
+};
+
+interface HTMLMenuElement : HTMLElement {
+           attribute DOMString type;
+           attribute DOMString label;
+};
+
+
+[Callback=FunctionOnly, NoInterfaceObject]
+interface Function {
+  any call(in any... arguments);
+};
+
