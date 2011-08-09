@@ -105,3 +105,8 @@ test-summary: dom.js
 test-detailed: dom.js
 	${JSTESTS_PATH}/jstests.py -dso -j ${NUM_CORES} -m ${DOM_TEST_DIR}/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
 
+
+coverage: dom.js
+	@rm -f tests/cmdline/coverage.out
+	${JSTESTS_PATH}/jstests.py -C -d -j ${NUM_CORES} -m ${DOM_TEST_DIR}/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
+	python tools/coverage_parser.py
