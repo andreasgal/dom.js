@@ -47,7 +47,15 @@ if (!infile) {
 }
 var sourceidl = require("fs").readFileSync(infile,"utf-8");
 var webidl = require("../webidl.js/node/WebIDLParser.js")
-var parsedidl = webidl.Parser.parse(sourceidl);
+var parsedidl;
+try {
+    parsedidl = webidl.Parser.parse(sourceidl);
+}
+catch(e) {
+    console.log(e.name, ":", e.line, ":", e.column, ": ", e.message);
+    process.exit();
+}
+
 
 out("//");
 out("// DO NOT EDIT.");
@@ -73,6 +81,34 @@ for(var i = 0; i < parsedidl.length; i++) {
     }
 }
 
+// Loop again, looking for, and fixing up implements declarations
+for(var i = 0; i < parsedidl.length; i++) {
+    var item = parsedidl[i];
+    if (item.type === "implements") {
+        var targetName = item.target;
+        var sourceName = item.implements;
+        var target = null, source = null;
+
+        parsedidl.forEach(function(x) {
+            if (x.type !== "interface") return;
+            if (x.name === targetName) target = x;
+            if (x.name === sourceName) source = x;
+        });
+
+        if (target === null || source === null) {
+            console.warn("Skipping %s implements %s: \n\t" + 
+                         "source and/or target interface is unknown.", 
+                         item.target, item["implements"]);
+        } 
+        else {
+            var copy = JSON.parse(JSON.stringify(source.members));
+            copy.forEach(function(x) { target.members.push(x); });
+        }
+    }
+}
+
+
+
 // Now loop through the interfaces, outputing definitions for them all
 for(var i = 0; i < parsedidl.length; i++) {
     var item = parsedidl[i];
@@ -81,6 +117,9 @@ for(var i = 0; i < parsedidl.length; i++) {
     }       
     else if (item.type === "dictionary") {
         outputDictionary(item);
+    }
+    else if (item.type === "implements") {
+        // Do nothing: we already handled implements declarations
     }
     else {
         console.warn("Skipping %s %s", item.type, item.name);
@@ -187,6 +226,19 @@ function outputInterface(idl) {
 
     out('        members: {');
     members.forEach(function(m) {
+
+        // Check for overloaded members
+        if (m.name !== "") { // getters, setters, etc., have no name
+            var n = members.filter(function(x) {
+                return x.name === m.name;
+            }).length;
+            if (n > 1) {
+                console.warn("Skipping overloaded member %s.%s",
+                             idl.name, m.name);
+                return;
+            }
+        }
+
         if (m.type === "attribute")
             outputAttribute(m, prefix);
         else if (m.type === "operation") {
@@ -384,6 +436,10 @@ function convert(a, v) {
         c = "String";
     else if (t.idlType === "unsigned long")
         c = "toULong";
+    else if (t.idlType === "long")
+        c = "toLong";
+    else if (t.idlType === "double")
+        c = "Number";
     else if (t.idlType === "boolean")
         c = "Boolean";
     else if (t.idlType === "object") 
