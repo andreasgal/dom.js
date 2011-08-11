@@ -27,9 +27,9 @@ defineLazyProperty(impl, "Document", function() {
 
         // This property holds a monotonically increasing value akin to 
         // a timestamp used to record the last modification time of nodes
-        // and their subtrees. See the lastModified attribute and modify()
+        // and their subtrees. See the lastModTime attribute and modify()
         // method of the Node class.  And see FilteredElementList for an example
-        // of the use of lastModified
+        // of the use of lastModTime
         this.modclock = 0;
     }
 
@@ -161,6 +161,7 @@ defineLazyProperty(impl, "Document", function() {
     };
 
     Document.prototype = O.create(impl.Node.prototype, {
+        _idlName: constant("Document"),
         nodeType: constant(DOCUMENT_NODE),
         nodeName: constant("#document"),
         nodeValue: attribute(fnull, fnoop),
@@ -597,7 +598,7 @@ defineLazyProperty(impl, "Document", function() {
 
     function recursivelySetOwner(node, owner) {
         node.ownerDocument = owner;
-        delete node._lastModified; // mod times are document-based
+        delete node._lastModTime; // mod times are document-based
         let kids = node.childNodes;
         for(let i = 0, n = kids.length; i < n; i++)
             recursivelySetOwner(kids[i], owner);

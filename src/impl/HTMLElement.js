@@ -4,6 +4,7 @@ defineLazyProperty(impl, "HTMLElement", function() {
     }
 
     HTMLElement.prototype = O.create(impl.Element.prototype, {
+        _idlName: constant("HTMLElement"),
     });
 
     return HTMLElement;
@@ -15,6 +16,7 @@ defineLazyProperty(impl, "HTMLAnchorElement", function() {
     }
 
     HTMLAnchorElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLAnchorElement"),
     });
 
     return HTMLAnchorElement;
@@ -26,6 +28,7 @@ defineLazyProperty(impl, "HTMLAreaElement", function() {
     }
 
     HTMLAreaElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLAreaElement"),
     });
 
     return HTMLAreaElement;
@@ -37,6 +40,7 @@ defineLazyProperty(impl, "HTMLBRElement", function() {
     }
 
     HTMLBRElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLBRElement"),
     });
 
     return HTMLBRElement;
@@ -48,6 +52,7 @@ defineLazyProperty(impl, "HTMLBaseElement", function() {
     }
 
     HTMLBaseElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLBaseElement"),
     });
 
     return HTMLBaseElement;
@@ -59,6 +64,7 @@ defineLazyProperty(impl, "HTMLBodyElement", function() {
     }
 
     HTMLBodyElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLBodyElement"),
     });
 
     return HTMLBodyElement;
@@ -70,6 +76,7 @@ defineLazyProperty(impl, "HTMLButtonElement", function() {
     }
 
     HTMLButtonElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLButtonElement"),
     });
 
     return HTMLButtonElement;
@@ -81,6 +88,7 @@ defineLazyProperty(impl, "HTMLCommandElement", function() {
     }
 
     HTMLCommandElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLCommandElement"),
     });
 
     return HTMLCommandElement;
@@ -92,6 +100,7 @@ defineLazyProperty(impl, "HTMLDListElement", function() {
     }
 
     HTMLDListElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLDListElement"),
     });
 
     return HTMLDListElement;
@@ -103,6 +112,7 @@ defineLazyProperty(impl, "HTMLDataListElement", function() {
     }
 
     HTMLDataListElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLDataListElement"),
     });
 
     return HTMLDataListElement;
@@ -114,6 +124,7 @@ defineLazyProperty(impl, "HTMLDetailsElement", function() {
     }
 
     HTMLDetailsElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLDetailsElement"),
     });
 
     return HTMLDetailsElement;
@@ -125,6 +136,7 @@ defineLazyProperty(impl, "HTMLDivElement", function() {
     }
 
     HTMLDivElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLDivElement"),
     });
 
     return HTMLDivElement;
@@ -136,6 +148,7 @@ defineLazyProperty(impl, "HTMLEmbedElement", function() {
     }
 
     HTMLEmbedElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLEmbedElement"),
     });
 
     return HTMLEmbedElement;
@@ -147,6 +160,7 @@ defineLazyProperty(impl, "HTMLFieldSetElement", function() {
     }
 
     HTMLFieldSetElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLFieldSetElement"),
     });
 
     return HTMLFieldSetElement;
@@ -158,6 +172,7 @@ defineLazyProperty(impl, "HTMLFormElement", function() {
     }
 
     HTMLFormElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLFormElement"),
     });
 
     return HTMLFormElement;
@@ -169,6 +184,7 @@ defineLazyProperty(impl, "HTMLHRElement", function() {
     }
 
     HTMLHRElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLHRElement"),
     });
 
     return HTMLHRElement;
@@ -180,6 +196,7 @@ defineLazyProperty(impl, "HTMLHeadElement", function() {
     }
 
     HTMLHeadElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLHeadElement"),
     });
 
     return HTMLHeadElement;
@@ -191,6 +208,7 @@ defineLazyProperty(impl, "HTMLHeadingElement", function() {
     }
 
     HTMLHeadingElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLHeadingElement"),
     });
 
     return HTMLHeadingElement;
@@ -202,6 +220,7 @@ defineLazyProperty(impl, "HTMLHtmlElement", function() {
     }
 
     HTMLHtmlElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLHtmlElement"),
     });
 
     return HTMLHtmlElement;
@@ -213,6 +232,7 @@ defineLazyProperty(impl, "HTMLIFrameElement", function() {
     }
 
     HTMLIFrameElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLIFrameElement"),
     });
 
     return HTMLIFrameElement;
@@ -224,6 +244,7 @@ defineLazyProperty(impl, "HTMLImageElement", function() {
     }
 
     HTMLImageElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLImageElement"),
     });
 
     return HTMLImageElement;
@@ -235,6 +256,7 @@ defineLazyProperty(impl, "HTMLInputElement", function() {
     }
 
     HTMLInputElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLInputElement"),
     });
 
     return HTMLInputElement;
@@ -246,6 +268,7 @@ defineLazyProperty(impl, "HTMLKeygenElement", function() {
     }
 
     HTMLKeygenElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLKeygenElement"),
     });
 
     return HTMLKeygenElement;
@@ -257,6 +280,7 @@ defineLazyProperty(impl, "HTMLLIElement", function() {
     }
 
     HTMLLIElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLLIElement"),
     });
 
     return HTMLLIElement;
@@ -268,6 +292,7 @@ defineLazyProperty(impl, "HTMLLabelElement", function() {
     }
 
     HTMLLabelElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLLabelElement"),
     });
 
     return HTMLLabelElement;
@@ -279,6 +304,7 @@ defineLazyProperty(impl, "HTMLLegendElement", function() {
     }
 
     HTMLLegendElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLLegendElement"),
     });
 
     return HTMLLegendElement;
@@ -290,6 +316,7 @@ defineLazyProperty(impl, "HTMLLinkElement", function() {
     }
 
     HTMLLinkElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLLinkElement"),
     });
 
     return HTMLLinkElement;
@@ -301,6 +328,7 @@ defineLazyProperty(impl, "HTMLMapElement", function() {
     }
 
     HTMLMapElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLMapElement"),
     });
 
     return HTMLMapElement;
@@ -312,6 +340,7 @@ defineLazyProperty(impl, "HTMLMenuElement", function() {
     }
 
     HTMLMenuElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLMenuElement"),
     });
 
     return HTMLMenuElement;
@@ -323,6 +352,7 @@ defineLazyProperty(impl, "HTMLMetaElement", function() {
     }
 
     HTMLMetaElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLMetaElement"),
     });
 
     return HTMLMetaElement;
@@ -334,6 +364,7 @@ defineLazyProperty(impl, "HTMLMeterElement", function() {
     }
 
     HTMLMeterElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLMeterElement"),
     });
 
     return HTMLMeterElement;
@@ -345,6 +376,7 @@ defineLazyProperty(impl, "HTMLModElement", function() {
     }
 
     HTMLModElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLModElement"),
     });
 
     return HTMLModElement;
@@ -356,6 +388,7 @@ defineLazyProperty(impl, "HTMLOListElement", function() {
     }
 
     HTMLOListElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLOListElement"),
     });
 
     return HTMLOListElement;
@@ -367,6 +400,7 @@ defineLazyProperty(impl, "HTMLObjectElement", function() {
     }
 
     HTMLObjectElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLObjectElement"),
     });
 
     return HTMLObjectElement;
@@ -378,6 +412,7 @@ defineLazyProperty(impl, "HTMLOptGroupElement", function() {
     }
 
     HTMLOptGroupElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLOptGroupElement"),
     });
 
     return HTMLOptGroupElement;
@@ -389,6 +424,7 @@ defineLazyProperty(impl, "HTMLOptionElement", function() {
     }
 
     HTMLOptionElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLOptionElement"),
     });
 
     return HTMLOptionElement;
@@ -400,6 +436,7 @@ defineLazyProperty(impl, "HTMLOutputElement", function() {
     }
 
     HTMLOutputElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLOutputElement"),
     });
 
     return HTMLOutputElement;
@@ -411,6 +448,7 @@ defineLazyProperty(impl, "HTMLParagraphElement", function() {
     }
 
     HTMLParagraphElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLParagraphElement"),
     });
 
     return HTMLParagraphElement;
@@ -422,6 +460,7 @@ defineLazyProperty(impl, "HTMLParamElement", function() {
     }
 
     HTMLParamElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLParamElement"),
     });
 
     return HTMLParamElement;
@@ -433,6 +472,7 @@ defineLazyProperty(impl, "HTMLPreElement", function() {
     }
 
     HTMLPreElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLPreElement"),
     });
 
     return HTMLPreElement;
@@ -444,6 +484,7 @@ defineLazyProperty(impl, "HTMLProgressElement", function() {
     }
 
     HTMLProgressElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLProgressElement"),
     });
 
     return HTMLProgressElement;
@@ -455,6 +496,7 @@ defineLazyProperty(impl, "HTMLQuoteElement", function() {
     }
 
     HTMLQuoteElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLQuoteElement"),
     });
 
     return HTMLQuoteElement;
@@ -466,6 +508,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
     }
 
     HTMLScriptElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLScriptElement"),
     });
 
     return HTMLScriptElement;
@@ -477,6 +520,7 @@ defineLazyProperty(impl, "HTMLSelectElement", function() {
     }
 
     HTMLSelectElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLSelectElement"),
     });
 
     return HTMLSelectElement;
@@ -488,6 +532,7 @@ defineLazyProperty(impl, "HTMLSourceElement", function() {
     }
 
     HTMLSourceElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLSourceElement"),
     });
 
     return HTMLSourceElement;
@@ -499,6 +544,7 @@ defineLazyProperty(impl, "HTMLSpanElement", function() {
     }
 
     HTMLSpanElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLSpanElement"),
     });
 
     return HTMLSpanElement;
@@ -510,6 +556,7 @@ defineLazyProperty(impl, "HTMLStyleElement", function() {
     }
 
     HTMLStyleElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLStyleElement"),
     });
 
     return HTMLStyleElement;
@@ -521,6 +568,7 @@ defineLazyProperty(impl, "HTMLTableCaptionElement", function() {
     }
 
     HTMLTableCaptionElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTableCaptionElement"),
     });
 
     return HTMLTableCaptionElement;
@@ -532,6 +580,7 @@ defineLazyProperty(impl, "HTMLTableCellElement", function() {
     }
 
     HTMLTableCellElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTableCellElement"),
     });
 
     return HTMLTableCellElement;
@@ -543,6 +592,7 @@ defineLazyProperty(impl, "HTMLTableColElement", function() {
     }
 
     HTMLTableColElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTableColElement"),
     });
 
     return HTMLTableColElement;
@@ -554,6 +604,7 @@ defineLazyProperty(impl, "HTMLTableElement", function() {
     }
 
     HTMLTableElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTableElement"),
     });
 
     return HTMLTableElement;
@@ -565,6 +616,7 @@ defineLazyProperty(impl, "HTMLTableRowElement", function() {
     }
 
     HTMLTableRowElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTableRowElement"),
     });
 
     return HTMLTableRowElement;
@@ -576,6 +628,7 @@ defineLazyProperty(impl, "HTMLTableSectionElement", function() {
     }
 
     HTMLTableSectionElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTableSectionElement"),
     });
 
     return HTMLTableSectionElement;
@@ -587,6 +640,7 @@ defineLazyProperty(impl, "HTMLTextAreaElement", function() {
     }
 
     HTMLTextAreaElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTextAreaElement"),
     });
 
     return HTMLTextAreaElement;
@@ -598,6 +652,7 @@ defineLazyProperty(impl, "HTMLTimeElement", function() {
     }
 
     HTMLTimeElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTimeElement"),
     });
 
     return HTMLTimeElement;
@@ -609,6 +664,7 @@ defineLazyProperty(impl, "HTMLTitleElement", function() {
     }
 
     HTMLTitleElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTitleElement"),
     });
 
     return HTMLTitleElement;
@@ -620,6 +676,7 @@ defineLazyProperty(impl, "HTMLTrackElement", function() {
     }
 
     HTMLTrackElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLTrackElement"),
     });
 
     return HTMLTrackElement;
@@ -631,6 +688,7 @@ defineLazyProperty(impl, "HTMLUListElement", function() {
     }
 
     HTMLUListElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLUListElement"),
     });
 
     return HTMLUListElement;
@@ -642,6 +700,7 @@ defineLazyProperty(impl, "HTMLUnknownElement", function() {
     }
 
     HTMLUnknownElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLUnknownElement"),
     });
 
     return HTMLUnknownElement;
@@ -653,6 +712,7 @@ defineLazyProperty(impl, "HTMLAudioElement", function() {
     }
 
     HTMLAudioElement.prototype = O.create(impl.HTMLMediaElement.prototype, {
+        _idlName: constant("HTMLAudioElement"),
     });
 
     return HTMLAudioElement;
@@ -664,6 +724,7 @@ defineLazyProperty(impl, "HTMLVideoElement", function() {
     }
 
     HTMLVideoElement.prototype = O.create(impl.HTMLMediaElement.prototype, {
+        _idlName: constant("HTMLVideoElement"),
     });
 
     return HTMLVideoElement;
@@ -675,6 +736,7 @@ defineLazyProperty(impl, "HTMLTableDataCellElement", function() {
     }
 
     HTMLTableDataCellElement.prototype = O.create(impl.HTMLTableCellElement.prototype, {
+        _idlName: constant("HTMLTableDataCellElement"),
     });
 
     return HTMLTableDataCellElement;
@@ -686,6 +748,7 @@ defineLazyProperty(impl, "HTMLTableHeaderCellElement", function() {
     }
 
     HTMLTableHeaderCellElement.prototype = O.create(impl.HTMLTableCellElement.prototype, {
+        _idlName: constant("HTMLTableHeaderCellElement"),
     });
 
     return HTMLTableHeaderCellElement;

@@ -12,6 +12,7 @@ defineLazyProperty(impl, "Text", function() {
                               });
     
     Text.prototype = O.create(impl.CharacterData.prototype, {
+        _idlName: constant("Text"),
         nodeType: constant(TEXT_NODE),
         nodeName: constant("#text"),
         // These three attributes are all the same.

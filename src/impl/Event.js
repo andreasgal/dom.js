@@ -27,6 +27,7 @@ defineLazyProperty(impl, "Event", function() {
     }
 
     Event.prototype = O.create(Object.prototype, {
+        _idlName: constant("Event"),
         stopPropagation: constant(function stopPropagation() {
             this._propagationStopped = true;
         }),

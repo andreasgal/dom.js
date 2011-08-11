@@ -12,6 +12,7 @@ defineLazyProperty(impl, "Comment", function() {
                               });
     
     Comment.prototype = O.create(impl.CharacterData.prototype, {
+        _idlName: constant("Comment"),
         nodeType: constant(COMMENT_NODE),
         nodeName: constant("#comment"),
         nodeValue: nodeValue,

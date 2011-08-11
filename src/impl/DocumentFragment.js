@@ -5,6 +5,7 @@ defineLazyProperty(impl, "DocumentFragment", function() {
     }
 
     DocumentFragment.prototype = O.create(impl.Node.prototype, {
+        _idlName: constant("DocumentFragment"),
         nodeType: constant(DOCUMENT_FRAGMENT_NODE),
         nodeName: constant("#document-fragment"),
         nodeValue: attribute(fnull, fnoop),

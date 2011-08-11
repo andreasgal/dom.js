@@ -15,6 +15,7 @@ defineLazyProperty(impl, "Attr", function() {
     }
 
     Attr.prototype = O.create(Object.prototype, {
+        _idlName: constant("Attr"),
         value: attribute(function() { return this.data; },
                          function(v) { 
                              let oldval = this.data;

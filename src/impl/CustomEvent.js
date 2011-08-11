@@ -3,6 +3,8 @@ defineLazyProperty(impl, "CustomEvent", function() {
         // Just use the superclass constructor to initialize
         impl.Event.call(this, type, dictionary);
     }
-    CustomEvent.prototype = O.create(impl.Event.prototype);
+    CustomEvent.prototype = O.create(impl.Event.prototype, {
+        _idlName: constant("CustomEvent"),
+    });
     return CustomEvent;
 });

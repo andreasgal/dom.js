@@ -9,6 +9,7 @@ defineLazyProperty(impl, "DocumentType", function() {
     }
 
     DocumentType.prototype = O.create(impl.Leaf.prototype, {
+        _idlName: constant("DocumentType"),
         nodeType: constant(DOCUMENT_TYPE_NODE),
         nodeName: attribute(function() { return this.name; }),
         nodeValue: attribute(fnull, fnoop),

@@ -405,33 +405,33 @@ defineLazyProperty(impl, "Node", function() {
         }),
 
 
-        // Return the lastModified value for this node. (For use as a
+        // Return the lastModTime value for this node. (For use as a
         // cache invalidation mechanism. If the node does not already
         // have one, initialize it from the owner document's modclock
         // property.  (Note that modclock does not return the actual
         // time; it is simply a counter incremented on each document
         // modification)
-        lastModified: attribute(function() {
-            if (!this._lastModified) {
-                this._lastModified = this.doc.modclock;
+        lastModTime: attribute(function() {
+            if (!this._lastModTime) {
+                this._lastModTime = this.doc.modclock;
             }
                 
-            return this._lastModified;
+            return this._lastModTime;
         }),
 
         // Increment the owner document's modclock and use the new
-        // value to update the lastModified value for this node and
+        // value to update the lastModTime value for this node and
         // all of its ancestors.  Nodes that have never had their
-        // lastModified value queried do not need to have a
-        // lastModified property set on them since there is no
+        // lastModTime value queried do not need to have a
+        // lastModTime property set on them since there is no
         // previously queried value to ever compare the new value
         // against, so only update nodes that already have a
-        // _lastModified property.
+        // _lastModTime property.
         modify: constant(function() {
             let time = ++this.doc.modclock;
             for(let n = this; n; n = n.parentElement) {
-                if (n._lastModified) {
-                    n._lastModified = time;
+                if (n._lastModTime) {
+                    n._lastModTime = time;
                 }
             }
         }),

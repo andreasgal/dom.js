@@ -2,6 +2,7 @@ defineLazyProperty(impl, "EventTarget", function() {
     function EventTarget() {}
 
     EventTarget.prototype = O.create(Object.prototype, {
+        _idlName: constant("EventTarget"),
 
         // XXX
         // See WebIDL §4.8 for details on object event handlers

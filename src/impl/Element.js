@@ -34,6 +34,7 @@ defineLazyProperty(impl, "Element", function() {
     }
 
     Element.prototype = O.create(impl.Node.prototype, {
+        _idlName: constant(""),
         nodeType: constant(ELEMENT_NODE),
         nodeName: attribute(function() { return this.tagName; }),
         nodeValue: attribute(fnull, fnoop),
@@ -277,8 +278,14 @@ defineLazyProperty(impl, "Element", function() {
         }),
 
         clone: constant(function clone() {
-            let e = new impl.Element(this.ownerDocument, this.localName,
-                                     this.namespaceURI, this.prefix);
+            let e;
+
+            if (this.namespaceURI !== HTML_NAMESPACE || this.prefix)
+                e = this.ownerDocument.createElementNS(this.namespaceURI,
+                                                       this.tagName);
+            else
+                e = this.ownerDocument.createElement(this.localName);
+
             for(let i = 0, n = this.attributes.length; i < n; i++) {
                 push(e.attributes, this.attributes[i].clone(e));
             }
@@ -384,8 +391,9 @@ defineLazyProperty(impl, "Element", function() {
         },
 
         updateCache: function updateCache() {
-            if (this.lastModified !== this.element.lastModified) {
-                this.lastModified = this.element.lastModified;
+            let namedElts = /^(a|applet|area|embed|form|frame|frameset|iframe|img|object)$/;
+            if (this.lastModTime !== this.element.lastModTime) {
+                this.lastModTime = this.element.lastModTime;
                 this.childrenByNumber = [];
                 this.childrenByName = {};
 
@@ -401,8 +409,6 @@ defineLazyProperty(impl, "Element", function() {
                         // If there is an id that is not already in use...
                         if (id && !this.childrenByName[id]) 
                             this.childrenByName[id] = c;
-
-                        let namedElts = /^(a|applet|area|embed|form|frame|frameset|iframe|img|object)$/;
 
                         // For certain HTML elements we check the name attribute
                         let name = c.getAttribute("name");

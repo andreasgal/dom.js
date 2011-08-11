@@ -14,6 +14,7 @@ defineLazyProperty(impl, "DOMImplementation", function() {
     };
 
     DOMImplementation.prototype = {
+        _idlName: "DOMImplementation",
         hasFeature: function hasFeature(feature, version) {
             // Warning text directly modified slightly from the DOM Core spec:
             warn("Authors are strongly discouraged from using " +

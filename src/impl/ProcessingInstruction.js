@@ -14,6 +14,7 @@ defineLazyProperty(impl, "ProcessingInstruction", function() {
                               });
 
     ProcessingInstruction.prototype = O.create(impl.Leaf.prototype, {
+        _idlName: constant("ProcessingInstruction"),
         nodeType: constant(PROCESSING_INSTRUCTION_NODE),
         nodeName: attribute(function() { return this.target; }),
         nodeValue: nodeValue,

@@ -59,6 +59,7 @@ function run(tests) {
         }
         catch(e) {
             print("Aborted: " + e.message);
+            print("Stack: " + e.stack);
             aborts++;
             t.reset();
         }

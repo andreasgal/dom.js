@@ -9,7 +9,7 @@ defineLazyProperty(impl, "FilteredElementList", function() {
     function FilteredElementList(root, filter) {
         this.root = root;
         this.filter = filter;
-        this.lastModified = root.lastModified
+        this.lastModTime = root.lastModTime
         this.done = false;
         this.cache = [];
     }
@@ -29,11 +29,11 @@ defineLazyProperty(impl, "FilteredElementList", function() {
         },
 
         checkcache: function() {
-            if (this.lastModified !== this.root.lastModified) {
+            if (this.lastModTime !== this.root.lastModTime) {
                 // subtree has changed, so invalidate cache
                 this.cache.length = 0;
                 this.done = false;
-                this.lastModified = this.root.lastModified;
+                this.lastModTime = this.root.lastModTime;
             }
         },
 

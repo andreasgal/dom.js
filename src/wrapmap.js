@@ -71,6 +71,17 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
         if (n === null) return null;
 
         if (!n._idl) {
+            // If the impl object knows what its public type is, use that
+            // Otherwise, use the type that IDL expects.
+            let type = n._idlName ? idl[n._idlName] : idltype;
+            n._idl = type.factory(n);
+            wmset(idlToImplMap, n._idl, n);
+        }
+
+        return n._idl;
+
+/*
+        if (!n._idl) {
             switch(idltype) {
             case idl.Node:
                 n._idl = nodeWrapper(n);
@@ -128,6 +139,7 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
             print(idl[n.constructor.name]);
             return idl[n.constructor.name].factory();
        }
+*/
    }
 
    return [unwrap, unwrapOrNull, wrap];

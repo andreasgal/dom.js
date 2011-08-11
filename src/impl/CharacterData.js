@@ -3,6 +3,8 @@ defineLazyProperty(impl, "CharacterData", function() {
     }
     
     CharacterData.prototype = O.create(impl.Leaf.prototype, {
+        _idlName: constant("CharacterData"),
+
         // DOMString substringData(unsigned long offset,
         //                         unsigned long count);
         // The substringData(offset, count) method must run these steps:
