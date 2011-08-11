@@ -496,7 +496,7 @@ defineLazyProperty(impl, "Document", function() {
         // rooted.
         mutateRemove: constant(function(node) {
             // Send a single mutation event
-            if (this.mutationHander) {
+            if (this.mutationHandler) {
                 this.mutationHandler({
                     type: MUTATE_REMOVE,
                     target: node._nid
