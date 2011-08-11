@@ -5,10 +5,6 @@ TITLE   = "Node.insertBefore";
 
 writeHeaderToLog( SECTION + ": "+ TITLE);
 
-// Document.body is defined by HTML, not DOM Core, so we have to define it here
-document.body = document.getElementsByTagName("body")[0];
-
-
 function testHRE(node) {
   testdc(function() {
     assert_throws("HIERARCHY_REQUEST_ERR", function() { node.insertBefore(document.createTextNode("fail"), null) })

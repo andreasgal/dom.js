@@ -417,8 +417,35 @@ defineLazyProperty(impl, "Document", function() {
         readyState: attribute(nyi),
         title: attribute(nyi, nyi),
         dir:  attribute(nyi, nyi),
-        body: attribute(nyi),
-        head: attribute(nyi),
+        // Return the first <body> child of the document element.
+        // XXX For now, setting this attribute is not implemented.
+        body: attribute(function() {
+            if (this.isHTML && this.documentElement) {
+                let kids = this.documentElement.childNodes;
+                for(let i = 0, n = kids.length; i < n; i++) {
+                    if (kids[i].nodeType === ELEMENT_NODE &&
+                        kids[i].localName === "body" &&
+                        kids[i].namespaceURI === HTML_NAMESPACE) {
+                        return kids[i];
+                    }
+                }
+            }
+            return null;
+        }, nyi),
+        // Return the first <head> child of the document element.
+        head: attribute(function() {
+            if (this.isHTML && this.documentElement) {
+                let kids = this.documentElement.childNodes;
+                for(let i = 0, n = kids.length; i < n; i++) {
+                    if (kids[i].nodeType === ELEMENT_NODE &&
+                        kids[i].localName === "head" &&
+                        kids[i].namespaceURI === HTML_NAMESPACE) {
+                        return kids[i];
+                    }
+                }
+            }
+            return null;
+        }),
         images: attribute(nyi),
         embeds: attribute(nyi),
         plugins: attribute(nyi),

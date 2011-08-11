@@ -16,7 +16,3 @@ load('../../dom.js');
 // Load utilities for running domcore tests
 load('test-utils.js');
 
-// Document.body is an HTML property, not part of DOM Core, so 
-// define it explicitly here;
-document.body = document.getElementsByTagName("body")[0];
-

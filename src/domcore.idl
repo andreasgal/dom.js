@@ -180,8 +180,8 @@ interface Document : Node {
 
            attribute DOMString title;
            attribute DOMString dir;
-  // XXX: not yet ready for this
-  //           attribute HTMLElement? body;
+
+           attribute HTMLElement? body;
   readonly attribute HTMLHeadElement? head;
   readonly attribute HTMLCollection images;
   readonly attribute HTMLCollection embeds;

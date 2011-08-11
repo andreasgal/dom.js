@@ -137,12 +137,6 @@ function parse(s) {
                 // insert the copied element
                 to.appendChild(copy);
 
-                // Temporary hack.
-                // DOM Core does not define document.body but the tests use it.
-                // So until dom.js supports the body property, we've got to
-                // set it manually.
-                if (n.tagName.toLowerCase() === "body") doc.body = copy;
-
                 // If it was a <script> tag, execute the script
                 if (n.tagName === "SCRIPT" && !n.hasAttribute("src")) {
                     domjswin.eval(n.firstChild.data);
