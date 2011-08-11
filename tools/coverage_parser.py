@@ -4,11 +4,16 @@ HEADERS = 'loc   counts           x line  op'
 DIVIDER = '----- ----------------   ----  --'
 END_PC_COUNTS = '--- END PC COUNTS'
 
+JAVASCRIPT_PATH = ['tests/cmdline', 'tests/jsdom']
+
+
 import os, sys
 
-os.chdir('tests/cmdline')
+if len(sys.argv) < 2:
+    print "Usage: %s disassembly.out" % (sys.argv[0], )
+    sys.exit(1)
 
-disassemblies = file('disassembly.out', 'r').xreadlines()
+disassemblies = file(os.path.basename(sys.argv[1]), 'r')
 disassembly_files = {}
 covered_files = []
 
@@ -16,7 +21,14 @@ for disassembly_line in disassemblies:
     disassembly_parts = disassembly_line.split()
 
     if disassembly_line.startswith(PC_COUNTS):
-        disassembly_filename = os.path.realpath(disassembly_line[len(PC_COUNTS):].split(':')[0].strip())
+        disassembly_source_file = disassembly_line[len(PC_COUNTS):].split(':')[0].strip()
+        for lib_path in JAVASCRIPT_PATH:
+            disassembly_filename = os.path.join(lib_path, disassembly_source_file)
+            if os.path.exists(disassembly_filename):
+                break
+        else:
+            print "Could not find source file", disassembly_source_file
+            continue
         if disassembly_filename not in disassembly_files:
             disassembly_files[disassembly_filename] = {}
         continue
@@ -36,12 +48,8 @@ for disassembly_line in disassemblies:
 
 for filename in disassembly_files:
     linenos = disassembly_files[filename]
-    #print filename
-    #print '\t', linenos
 
-    file_contents = file(filename, 'r').readlines()
-
-    coverage_name = filename + '-coverage.html'
+    file_contents = file(filename, 'r')
 
     num_lines = len(linenos)
     covered_lines = len([x for x in linenos if linenos[x]])
@@ -53,6 +61,7 @@ for filename in disassembly_files:
     else:
         covered_files.append(filename)
 
+    coverage_name = filename + '-coverage.html'
     coverage_file = file(coverage_name, 'w')
     coverage_file.write(
         '<html><head><style type="text/css">'
@@ -60,10 +69,10 @@ for filename in disassembly_files:
         ' .covered {color: green}'
         ' .uncovered {color: red}'
         ' .unexecutable {color: gray}'
-        ' .execute_count {float: right}</style></head><body>\n')
+        ' .execute_count {float: right}</style></head><body><h1>%s</h1>\n' % (coverage_name, ))
 
-    coverage_file.write('<div>%d lines of %d total covered.</div>' % (
-        covered_lines, num_lines))
+    coverage_file.write('<div>%d lines of %d total covered. (%d%%)</div>' % (
+        covered_lines, num_lines, percentage * 100))
 
     file_lines = []
 
