@@ -100,10 +100,12 @@ for filename in disassembly_files:
     profile_data.reverse()
 
     for execute_count, line_number in profile_data:
-        print execute_count, line_number, len(file_lines)
+        if not execute_count:
+            continue
+
         try:
-            profile_file.write('<div><span class="execute_count">%s</span> <span class="line_number">%s</span> <span class="line">%s</span></div>' % (
-                execute_count, line_number, file_lines[line_number - 1].strip()))
+            profile_file.write('<div><span class="line">%s</span><span class="line_number">%s</span><span class="execute_count">%s</span></div>' % (
+                file_lines[line_number - 1].strip(), line_number, execute_count))
         except IndexError:
             pass
 
