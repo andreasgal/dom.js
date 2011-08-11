@@ -57,56 +57,78 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
 
     // Return the interface object (a DOM node) for the implementation node n,
     // creating it if necessary
+    // XXX
+    // The special cases required for Node and Element types are problematic
+    // and are likely to need to be extended for any other idl types that
+    // form a hierarchy.  If any DOM or HTML API returns a value that is a 
+    // subclass of Element (the Table api, maybe?) the code below will fail
+    // because the more specific idltype will not match idl.Element...
+    // Maybe the solution is to make all impl classes define their own
+    // wrap() method or at least link somehow to their wrapper class.
+    // Actually, maybe the constructor trick I used for Elements would work
+    // for any type...
     function wrap(n, idltype) {
         if (n === null) return null;
 
         if (!n._idl) {
-            if (idltype !== idl.Node) {
+            switch(idltype) {
+            case idl.Node:
+                n._idl = nodeWrapper(n);
+                break;
+            case idl.Element:
+                n._idl = elementWrapper(n);
+                break;
+            default: 
                 n._idl = idltype.factory(n);
+                break;
             }
-            else {
-                // Special case for Nodes. To wrap a Node, we have to create
-                // an object of the appropriate subtype. 
-                // 
-                // XXX Once we start on HTML5, we're going to have to
-                // expand this special case to handle lots of element
-                // subtypes based on n.tagName, I think. This may be a general
-                // issue with the DOM anywhere there is an IDL type hierarchy.
-                //
-                // Note that we know for sure that none of these types require
-                // a proxy handler, and therefore we do not have to pass
-                // the implementation object n to the factory function.
-                // 
-                switch(n.nodeType) {
-                case ELEMENT_NODE:
-                    n._idl = idl.Element.factory();
-                    break;
-                case TEXT_NODE:
-                    n._idl = idl.Text.factory();
-                    break;
-                case COMMENT_NODE:
-                    n._idl = idl.Comment.factory();
-                    break;
-                case PROCESSING_INSTRUCTION_NODE:
-                    n._idl = idl.ProcessingInstruction.factory();
-                    break;
-                case DOCUMENT_NODE:
-                    n._idl = idl.Document.factory();
-                    break;
-                case DOCUMENT_FRAGMENT_NODE:
-                    n._idl = idl.DocumentFragment.factory();
-                    break;
-                case DOCUMENT_TYPE_NODE:
-                    n._idl = idl.DocumentType.factory();
-                    break;
-                }
-            }
-
             wmset(idlToImplMap, n._idl, n);
         }
 
         return n._idl;
-    }
 
-    return [unwrap, unwrapOrNull, wrap];
+
+        // Special case for Nodes. To wrap a Node, we have to create
+        // an object of the appropriate subtype. 
+        // 
+        // XXX Once we start on HTML5, we're going to have to
+        // expand this special case to handle lots of element
+        // subtypes based on n.tagName, I think. This may be a general
+        // issue with the DOM anywhere there is an IDL type hierarchy.
+        //
+        // Note that we know for sure that none of these types require
+        // a proxy handler, and therefore we do not have to pass
+        // the implementation object n to the factory function.
+        // 
+        function nodeWrapper(n) {
+            switch(n.nodeType) {
+            case ELEMENT_NODE:
+                return elementWrapper(n);
+            case TEXT_NODE:
+                return idl.Text.factory();
+            case COMMENT_NODE:
+                return idl.Comment.factory();
+            case PROCESSING_INSTRUCTION_NODE:
+                return idl.ProcessingInstruction.factory();
+            case DOCUMENT_NODE:
+                return idl.Document.factory();
+            case DOCUMENT_FRAGMENT_NODE:
+                return idl.DocumentFragment.factory();
+            case DOCUMENT_TYPE_NODE:
+                return idl.DocumentType.factory();
+            }
+        }
+
+        function elementWrapper(n) {
+            // Use the name of the impl constructor to get the
+            // element interface name, and use that name to select
+            // the correct idl factory function to use here.
+            // XXX: is this brittle?
+            print(n.constructor.name);
+            print(idl[n.constructor.name]);
+            return idl[n.constructor.name].factory();
+       }
+   }
+
+   return [unwrap, unwrapOrNull, wrap];
 }());

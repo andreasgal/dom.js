@@ -191,12 +191,10 @@ defineLazyProperty(impl, "Document", function() {
 
             if (this.isHTML)
                 localName = toLowerCase(localName);
-/*
-                let interfaceName = tagNameToInterfaceName[localName] ||
-                    "HTMLUnknownElement";
-                return new impl[interfaceName](this, localName);
-  */
-            return new impl.Element(this, localName, HTML_NAMESPACE, null);
+
+            let interfaceName = tagNameToInterfaceName[localName] ||
+                "HTMLUnknownElement";
+            return new impl[interfaceName](this, localName, null);
         }),
 
         createElementNS: constant(function(namespace, qualifiedName) {
@@ -223,6 +221,12 @@ defineLazyProperty(impl, "Document", function() {
                  qualifiedName !== "xmlns" &&
                  prefix !== "xmlns"))
                 NamespaceError();
+
+            if (namespace === HTML_NAMESPACE) {
+                let interfaceName = tagNameToInterfaceName[localName] ||
+                    "HTMLUnknownElement";
+                return new impl[interfaceName](this, localName, prefix);
+            }
 
             return new impl.Element(this, localName, namespace, prefix);
         }),
@@ -402,6 +406,26 @@ defineLazyProperty(impl, "Document", function() {
         importNode: constant(function importNode(node, deep) {
             return this.adoptNode(node.cloneNode());
         }),
+
+        // The following attributes and methods are from the HTML spec
+        URL: attribute(nyi),
+        domain: attribute(nyi, nyi),
+        referrer: attribute(nyi),
+        cookie: attribute(nyi, nyi),
+        lastModified: attribute(nyi),
+        readyState: attribute(nyi),
+        title: attribute(nyi, nyi),
+        dir:  attribute(nyi, nyi),
+        body: attribute(nyi),
+        head: attribute(nyi),
+        images: attribute(nyi),
+        embeds: attribute(nyi),
+        plugins: attribute(nyi),
+        links: attribute(nyi),
+        forms: attribute(nyi),
+        scripts: attribute(nyi),
+        getElementsByName: constant(nyi),
+        innerHTML: attribute(nyi, nyi),
 
 
         // Utility methods
