@@ -56,45 +56,28 @@ function span(cls, text) {
     return rv;
 }
 
-var if_modified_since = null;
+var headers = {};
+var url = 'coverage.json';
 
-function poll_server_forever() {
-    var headers = {};
-    var url = 'coverage.json';
-    if (if_modified_since) {
-        headers['if-modified-since'] = if_modified_since;
-        url += '?after=' + encodeURIComponent(if_modified_since);
+jQuery.get(url,
+function(data) {
+    var contents = document.getElementById('contents');
+
+    contents.innerHTML = '';
+    contents.appendChild(div(txt(new Date().toUTCString())));
+
+    for (var filename in data) {
+        var file_data = data[filename];
+        var file_div = div(
+            txt(' (' + Math.floor((file_data['covered'] / (1.0 * file_data['significant'])) * 100) + '%) ' + filename),
+            div(
+                span('significant', 'Significant: ' + file_data['significant']),
+                span('covered', 'Covered: ' + file_data['covered']),
+                span('partial', 'Partial: ' + file_data['partial']),
+                span('uncovered', 'Uncovered: ' + file_data['partial'])));
+        contents.appendChild(file_div);
     }
-    jQuery.ajax(url, {
-        headers: headers,
-        complete: function(data) {
-            var contents = document.getElementById('contents');
-            var response = JSON.parse(data['responseText']);
-            if (!response) {
-                return;
-            }
-            if_modified_since = data.getResponseHeader('last-modified');
-
-            contents.innerHTML = '';
-            contents.appendChild(div(txt(new Date().toUTCString())));
-
-            for (var filename in response) {
-                var file_data = response[filename];
-                var file_div = div(
-                    txt(' (' + Math.floor((file_data['covered'] / (1.0 * file_data['significant'])) * 100) + '%) ' + filename),
-                    div(
-                        span('significant', 'Significant: ' + file_data['significant']),
-                        span('covered', 'Covered: ' + file_data['covered']),
-                        span('partial', 'Partial: ' + file_data['partial']),
-                        span('uncovered', 'Uncovered: ' + file_data['partial'])));
-                contents.appendChild(file_div);
-            }
-            poll_server_forever();
-        }
-    });
-}
-
-poll_server_forever();
+});
 
 -->
         </script>

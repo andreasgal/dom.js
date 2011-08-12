@@ -40,8 +40,8 @@ function ProfilageGenerator(notify_queue) {
     fs.watchFile('dom.js', function(curr, prev) { self.fileNotification(curr, prev) });
 }
 ProfilageGenerator.prototype.fileNotification = function (curr, prev) {
-    if (curr.mtime != prev.mtime) {
-        console.log('dom.js changed');
+    if (curr.mtime.toUTCString() != prev.mtime.toUTCString()) {
+        console.log(curr.mtime.toUTCString(), 'dom.js changed');
         this.generate();
     }
 }
@@ -101,15 +101,13 @@ http.createServer(function (req, res) {
         res.writeHead(200, {'Content-Type': 'text/html'});
         res.end(index_html());
     } else if (req.url.substring(0, 14) == '/coverage.json') {
-        if (!req.headers['if-modified-since'] == profilage.last_modified) {
-            var profilage_data = profilage.get();
-            if (profilage_data) {
-                res.writeHead(200, {'Content-Type': 'application/json', 'Last-Modified': profilage.last_modified});
-                res.end(profilage_data);
-                return;
-            }
+        var profilage_data = profilage.get();
+        if (profilage_data) {
+            res.writeHead(200, {'Content-Type': 'application/json', 'Last-Modified': profilage.last_modified});
+            res.end(profilage_data);
+        } else {
+            statistics_notification_queue.add(res);
         }
-        statistics_notification_queue.add(res);
     } else {
         res.writeHead(404, {'Content-Type': 'text/html'});
         res.end('Not Found');
