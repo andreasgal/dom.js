@@ -7,58 +7,105 @@
 var spawn = require('child_process').spawn;
 var http = require('http');
 var vm = require('vm');
-
-// world's lamest comet server!
-var disassembling_lock = false;
-var coverage_data = null;
-var callbacks = [];
+var fs = require('fs');
 
 
-var index_html = require('fs').readFileSync('index.html', 'utf8');
+function CometQueue() {
+    this.outstanding_requests = [];
+}
+CometQueue.prototype.add = function(request) {
+    this.outstanding_requests.push(request);
+}
+CometQueue.prototype.notify = function(result) {
+    var requests = this.outstanding_requests;
+    this.outstanding_requests = [];
+    for (var i = 0; i < requests.length; i++) {
+        var response = requests[i];
+        response.writeHead(200, {'Content-Type': 'application/json'});
+        response.end(result);
+    }
+}
 
 
+////////////////////////////////////////////////////////////////////
+
+
+function ProfilageGenerator(notify_queue) {
+    this.notify_queue = notify_queue;
+    this.profilage_data = null;
+    this.lock = false;
+    this.generate();
+    var self = this;
+    fs.watchFile('dom.js', function(curr, prev) { self.fileNotification(curr, prev) });
+}
+ProfilageGenerator.prototype.fileNotification = function (curr, prev) {
+    if (curr.mtime != prev.mtime) {
+        console.log('dom.js changed');
+        this.generate();
+    }
+}
+ProfilageGenerator.prototype.generate = function () {
+    var self = this;
+    if (!this.lock) {
+        this.lock = true;
+        // TODO this needs to delete the old disassembly.out first.
+        var dissassembler = spawn('jsd', ['-D', '../../disassembly.out', 'core.js'], {cwd: 'tests/jsdom'});
+        dissassembler.stdout.on('data', function (data) {
+            // Strip off the newline.
+            console.log('stdout: ' + data);
+        });
+        dissassembler.stderr.on('data', function (data) {
+            // Strip off the newline.
+            console.log('stderr: ' + data);
+        });
+        dissassembler.on('exit', function (code) {
+            console.log('child process exited with code ' + code);
+            var parser = spawn('tools/profilage2', ['-j', 'disassembly.out']);
+            var parts_to_parse = '';
+            parser.stdout.on('data', function (data) {
+                parts_to_parse += data;
+            });
+            parser.on('exit', function (code) {
+                self.lock = false;
+                console.log('coverage and profiler data updated.');
+                // Strip off the EOF.
+                self.profilage_data = parts_to_parse.substring(0, parts_to_parse.length - 1)
+                self.notify_queue.notify(self.profilage_data);
+            });
+        });
+    }
+}
+ProfilageGenerator.prototype.get = function () {
+    return this.profilage_data;
+}
+
+
+////////////////////////////////////////////////////////////////////
+
+
+var statistics_notification_queue = new CometQueue();
+var profilage = new ProfilageGenerator(statistics_notification_queue);
+
+
+function index_html() {
+    // XXX don't sync read in a webserver.
+    return fs.readFileSync('index.html', 'utf8');
+}
 
 
 http.createServer(function (req, res) {
     if (req.url == '/') {
-        if (!disassembling_lock) {
-            disassembling_lock = true;
-            // TODO this needs to delete the old disassembly.out first.
-            var dissassembler = spawn('jsd', ['-D', '../../disassembly.out', 'core.js'], {cwd: 'tests/jsdom'});
-            dissassembler.stdout.on('data', function (data) {
-              console.log('stdout: ' + data);
-            });
-            dissassembler.stderr.on('data', function (data) {
-              console.log('stderr: ' + data);
-            });
-            dissassembler.on('exit', function (code) {
-                console.log('child process exited with code ' + code);
-                var parser = spawn('tools/profilage2', ['-j', 'disassembly.out']);
-                var parts_to_parse = '';
-                parser.stdout.on('data', function (data) {
-                    parts_to_parse += data;
-                });
-                parser.on('exit', function (code) {
-                    disassembling_lock = false;
-                    coverage_data = JSON.parse(parts_to_parse.substring(0, parts_to_parse.length - 1));
-                    console.log('coverage and profiler data updated.');
-                    var callbacks_copy = callbacks;
-                    callbacks = [];
-                    for (var i = 0; i < callbacks_copy.length; i++) {
-                        callbacks_copy[i].writeHead(200, {'Content-Type': 'application/json'});
-                        callbacks_copy[i].end(JSON.stringify(coverage_data));
-                    }
-                });
-            });
-        }
         res.writeHead(200, {'Content-Type': 'text/html'});
-        res.end(index_html);
+        res.end(index_html());
     } else if (req.url == '/coverage.json') {
-        if (coverage_data) {
+        var profilage_data = profilage.get();
+        console.log('profilage data');
+        console.log(profilage_data);
+        if (profilage_data) {
             res.writeHead(200, {'Content-Type': 'application/json'});
-            res.end(JSON.stringify(coverage_data));
+            res.end(profilage_data);
         } else {
-            callbacks.push(res);
+            statistics_notification_queue.add(res);
         }
     } else {
         res.writeHead(404, {'Content-Type': 'text/html'});
