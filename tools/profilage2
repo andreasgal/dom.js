@@ -1,8 +1,28 @@
 #!/usr/local/bin/node
 // -*- mode: javascript; -*-
 
+// TODO:
+// Rename to CoverMonkey?
+//
+// The -D output is including pop opcodes with zero counts on
+// executed lines that don't have any branches, so they are
+// incorrectly being reported as having partial coverage.
+// Probably just filter out 0 count pops on lines that have other
+// non-zero opcodes, while reading the lines.
+//
+// -d option that takes a directory name and generates static HTML
+// coverage files in that directory.
+// 
+// See if I can make it work on the -D output of an unpatched
+// spidermonkey debug build.  It would have to ignore more lines and
+// it would have to be able to read from stdin, which would mean
+// converting to a streaming parser rather than reading the whole file
+// at once and breaking into lines.
+//
+
 var assert = require("assert");
 var fs = require("fs");
+var path = require("path");
 var console = require("console");
 var datafilelinenum
 
@@ -136,6 +156,7 @@ function parse(datafiles) {
     if (typeof datafiles === "string") datafiles = [datafiles];
 
     datafiles.forEach(function(datafilename)  {
+        var datafiledir = path.dirname(datafilename);
         var datalines
         var jsfile;  // The current File object
 
@@ -157,7 +178,7 @@ function parse(datafiles) {
             if (dataline.match(END)) continue;
 
             if (match = dataline.match(START)) {
-                var jsfilename = match[1];
+                var jsfilename = path.resolve(datafiledir, match[1]);
                 // the filename plus line number identifies the start
                 // of the function that is being disassembled. Opcodes are
                 // relative to that this
@@ -192,6 +213,7 @@ function usage() {
     console.log("Options:");
     console.log("  -q       Quiet: display coverage % only");
     console.log("  -s       Server: run as an HTTP server to display data");
+    console.log("           implies -q");
     console.log("  -p port  Port number for server (default: 8000)");
     console.log("  -t file  Display coverage stats for target js file");
     console.log("           default: all files; multiple -t args allowed");
@@ -227,7 +249,7 @@ while(argv.length) {
         break;
     case '-t':
         if (!argv.length) usage();
-        targets.push(argv.shift());
+        targets.push(path.resolve(argv.shift()));
         break;
     default: 
         if (arg[0] === '-') usage();
@@ -250,12 +272,12 @@ if (targets.length === 0) {
 targets.forEach(function(target) {
     var file = data[target];
 
-    // XXX: if file is null here, go look for close matches?
-    // e.g. loop through all files in data, and strip off all but the
-    // last path component, and see if that matches anything...
+    // If file is null here look for a file name with the same basename
     if (!file) {
+        target = path.basename(target);
+
         for(var filename in data) {
-            if (filename.substring(filename.lastIndexOf("/")+1) === target) {
+            if (path.basename(filename) === target) {
                 target = filename;
                 file = data[filename];
                 break;
@@ -273,7 +295,7 @@ targets.forEach(function(target) {
     var uncovered = coverage[2];
     var total = covered + partial + uncovered;
 
-    if (quiet) {
+    if (quiet || server) {
         console.log("%s: %d%", target, percent(covered/total));
     }
     else {
@@ -290,6 +312,12 @@ targets.forEach(function(target) {
 })
 
 function percent(x) { return Math.round(x*100); }
+
+if (server) {
+    
+}
+
+
 
 /*
 
@@ -338,12 +366,7 @@ for(var filename in files) {
 
         console.log("%s:%d:%s:%d", filename, linenum, coverage, count);
 
-        // The -D output is including pop opcodes with zero counts on
-        // executed lines that don't have any branches, so they are
-        // incorrectly being reported as having partial coverage.
-        // Probably just filter out 0 count pops on lines that have other
-        // non-zero opcodes, while reading the lines.
-
+  
     }
 }
 */
