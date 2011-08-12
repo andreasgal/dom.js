@@ -1,69 +1,297 @@
 #!/usr/local/bin/node
+// -*- mode: javascript; -*-
 
-/*
-  Parse the output of the spidermonkey -D option.
-  Create an object that maps filenames to file objects.
-  A file object maps line numbers to line objects.
-  A line object maps bytecode pc values to execution counts
-    and probably also to the disassembled string
-*/
+var assert = require("assert");
+var fs = require("fs");
+var console = require("console");
+var datafilelinenum
 
 
-var START = /^--- PC COUNTS ([^:]+):(\d+) ---$/;
-var END = /^--- END PC COUNTS/;
-var DATA = /^(\d)+:(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
-
-// We skip any lines that look like these:
-var skip = {
-    "" : true,
-    "main:" : true,
-    "loc   counts           x line  op" : true,
-    "----- ----------------   ----  --" : true,
+function Opcode(line, assembly) {
+    this.line = line;
+    this.assembly = assembly;
+    this.count = 0;
 }
 
-var lines = require('fs').readFileSync(process.argv[2], 'utf8').split("\n");
+function Line(file, number) {
+    this.file = file;
+    this.number = number;
+    this.opcodes = {};  // Map pc to Opcode object
+}
 
-var files = {};  // This is the data structure we're building
-var file;        // The current file structure
-
-for(var n = 0; n < lines.length; n++) {
-    var line = lines[n];
-    var match;
-
-    if (skip[line]) continue;
-    if (line[0] === "\t") continue;  // lookupswitch data we skip
-    if (line.match(END)) continue;
-
-    if (match = line.match(START)) {
-        var jsfilename = match[1];
-        var jsstart = match[2];
-
-        if (!files[jsfilename]) {
-            files[jsfilename] = {};
-        }
-        file = files[jsfilename];
-    }
-    else if (match = line.match(DATA)) {
-        var pc = parseInt(match[1]);
-        var count = parseInt(match[2]) + parseInt(match[3]) + parseInt(match[4]);
-        var linenum = parseInt(match[5]);
-        var opcode = match[6];
-
-        if (!file[linenum]) {
-            file[linenum] = {};
-        }
-
-        if (!file[linenum][pc]) {
-            file[linenum][pc] = { count: 0, opcode:opcode };
-        }
-        file[linenum][pc].count += count;
+Line.prototype.addOpcode = function(pc, count, assembly) {
+    var opcode = this.opcodes[pc];
+    if (!opcode) {
+        opcode = new Opcode(this, assembly);
+        this.opcodes[pc] = opcode;
     }
     else {
-        console.warn("Can't parse line %d: %s", n, line);
-        process.exit(1);
+        // Each time we get the same pc it had better have the same
+        // opcode associated with it
+        assert.equal(assembly, opcode.assembly, "different assembly for " +
+                     this.file.name + ":" + this.number + ":" + pc + 
+                    " at " + datafilelinenum + "\n\t" + 
+                    assembly + " != " + opcode.assembly);
+//        if (assembly !== opcode.assembly) {
+//            console.warn(assembly, "!==", opcode.assembly);
+//        }
+    }
+
+    // Adjust the count for this opcode.
+    opcode.count += count;
+    this._counts = null;  // clear cache
+};
+
+// Return an array of the counts for this line.  If all opcodes have
+// the same count, then this will be a single element array.  If the line
+// includes a branch then there may be two or three branches.  The counts will
+// be sorted from fewest to most.
+Line.prototype.counts = function() {
+    if (!this._counts) {
+        var min = Infinity, max = 0;
+        var rawcounts = [];
+
+        for(var pc in this.opcodes) {
+            var c = this.opcodes[pc].count;
+            min = Math.min(min, c);
+            max = Math.max(max, c);
+            rawcounts.push(c);
+        }
+
+        var counts;
+
+        if (min === max) counts = [min];  // special case: all lines are same
+        else {
+            rawcounts.sort(function(a,b) { return a-b; });  // Numerical order
+            
+            // Remove duplicates so only the unique counts are listed here
+            var counts = [];
+            counts[0] = rawcounts[0];
+            for(var i = 1, j = 0; i < rawcounts.length; i++) {
+                if (rawcounts[i] === counts[j]) continue;
+                counts[++j] = rawcounts[i];
+            }
+        }            
+        this._counts = counts;
+    }
+
+    return this._counts;
+}
+
+// Return coverage for this line.  One of the strings "full", "some", "none"
+Line.prototype.coverage = function() {
+    var counts = this.counts();
+    if (counts[0] > 0) return "full";
+    if (counts.length > 1) return "some";
+    return "none";
+}
+
+function File(name) {
+    this.name = name;
+    this.lines = {};
+}
+
+File.prototype.line = function(linenum) {
+    if (!this.lines[linenum]) {
+        this.lines[linenum] = new Line(this, linenum);
+    }
+    return this.lines[linenum];
+};
+
+File.prototype.coverage = function() {
+    var covered = 0, partial = 0, uncovered = 0;
+
+    for(var linenum in this.lines) {
+        var line = this.lines[linenum];
+        switch(line.coverage()) {
+        case "full": covered++; break;
+        case "some": partial++; break;
+        case "none": uncovered++; break;
+        }
+    }
+
+    return [covered, partial, uncovered];
+}
+
+// Pass in an array of filenames of the -D output files to parse.
+// Returns an object that maps JS source filenames to File objects
+// Each File object includes a map of line numbers to Line objects.
+// Each Line object includes a map of bytecode PC addresses to Opcode objects
+function parse(datafiles) {
+
+    var START = /^--- PC COUNTS ([^:]+):(\d+) ---$/;
+    var END = /^--- END PC COUNTS/;
+    var DATA = /^(\d+):(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
+
+    // We skip any lines that look like these:
+    var skip = {
+        "" : true,
+        "main:" : true,
+        "loc   counts           x line  op" : true,
+        "----- ----------------   ----  --" : true,
+    }
+
+    var files = {};  // This is the data structure we'll return
+    
+    if (typeof datafiles === "string") datafiles = [datafiles];
+
+    datafiles.forEach(function(datafilename)  {
+        var datalines
+        var jsfile;  // The current File object
+
+        try {
+            datalines = fs.readFileSync(datafilename, 'utf8').split("\n");
+        }
+        catch(e) {
+            console.log("Can't read file %s: %s", datafilename, e.message);
+            process.exit(1);
+        }
+
+        for(var n = 0; n < datalines.length; n++) {
+            datafilelinenum = n;
+            var dataline = datalines[n];
+            var match;
+
+            if (skip[dataline]) continue;
+            if (dataline[0] === "\t") continue;  // lookupswitch data we skip
+            if (dataline.match(END)) continue;
+
+            if (match = dataline.match(START)) {
+                var jsfilename = match[1];
+                // the filename plus line number identifies the start
+                // of the function that is being disassembled. Opcodes are
+                // relative to that this
+                var jsfuncstart = match[1] + ":" + match[2];
+                
+                if (!files[jsfilename]) {
+                    files[jsfilename] = new File(jsfilename);
+                }
+                jsfile = files[jsfilename];
+            }
+            else if (match = dataline.match(DATA)) {
+                var pc = match[1] + "@" + jsfuncstart;
+                var count = parseInt(match[2], 10) +
+                    parseInt(match[3], 10) +
+                    parseInt(match[4], 10);
+                var linenum = parseInt(match[5], 10);
+                var assembly = match[6];
+
+                jsfile.line(linenum).addOpcode(pc, count, assembly);
+            }
+            else {
+                assert.fail("", "", "Can't parse line " + n + ": " + dataline);
+            }
+        }
+    });
+
+    return files;
+}
+
+function usage() {
+    console.log("usage: profilage [options] datafiles...");
+    console.log("Options:");
+    console.log("  -q       Quiet: display coverage % only");
+    console.log("  -s       Server: run as an HTTP server to display data");
+    console.log("  -p port  Port number for server (default: 8000)");
+    console.log("  -t file  Display coverage stats for target js file");
+    console.log("           default: all files; multiple -t args allowed");
+}
+
+
+// Loop through the command-line arguments collecting input files and options
+
+var datafiles = [];
+var quiet = false;   // quiet: only output coverage %
+var targets = [];    // Which js files do we want stats on?
+var server = false;  // Launch web server for exploring coverage
+var port = 8000;
+
+var argv = process.argv;
+argv.shift();  // throw away the path to node
+argv.shift();  // throw away the path to this script
+
+if (!argv.length) usage();
+while(argv.length) {
+    var arg = argv.shift();
+    switch(arg) {
+    case '-q':
+        quiet = true;
+        break;
+    case '-s':
+        server = true;
+        break;
+    case '-p':
+        if (!argv.length) usage();
+        port = parseInt(argv.shift());
+        if (port === 0) usage();
+        break;
+    case '-t':
+        if (!argv.length) usage();
+        targets.push(argv.shift());
+        break;
+    default: 
+        if (arg[0] === '-') usage();
+        datafiles.push(arg);
+        break;
     }
 }
 
+// Now analyze the data
+var data = parse(datafiles);
+
+// And generate our output
+
+// If no targets specified, output all
+if (targets.length === 0) { 
+    for(filename in data) targets.push(filename);
+    targets.sort();         // Alphabetially
+}
+
+targets.forEach(function(target) {
+    var file = data[target];
+
+    // XXX: if file is null here, go look for close matches?
+    // e.g. loop through all files in data, and strip off all but the
+    // last path component, and see if that matches anything...
+    if (!file) {
+        for(var filename in data) {
+            if (filename.substring(filename.lastIndexOf("/")+1) === target) {
+                target = filename;
+                file = data[filename];
+                break;
+            }
+        }
+        if (!file) {
+            console.warn("Unknown target file %s", target);
+            return; 
+        }
+    }
+
+    var coverage = file.coverage();
+    var covered = coverage[0];
+    var partial = coverage[1];
+    var uncovered = coverage[2];
+    var total = covered + partial + uncovered;
+
+    if (quiet) {
+        console.log("%s: %d%", target, percent(covered/total));
+    }
+    else {
+        console.log("%s:\n\t" +
+                    "significant lines: %d\n\t" +
+                    "          covered: %d (%d%)\n\t" +
+                    "partially covered: %d (%d%)\n\t" +
+                    "        uncovered: %d (%d%)",
+                    target, total,
+                    covered, percent(covered/total),
+                    partial, percent(partial/total),
+                    uncovered, percent(uncovered/total));
+    }
+})
+
+function percent(x) { return Math.round(x*100); }
+
+/*
 
 // Now look through all lines of all files and report lines that have
 // partial coverage
@@ -118,3 +346,4 @@ for(var filename in files) {
 
     }
 }
+*/
