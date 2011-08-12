@@ -59,11 +59,6 @@ function span(cls, text) {
 var if_modified_since = null;
 
 function poll_server_forever() {
-    /*
-    http://api.jquery.com/jQuery.get/
-    "If a request with jQuery.get() returns an error code, it will fail silently unless the script has also called the global .ajaxError() method"
-    Thus if the server doesn't respond correctly then we break out of the polling loop. The page must be refreshed at this point to start it again.
-    */
     var headers = {};
     var url = 'coverage.json';
     if (if_modified_since) {
@@ -71,16 +66,22 @@ function poll_server_forever() {
         url += '?after=' + encodeURIComponent(if_modified_since);
     }
     jQuery.ajax(url, {
+        headers: headers,
         complete: function(data) {
             var contents = document.getElementById('contents');
+            var response = JSON.parse(data['responseText']);
+            if (!response) {
+                return;
+            }
+            if_modified_since = data.getResponseHeader('last-modified');
+
             contents.innerHTML = '';
             contents.appendChild(div(txt(new Date().toUTCString())));
-            var response = JSON.parse(data['responseText']);
-            if_modified_since = data.getResponseHeader('last-modified');
+
             for (var filename in response) {
                 var file_data = response[filename];
                 var file_div = div(
-                    txt(filename),
+                    txt(' (' + Math.floor((file_data['covered'] / (1.0 * file_data['significant'])) * 100) + '%) ' + filename),
                     div(
                         span('significant', 'Significant: ' + file_data['significant']),
                         span('covered', 'Covered: ' + file_data['covered']),
@@ -89,8 +90,7 @@ function poll_server_forever() {
                 contents.appendChild(file_div);
             }
             poll_server_forever();
-        },
-        headers: headers,
+        }
     });
 }
 
