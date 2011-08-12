@@ -1,0 +1,69 @@
+#!/usr/local/bin/node
+
+// at the moment you have to run this from the dom.js directory, not the tools directory.
+// less hardcoded paths would be good.
+
+
+var spawn = require('child_process').spawn;
+var http = require('http');
+var vm = require('vm');
+
+// world's lamest comet server!
+var disassembling_lock = false;
+var coverage_data = null;
+var callbacks = [];
+
+
+var index_html = require('fs').readFileSync('index.html', 'utf8');
+
+
+
+
+http.createServer(function (req, res) {
+    if (req.url == '/') {
+        if (!disassembling_lock) {
+            disassembling_lock = true;
+            // TODO this needs to delete the old disassembly.out first.
+            var dissassembler = spawn('jsd', ['-D', '../../disassembly.out', 'core.js'], {cwd: 'tests/jsdom'});
+            dissassembler.stdout.on('data', function (data) {
+              console.log('stdout: ' + data);
+            });
+            dissassembler.stderr.on('data', function (data) {
+              console.log('stderr: ' + data);
+            });
+            dissassembler.on('exit', function (code) {
+                console.log('child process exited with code ' + code);
+                var parser = spawn('tools/profilage', ['disassembly.out']);
+                var parts_to_parse = '';
+                parser.stdout.on('data', function (data) {
+                    parts_to_parse += data;
+                });
+                parser.on('exit', function (code) {
+                    disassembling_lock = false;
+                    coverage_data = JSON.parse(parts_to_parse.substring(0, parts_to_parse.length - 1));
+                    console.log('coverage and profiler data updated.');
+                    var callbacks_copy = callbacks;
+                    callbacks = [];
+                    for (var i = 0; i < callbacks_copy.length; i++) {
+                        callbacks_copy[i].writeHead(200, {'Content-Type': 'application/json'});
+                        callbacks_copy[i].end(JSON.stringify(coverage_data));
+                    }
+                });
+            });
+        }
+        res.writeHead(200, {'Content-Type': 'text/html'});
+        res.end(index_html);
+    } else if (req.url == '/coverage.json') {
+        if (coverage_data) {
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify(coverage_data));
+        } else {
+            callbacks.push(res);
+        }
+    } else {
+        res.writeHead(404, {'Content-Type': 'text/html'});
+        res.end('Not Found');
+    }
+}).listen(1337, "127.0.0.1");
+console.log('Server running at http://127.0.0.1:1337/');
+

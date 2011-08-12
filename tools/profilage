@@ -26,6 +26,8 @@ var lines = require('fs').readFileSync(process.argv[2], 'utf8').split("\n");
 var files = {};  // This is the data structure we're building
 var file;        // The current file structure
 
+var results = {};
+
 for(var n = 0; n < lines.length; n++) {
     var line = lines[n];
     var match;
@@ -69,6 +71,7 @@ for(var n = 0; n < lines.length; n++) {
 // partial coverage
 for(var filename in files) {
     var f = files[filename];
+    var result_lines = results[filename] = [];
     for(linenum in f) {
         var l = f[linenum];
         
@@ -107,14 +110,15 @@ for(var filename in files) {
         // ought to be the same for each opcode.  If the counts are not
         // all the same, then coverage is "full-branched"
 
-
-        console.log("%s:%d:%s:%d", filename, linenum, coverage, count);
+        //console.log("%s:%d:%s:%d", filename, linenum, coverage, count);
+        result_lines.push([linenum, coverage, count]);
 
         // The -D output is including pop opcodes with zero counts on
         // executed lines that don't have any branches, so they are
         // incorrectly being reported as having partial coverage.
         // Probably just filter out 0 count pops on lines that have other
         // non-zero opcodes, while reading the lines.
-
     }
 }
+
+console.log(JSON.stringify(results));
