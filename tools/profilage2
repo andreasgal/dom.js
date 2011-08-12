@@ -227,6 +227,8 @@ var quiet = false;   // quiet: only output coverage %
 var targets = [];    // Which js files do we want stats on?
 var server = false;  // Launch web server for exploring coverage
 var port = 8000;
+var statistics_data = {};
+var output_json = false;
 
 var argv = process.argv;
 argv.shift();  // throw away the path to node
@@ -250,6 +252,9 @@ while(argv.length) {
     case '-t':
         if (!argv.length) usage();
         targets.push(path.resolve(argv.shift()));
+        break;
+    case '-j':
+        output_json = true;
         break;
     default: 
         if (arg[0] === '-') usage();
@@ -295,21 +300,29 @@ targets.forEach(function(target) {
     var uncovered = coverage[2];
     var total = covered + partial + uncovered;
 
-    if (quiet || server) {
-        console.log("%s: %d%", target, percent(covered/total));
+    if (!output_json) {
+        if (quiet || server) {
+            console.log("%s: %d%", target, percent(covered/total));
+        }
+        else {
+            console.log("%s:\n\t" +
+                        "significant lines: %d\n\t" +
+                        "          covered: %d (%d%)\n\t" +
+                        "partially covered: %d (%d%)\n\t" +
+                        "        uncovered: %d (%d%)",
+                        target, total,
+                        covered, percent(covered/total),
+                        partial, percent(partial/total),
+                        uncovered, percent(uncovered/total));
+        }
+    } else {
+        statistics_data[target] = {significant: total, covered: covered, partial: partial, uncovered: uncovered}
     }
-    else {
-        console.log("%s:\n\t" +
-                    "significant lines: %d\n\t" +
-                    "          covered: %d (%d%)\n\t" +
-                    "partially covered: %d (%d%)\n\t" +
-                    "        uncovered: %d (%d%)",
-                    target, total,
-                    covered, percent(covered/total),
-                    partial, percent(partial/total),
-                    uncovered, percent(uncovered/total));
-    }
-})
+});
+
+if (output_json) {
+    console.log(JSON.stringify(statistics_data));
+}
 
 function percent(x) { return Math.round(x*100); }
 

@@ -2,13 +2,75 @@
     <head>
         <title>dom.js</title>
         <style type="text/css">
+
+div {
+    padding: 0.5em;
+    clear: left;
+}
+
+#contents {
+    border: 2px solid gray;
+    margin: 0.5em;
+}
+
+span {
+    float: left;
+    width: 15em;
+}
+.significant {
+    color: gray;
+}
+
+.covered {
+    color: green;
+}
+
+.partial {
+    color: orange;
+}
+
+.uncovered {
+    color: red;
+}
         </style>
         <script type="application/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
         <script type="application/javascript">
 <!--
 
+function txt(text) {
+    return document.createTextNode(text);
+}
+
+function div() {
+    var rv = document.createElement('div');
+    for (var i = 0; i < arguments.length; i++) {
+        rv.appendChild(arguments[i]);
+    }
+    return rv;
+}
+
+function span(cls, text) {
+    var rv = document.createElement('span');
+    rv.setAttribute('class', cls);
+    rv.appendChild(txt(text));
+    return rv;
+}
+
 jQuery.get('coverage.json', function(data) {
-    document.body.appendChild(document.createTextNode(JSON.stringify(data)));
+    console.log('coverage');
+    console.log(data);
+    var contents = document.getElementById('contents');
+    contents.innerHTML = '';
+    for (var filename in data) {
+        var file_div = div(
+            txt(filename),
+            div(
+                span('significant', 'Significant: ' + data[filename]['significant']),
+                span('covered', 'Covered: ' + data[filename]['covered']),
+                span('partial', 'Partial: ' + data[filename]['partial']),
+                span('uncovered', 'Uncovered: ' + data[filename]['partial'])));
+        contents.appendChild(file_div);
+    }
 });
 
 -->
@@ -16,6 +78,6 @@ jQuery.get('coverage.json', function(data) {
     </head>
     <body>
         <h1>dom.js</h1>
-        <div>Please wait, generating profile...</div>
+        <div id="contents">Please wait, generating profile...</div>
     </body>
 </html>
