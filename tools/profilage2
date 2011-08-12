@@ -217,6 +217,7 @@ function usage() {
     console.log("  -p port  Port number for server (default: 8000)");
     console.log("  -t file  Display coverage stats for target js file");
     console.log("           default: all files; multiple -t args allowed");
+    console.log("  -j       Output coverage stats to stdout in JSON format");
 }
 
 
