@@ -33,7 +33,7 @@ http.createServer(function (req, res) {
             });
             dissassembler.on('exit', function (code) {
                 console.log('child process exited with code ' + code);
-                var parser = spawn('tools/profilage', ['disassembly.out']);
+                var parser = spawn('tools/profilage2', ['-j', 'disassembly.out']);
                 var parts_to_parse = '';
                 parser.stdout.on('data', function (data) {
                     parts_to_parse += data;
