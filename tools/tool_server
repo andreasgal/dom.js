@@ -36,11 +36,12 @@ function ProfilageGenerator(notify_queue) {
     this.lock = false;
     this.generate();
     var self = this;
+
     fs.watchFile('dom.js', function(curr, prev) { self.fileNotification(curr, prev) });
 }
 ProfilageGenerator.prototype.fileNotification = function (curr, prev) {
-    if (curr.mtime != prev.mtime) {
-        console.log('dom.js changed');
+    if (curr.mtime.toUTCString() != prev.mtime.toUTCString()) {
+        console.log(curr.mtime.toUTCString(), 'dom.js changed');
         this.generate();
     }
 }
@@ -48,29 +49,31 @@ ProfilageGenerator.prototype.generate = function () {
     var self = this;
     if (!this.lock) {
         this.lock = true;
-        // TODO this needs to delete the old disassembly.out first.
-        var dissassembler = spawn('jsd', ['-D', '../../disassembly.out', 'core.js'], {cwd: 'tests/jsdom'});
-        dissassembler.stdout.on('data', function (data) {
-            // Strip off the newline.
-            console.log('stdout: ' + data);
-        });
-        dissassembler.stderr.on('data', function (data) {
-            // Strip off the newline.
-            console.log('stderr: ' + data);
-        });
-        dissassembler.on('exit', function (code) {
-            console.log('child process exited with code ' + code);
-            var parser = spawn('tools/profilage2', ['-j', 'disassembly.out']);
-            var parts_to_parse = '';
-            parser.stdout.on('data', function (data) {
-                parts_to_parse += data;
+        var rm = spawn('rm', ['-f', 'disassembly.out'])
+        rm.on('exit', function(code) {
+
+            var dissassembler = spawn('jsd', ['-D', '../../disassembly.out', 'core.js'], {cwd: 'tests/jsdom'});
+            dissassembler.stdout.on('data', function (data) {
+                console.log('stdout: ' + data);
             });
-            parser.on('exit', function (code) {
-                self.lock = false;
-                console.log('coverage and profiler data updated.');
-                // Strip off the EOF.
-                self.profilage_data = parts_to_parse.substring(0, parts_to_parse.length - 1)
-                self.notify_queue.notify(self.profilage_data);
+            dissassembler.stderr.on('data', function (data) {
+                console.log('stderr: ' + data);
+            });
+            dissassembler.on('exit', function (code) {
+                console.log('child process exited with code ' + code);
+                var parser = spawn('tools/profilage2', ['-j', 'disassembly.out']);
+                var parts_to_parse = '';
+                parser.stdout.on('data', function (data) {
+                    parts_to_parse += data;
+                });
+                parser.on('exit', function (code) {
+                    self.lock = false;
+                    console.log('coverage and profiler data updated.');
+                    // Strip off the EOF.
+                    self.profilage_data = parts_to_parse.substring(0, parts_to_parse.length - 1);
+                    self.last_modified = new Date().toUTCString();
+                    self.notify_queue.notify(self.profilage_data);
+                });
             });
         });
     }
@@ -97,12 +100,10 @@ http.createServer(function (req, res) {
     if (req.url == '/') {
         res.writeHead(200, {'Content-Type': 'text/html'});
         res.end(index_html());
-    } else if (req.url == '/coverage.json') {
+    } else if (req.url.substring(0, 14) == '/coverage.json') {
         var profilage_data = profilage.get();
-        console.log('profilage data');
-        console.log(profilage_data);
         if (profilage_data) {
-            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.writeHead(200, {'Content-Type': 'application/json', 'Last-Modified': profilage.last_modified});
             res.end(profilage_data);
         } else {
             statistics_notification_queue.add(res);

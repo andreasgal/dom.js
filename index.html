@@ -56,19 +56,25 @@ function span(cls, text) {
     return rv;
 }
 
-jQuery.get('coverage.json', function(data) {
-    console.log('coverage');
-    console.log(data);
+var headers = {};
+var url = 'coverage.json';
+
+jQuery.get(url,
+function(data) {
     var contents = document.getElementById('contents');
+
     contents.innerHTML = '';
+    contents.appendChild(div(txt(new Date().toUTCString())));
+
     for (var filename in data) {
+        var file_data = data[filename];
         var file_div = div(
-            txt(filename),
+            txt(' (' + Math.floor((file_data['covered'] / (1.0 * file_data['significant'])) * 100) + '%) ' + filename),
             div(
-                span('significant', 'Significant: ' + data[filename]['significant']),
-                span('covered', 'Covered: ' + data[filename]['covered']),
-                span('partial', 'Partial: ' + data[filename]['partial']),
-                span('uncovered', 'Uncovered: ' + data[filename]['partial'])));
+                span('significant', 'Significant: ' + file_data['significant']),
+                span('covered', 'Covered: ' + file_data['covered']),
+                span('partial', 'Partial: ' + file_data['partial']),
+                span('uncovered', 'Uncovered: ' + file_data['partial'])));
         contents.appendChild(file_div);
     }
 });
