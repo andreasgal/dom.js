@@ -1,0 +1,120 @@
+#!/usr/local/bin/node
+
+/*
+  Parse the output of the spidermonkey -D option.
+  Create an object that maps filenames to file objects.
+  A file object maps line numbers to line objects.
+  A line object maps bytecode pc values to execution counts
+    and probably also to the disassembled string
+*/
+
+
+var START = /^--- PC COUNTS ([^:]+):(\d+) ---$/;
+var END = /^--- END PC COUNTS/;
+var DATA = /^(\d)+:(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
+
+// We skip any lines that look like these:
+var skip = {
+    "" : true,
+    "main:" : true,
+    "loc   counts           x line  op" : true,
+    "----- ----------------   ----  --" : true,
+}
+
+var lines = require('fs').readFileSync(process.argv[2], 'utf8').split("\n");
+
+var files = {};  // This is the data structure we're building
+var file;        // The current file structure
+
+for(var n = 0; n < lines.length; n++) {
+    var line = lines[n];
+    var match;
+
+    if (skip[line]) continue;
+    if (line[0] === "\t") continue;  // lookupswitch data we skip
+    if (line.match(END)) continue;
+
+    if (match = line.match(START)) {
+        var jsfilename = match[1];
+        var jsstart = match[2];
+
+        if (!files[jsfilename]) {
+            files[jsfilename] = {};
+        }
+        file = files[jsfilename];
+    }
+    else if (match = line.match(DATA)) {
+        var pc = parseInt(match[1]);
+        var count = parseInt(match[2]) + parseInt(match[3]) + parseInt(match[4]);
+        var linenum = parseInt(match[5]);
+        var opcode = match[6];
+
+        if (!file[linenum]) {
+            file[linenum] = {};
+        }
+
+        if (!file[linenum][pc]) {
+            file[linenum][pc] = { count: 0, opcode:opcode };
+        }
+        file[linenum][pc].count += count;
+    }
+    else {
+        console.warn("Can't parse line %d: %s", n, line);
+        process.exit(1);
+    }
+}
+
+
+// Now look through all lines of all files and report lines that have
+// partial coverage
+for(var filename in files) {
+    var f = files[filename];
+    for(linenum in f) {
+        var l = f[linenum];
+        
+        var haszero = 0, hasnonzero = 0, max = 0;
+        for(var opcode in l) {
+            var op = l[opcode];
+            if (op.count === 0) haszero++;
+            else {
+                hasnonzero++;
+                max = Math.max(max, op.count);
+            }
+        }
+
+        var coverage, count;
+        if (haszero === 0) {    // if no opcodes have 0 count
+            coverage = "full";
+            count = max;
+            for(var opcode in l) {
+                var op = l[opcode];
+                if (op.count != max) {
+                    coverage = "full-branched";
+                    break;
+                }
+            }
+        }
+        else if (hasnonzero === 0) {
+            coverage = "none"; // all opcodes have zero count
+            count = 0;
+        }
+        else {
+            coverage = "partial";
+            count = max;
+        }
+
+        // In a line with full coverage and no branches, the count
+        // ought to be the same for each opcode.  If the counts are not
+        // all the same, then coverage is "full-branched"
+
+
+        console.log("%s:%d:%s:%d", filename, linenum, coverage, count);
+
+        // The -D output is including pop opcodes with zero counts on
+        // executed lines that don't have any branches, so they are
+        // incorrectly being reported as having partial coverage.
+        // Probably just filter out 0 count pops on lines that have other
+        // non-zero opcodes, while reading the lines.
+
+    }
+}
