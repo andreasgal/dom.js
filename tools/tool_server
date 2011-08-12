@@ -101,7 +101,7 @@ http.createServer(function (req, res) {
         res.writeHead(200, {'Content-Type': 'text/html'});
         res.end(index_html());
     } else if (req.url.substring(0, 14) == '/coverage.json') {
-        if (!req.headers['if-modified-since']) {
+        if (!req.headers['if-modified-since'] == profilage.last_modified) {
             var profilage_data = profilage.get();
             if (profilage_data) {
                 res.writeHead(200, {'Content-Type': 'application/json', 'Last-Modified': profilage.last_modified});
