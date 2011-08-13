@@ -8,6 +8,9 @@
 // incorrectly being reported as having partial coverage.
 // Probably just filter out 0 count pops on lines that have other
 // non-zero opcodes, while reading the lines.
+//   I've filtered out 0 count pops and stops
+//   There is still some other weirdness. Maybe having to do with
+//   try blocks?  This will take more work
 //
 // -d option that takes a directory name and generates static HTML
 // coverage files in that directory.
@@ -39,6 +42,10 @@ function Line(file, number) {
 }
 
 Line.prototype.addOpcode = function(pc, count, assembly) {
+    // Ignore bogus data from -D output
+    // Are there are other bogus 0 counts to ignore, too?
+    if (count === 0 && (assembly === "pop" || assembly === "stop")) return;
+
     var opcode = this.opcodes[pc];
     if (!opcode) {
         opcode = new Opcode(this, assembly);
@@ -365,6 +372,23 @@ if (server) {
             response.setHeader("Content-Type", "text/html");
             writeIndexFile(targets, response);
         }
+        else if (request.url.indexOf(":") !== -1) {
+            // : separates line number from filename
+            var a = request.url.split(":");
+            var filename = a[0];
+            var linenum = parseInt(a[1]);
+            var file = data[filename];
+            if (file) {
+                response.statusCode = 200;
+                response.setHeader("Content-Type", "text/html");
+                writeAssemblyFile(filename, linenum, response);
+            }
+            else {
+                response.statusCode = 404;
+                response.setHeader("Content-Type", "text/html");
+                response.end("Unknown file: " + request.url);
+            }
+        }
         else if (data[request.url]) {
             // If it is the name of one of our targets
             response.statusCode = 200;
@@ -404,17 +428,17 @@ var stylesheet =
     "";
 
 var index_file_prefix = 
-    '<html><head><title>%s</title>' + 
-    '<style type="text/css">%s</style></head>' +
+    '<html><head><title>%s</title>\n' + 
+    '<style type="text/css">%s</style>\n</head>\n' +
     '<body><h1>%s</h1>' + 
     '<table><tr>' +
     '<th>Source File<th>Executable Lines<th>Covered<th>Partial<th>Uncovered' +
-    '</tr>';
+    '</tr>\n';
 
 var index_file_suffix = '</table></body></html>';
 
 var index_file_row =
-    '<tr><td>%s<td>%d<td>%d (%d%)<td>%d (%d%)<td>%d (%d%)</tr>';
+    '<tr><td>%s<td>%d<td>%d (%d%)<td>%d (%d%)<td>%d (%d%)</tr>\n';
 
 
 // Write an HTML summary of the profiling/coverage data to the specified
@@ -438,7 +462,12 @@ function writeIndexFile(targets, stream) {
                                  
     });
 
-    stream.end(index_file_suffix);
+    if (targets.length == 1) {
+        stream.write('</table><h1>' + targets[0] + '</h1>');
+        writeCoverageFile(targets[0], stream, true);
+    }
+    else 
+        stream.end(index_file_suffix);
 }
 
 var coverage_file_prefix = 
@@ -446,6 +475,15 @@ var coverage_file_prefix =
     '<style type="text/css">%s</style></head>' +
     '<body><h1>%s</h1>' + 
     '';
+
+var coverage_file_script = 
+    '<script>' +
+    'document.addEventListener("click", clickHandler, true);' +
+    'function clickHandler(e) {' +
+    '    if (e.target.className === "linenum")' +
+    '        window.location = "%s" + ":" + e.target.textContent;' +
+    '}' +
+    '</script>';
 
 var coverage_file_suffix = "</body></html>";
 
@@ -455,12 +493,17 @@ var coverage_line =
 // Write an HTML page that lists a js source file with color coding to
 // indicate coverage and profiling information.  Write to the specified stream
 // and close the stream when done
-function writeCoverageFile(target, stream) {
+function writeCoverageFile(target, stream, noprefix) {
     var file = data[target];
     var lines = fs.readFileSync(target, "utf8").split("\n");
     var title = "CoverMonkey Report for " + target;
 
-    stream.write(util.format(coverage_file_prefix, title, stylesheet, title));
+    if (!noprefix) {
+        stream.write(util.format(coverage_file_prefix,
+                                 title, stylesheet, title));
+    }
+
+    stream.write(util.format(coverage_file_script, target));
 
     lines.forEach(function(line, linenum) {
         linenum += 1; // line numbers are 1-based, not 0-based
@@ -473,6 +516,36 @@ function writeCoverageFile(target, stream) {
     });
 
     stream.end(coverage_file_suffix);
+}
+
+var assembly_file_prefix = 
+    '<html><head><title>%s</title>' + 
+    '<style type="text/css">%s</style></head>' +
+    '<body><h1>%s</h1>' + 
+    '';
+var assembly_file_suffix = "</body></html>";
+
+
+function writeAssemblyFile(target, linenum, stream) {
+    var file = data[target];
+    var title = "CoverMonkey: " + target + ":" + linenum;
+    var line = file.lines[linenum];
+    
+    stream.write(util.format(assembly_file_prefix, title, stylesheet, title));
+
+    if (!line) {
+        stream.write("No executable code on this line")
+    }
+    else {
+        stream.write("<table>");
+        for(pc in line.opcodes) {
+            var opcode = line.opcodes[pc];
+            stream.write(util.format("<tr><td>%s<td>%d<td>%s</tr>",
+                                     pc, opcode.count, opcode.assembly));
+        }
+        stream.write("</table>");
+    }
+    stream.end(assembly_file_suffix);
 }
 
 // Return an <a> tag with a URL that will generate a file listing
