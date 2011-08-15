@@ -21,6 +21,26 @@
 // converting to a streaming parser rather than reading the whole file
 // at once and breaking into lines.
 //
+/* 
+// Sample code demonstrating problems with -D
+// Talk to sfink about this.
+(function() {
+    var x = 1;  // 0 count pop at the end of this line
+
+    for(var i = 0; i < 1000; i++) {  // 0 count pop in i=0, and 0 count ifne in loop condition
+        x += i; // 0 count pop at the end of this assigment
+    }
+
+    try {
+        throw 1;  // 0 count goto on this line never executed because of throw
+    }
+    catch(e) {
+        print(1); // 0 count 'nop' filler instruction on this ilne
+    }
+})();  // long lambda body gets printed out with -D output here
+*/
+
+
 
 var assert = require("assert");
 var fs = require("fs");
@@ -28,6 +48,447 @@ var path = require("path");
 var console = require("console");
 var http = require("http");
 var util = require("util");
+
+function usage() {
+    console.log("usage: CoverMonkey [options] [<file>]");
+    console.log("Reads js -D data from <file> or stdin if no file specified.");
+    console.log("Options:");
+    console.log("  -q       Quiet: display coverage % only");
+    console.log("  -s       Server: run as an HTTP server to display data");
+    console.log("           implies -q");
+    console.log("  -p port  Port number for server (default: 8000)");
+    console.log("  -t file  Display coverage stats for target js file");
+    console.log("           default: all files; multiple -t args allowed");
+    console.log("  -d dir   Output HTML coverage files to directory dir");
+    process.exit(1);
+}
+
+
+// Loop through the command-line arguments collecting input files and options
+var options = {
+    filename: null,
+    input: null,
+    inputdir: null,
+    quiet: false,     // quiet: only output coverage %
+    targets: [],      // Which js files do we want stats on?
+    server: false,    // Start web server for exploring coverage
+    port: 8000,
+    outputdir: null
+};
+
+
+process.argv.shift();  // throw away the path to node
+process.argv.shift();  // throw away the path to this script
+
+while(process.argv.length) {
+    var arg = process.argv.shift();
+    switch(arg) {
+    case '-q':
+        options.quiet = true;
+        break;
+    case '-s':
+        options.server = true;
+        break;
+    case '-p':
+        if (!process.argv.length) usage();
+        options.port = parseInt(process.argv.shift());
+        if (options.port === 0) usage();
+        break;
+    case '-t':
+        if (!process.argv.length) usage();
+        options.targets.push(path.resolve(process.argv.shift()));
+        break;
+    case '-d':
+        if (!process.argv.length) usage();
+        if (options.outputdir) usage(); // only specify one
+        options.outputdir = path.resolve(process.argv.shift());
+        break;
+    default: 
+        if (options.filename) usage(); // One file only
+        options.filename = arg;
+        options.input = fs.createReadStream(options.filename,
+                                            { encoding: "utf8"});
+        options.inputdir = path.dirname(options.filename);
+        break;
+    }
+}
+
+// If no input file was specified, then read text from standard in
+if (!options.input) {
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+    options.input = process.stdin;
+    options.inputdir = process.cwd();
+}
+
+parseData(options.input, options.inputdir, reportCoverage);
+
+
+// Read a stream of -D data and parse it. Interpret filenames relative to
+// the specified directory.  If stream is stdin then any lines before the
+// beginning of the -D data are printed to stdout.
+function parseData(stream, directory, callback) {
+    var fragment = "";  // line fragments we haven't processed yet
+    
+    // These are the state variables used across invocations of parseLine()
+    var files = {}; // The return value: maps filenames to File objects
+    var jsfile;     // The current File object we're adding data to
+    var funcid;     // A file:line pair that identifies the start of the
+                    // function currently being disassembled. Used with opcodes
+                    // for disambiguation
+
+    stream.on('data', function(chunk) {
+        // Add any pending fragment to this chunk and break into lines
+        var lines = (fragment + chunk).split("\n");
+        
+        // The last element of the array is an unterminated line
+        fragment = lines.pop();
+        
+        // Now process the complete lines we got
+        lines.forEach(parseLine);
+    });
+
+    stream.on('end', function() {
+        if (fragment != "") parseLine(fragment);
+        return callback(files);
+    });
+
+    
+    const START = /^--- PC COUNTS ([^:]+):(\d+) ---$/;
+    const END = /^--- END PC COUNTS/;
+    const DATA = /^(\d+):(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
+    const SKIP = {
+        "" : true,
+        "main:" : true,
+        "loc   counts           x line  op" : true,
+        "----- ----------------   ----  --" : true,
+    }
+
+    var found_first_line = false;
+    var linenum = 0;
+
+    function parseLine(dataline) {
+        var match;
+        linenum++;
+
+        if (!found_first_line && dataline.match(START)) {
+            found_first_line = true;
+        }
+
+        // If we haven't found the first START line, and we're reading
+        // from stdin, just write this first line to stdout
+        if (!found_first_line) {
+            if (stream === process.stdin) 
+                console.log(dataline);
+            return;
+        }
+
+        if (SKIP[dataline]) return;
+        if (dataline[0] === "\t") return;  // lookupswitch data we skip
+        if (dataline.match(END)) return;
+
+        if (match = dataline.match(START)) {
+            var jsfilename = path.resolve(directory, match[1]);
+            // the filename plus line number identifies the start
+            // of the function that is being disassembled. Opcodes are
+            // relative to that this
+            funcid = match[1] + ":" + match[2];
+            
+            if (!files[jsfilename]) {
+                files[jsfilename] = new File(jsfilename);
+            }
+            // Remember the current File object across invocations
+            jsfile = files[jsfilename];
+        }
+        else if (match = dataline.match(DATA)) {
+            var pc = funcid + ":" + match[1];
+            var count = parseInt(match[2], 10) +
+                parseInt(match[3], 10) +
+                parseInt(match[4], 10);
+            var linenum = parseInt(match[5], 10);
+            var assembly = match[6];
+
+            jsfile.line(linenum).addOpcode(pc, count, assembly);
+        }
+        else {
+            // -D output prints out anonymous function bodies along with
+            // lambda opcodes.  These can be long and can run onto multiple 
+            // lines.  So basically we ignore any unknown lines.
+            return;
+        }
+    }
+}
+
+// Generate output
+function reportCoverage(data) {
+
+    var indextitle = "CoverMonkey Code Coverage Report";
+    var stylesheet = 
+        ".line {white-space: pre; font-family: monospace; padding:1px;}" +
+        ".full {background-color: #afa}" +     // Full coverage
+        ".none {background-color: #faa}" +     // No coverage
+        ".some {background-color: #ffa}" +     // Partial coverage
+        ".p0 {color:hsl(0,0%,0%)}" +           // Profile classes
+        ".p1 {color:hsl(0,10%,5%)}" +          // digit is base-10 logarithm 
+        ".p2 {color:hsl(0,20%,10%)}" +         // of # of executions
+        ".p3 {color:hsl(0,30%,15%)}" +
+        ".p4 {color:hsl(0,40%,20%)}" +
+        ".p5 {color:hsl(0,50%,25%)}" +
+        ".p6 {color:hsl(0,60%,30%)}" +
+        ".p7 {color:hsl(0,70%,35%)}" +
+        ".p8 {color:hsl(0,80%,40%)}" +
+        ".p9 {color:hsl(0,90%,45%)}" +
+        "table {border-collapse:collapse;}" +
+        "td, th {border:solid black 1px; padding:3px 5px 3px 5px;}" +
+        "th {background-color:#bbb}" +
+        ".linenum {float:left; font-weight:bold; text-align:right; margin-right:10px; width:5%}" +
+        "";
+
+    var index_file_prefix = 
+        '<html><head><title>%s</title>\n' + 
+        '<style type="text/css">%s</style>\n</head>\n' +
+        '<body><h1>%s</h1>' + 
+        '<table><tr>' +
+        '<th>Source File<th>Executable Lines<th>Covered<th>Partial<th>Uncovered' +
+        '</tr>\n';
+
+    var index_file_suffix = '</table></body></html>';
+
+    var index_file_row =
+        '<tr><td>%s<td>%d<td>%d (%d%)<td>%d (%d%)<td>%d (%d%)</tr>\n';
+
+    var coverage_file_prefix = 
+        '<html><head><title>%s</title>' + 
+        '<style type="text/css">%s</style></head>' +
+        '<body><h1>%s</h1>' + 
+        '';
+
+    var coverage_file_script = 
+        '<script>' +
+        'document.addEventListener("click", clickHandler, true);' +
+        'function clickHandler(e) {' +
+        '    if (e.target.className === "linenum")' +
+        '        window.location = "%s" + ":" + e.target.textContent;' +
+        '}' +
+        '</script>';
+
+    var coverage_file_suffix = "</body></html>";
+
+    var coverage_line =
+        '<div class="%s" title="%s"><span class="linenum">%d</span>%s</div>\n';
+
+    var assembly_file_prefix = 
+        '<html><head><title>%s</title>' + 
+        '<style type="text/css">%s</style></head>' +
+        '<body><h1>%s</h1>' + 
+        '';
+    var assembly_file_suffix = "</body></html>";
+
+
+    // If no targets specified, output all
+    if (options.targets.length === 0) { 
+        for(filename in data) options.targets.push(filename);
+        options.targets.sort();         // Alphabetially
+    }
+
+    options.targets.forEach(function(target, index) {
+        var file = data[target];
+
+        // If file is null here look for a file name with the same basename
+        // And alter the target in the array
+        if (!file) {
+            target = path.basename(target);
+
+            for(var filename in data) {
+                if (path.basename(filename) === target) {
+                    target = filename;
+                    file = data[filename];
+                    targets[index] = target;
+                    break;
+                }
+            }
+            if (!file) {
+                console.warn("Unknown target file %s", target);
+                return; 
+            }
+        }
+
+        var coverage = file.coverage();
+        var covered = coverage[0];
+        var partial = coverage[1];
+        var uncovered = coverage[2];
+        var total = covered + partial + uncovered;
+
+        if (options.quiet || options.server) {
+            console.log("%s: %d%", target, percent(covered/total));
+        }
+        else {
+            console.log("%s:\n\t" +
+                        "significant lines: %d\n\t" +
+                        "          covered: %d (%d%)\n\t" +
+                        "partially covered: %d (%d%)\n\t" +
+                        "        uncovered: %d (%d%)",
+                        target, total,
+                        covered, percent(covered/total),
+                        partial, percent(partial/total),
+                        uncovered, percent(uncovered/total));
+        }
+    });
+
+
+    function percent(x) { return Math.round(x*100); }
+
+    if (options.outputdir) {
+        var stream = fs.createWriteStream(path.join(options.outputdir,
+                                                    "index.html"));
+        writeIndexFile(options.targets, stream, true);
+        
+        for(var jsfile in data) {
+            var outputname = jsfile.replace(/\//g, "_") + ".html";
+            stream = fs.createWriteStream(path.join(options.outputdir,
+                                                    outputname));
+            writeCoverageFile(jsfile, stream, false, true);
+        }
+    }
+
+    if (options.server) {
+        var server = http.createServer(function(request, response) {
+            if (request.url === "/" || request.url === "/index.html") {
+                response.statusCode = 200;
+                response.setHeader("Content-Type", "text/html");
+                writeIndexFile(options.targets, response);
+            }
+            else if (request.url.indexOf(":") !== -1) {
+                // : separates line number from filename
+                var a = request.url.split(":");
+                var filename = a[0];
+                var linenum = parseInt(a[1]);
+                var file = data[filename];
+                if (file) {
+                    response.statusCode = 200;
+                    response.setHeader("Content-Type", "text/html");
+                    writeAssemblyFile(filename, linenum, response);
+                }
+                else {
+                    response.statusCode = 404;
+                    response.setHeader("Content-Type", "text/html");
+                    response.end("Unknown file: " + request.url);
+                }
+            }
+            else if (data[request.url]) {
+                // If it is the name of one of our targets
+                response.statusCode = 200;
+                response.setHeader("Content-Type", "text/html");
+                writeCoverageFile(request.url, response);
+            }
+            else {
+                response.statusCode = 404;
+                response.setHeader("Content-Type", "text/html");
+                response.end("Unknown file: " + request.url);
+            }
+        }).listen(options.port, "localhost", function() {
+            console.log("Details available at http://localhost:%d",
+                        options.port);
+        });
+    }
+
+    // Write an HTML summary of the profiling/coverage data to the specified
+    // stream and call the stream's end() method when done.
+    // If staticfile is set then we're writing to a file and need to 
+    // change the way we generate links
+    function writeIndexFile(targets, stream, staticlink) {
+        stream.write(util.format(index_file_prefix,
+                                 indextitle, stylesheet, indextitle));
+
+        targets.forEach(function(target) {
+            var file = data[target];
+            var coverage = file.coverage();
+            var covered = coverage[0];
+            var partial = coverage[1];
+            var uncovered = coverage[2];
+            var total = covered + partial + uncovered;
+            
+            stream.write(util.format(index_file_row,
+                                     filelink(target,staticlink),
+                                     total, 
+                                     covered, percent(covered/total),
+                                     partial, percent(partial/total),
+                                     uncovered, percent(uncovered/total)));
+            
+        });
+
+        if (targets.length == 1) {
+            stream.write('</table><h1>' + targets[0] + '</h1>');
+            writeCoverageFile(targets[0], stream, true);
+        }
+        else 
+            stream.end(index_file_suffix);
+    }
+
+    // Write an HTML page that lists a js source file with color coding to
+    // indicate coverage and profiling information.  Write to the specified stream
+    // and close the stream when done
+    function writeCoverageFile(target, stream, noprefix, staticlink) {
+        var file = data[target];
+        var lines = fs.readFileSync(target, "utf8").split("\n");
+        var title = "CoverMonkey Report for " + target;
+
+        if (!noprefix) {
+            stream.write(util.format(coverage_file_prefix,
+                                     title, stylesheet, title));
+        }
+
+        // The script make the line numbers clickable.
+        // This only works when running as a server, so don't include
+        // the script when generating static files.
+        if (!staticlink)
+            stream.write(util.format(coverage_file_script, target));
+
+        lines.forEach(function(line, linenum) {
+            linenum += 1; // line numbers are 1-based, not 0-based
+            var c = "line" +
+                file.coverageClass(linenum) +
+                file.profileClass(linenum);
+            var tooltip = file.detail(linenum);
+            if (line === "") line = " ";  // To make the HTML format right.
+            stream.write(util.format(coverage_line, c, tooltip, linenum, line));
+        });
+
+        stream.end(coverage_file_suffix);
+    }
+
+    function writeAssemblyFile(target, linenum, stream) {
+        var file = data[target];
+        var title = "CoverMonkey: " + target + ":" + linenum;
+        var line = file.lines[linenum];
+        
+        stream.write(util.format(assembly_file_prefix, title, stylesheet, title));
+
+        if (!line) {
+            stream.write("No executable code on this line")
+        }
+        else {
+            stream.write("<table>");
+            for(pc in line.opcodes) {
+                var opcode = line.opcodes[pc];
+                stream.write(util.format("<tr><td>%s<td>%d<td>%s</tr>",
+                                         pc, opcode.count, opcode.assembly));
+            }
+            stream.write("</table>");
+        }
+        stream.end(assembly_file_suffix);
+    }
+
+    // Return an <a> tag with a URL that will generate a file listing
+    function filelink(target, staticlink) {
+        if (staticlink) {
+            target = target.replace(/\//g, "_") + ".html";
+            return '<a href="' + target + '">' + target + '</a>';
+        }
+        else
+            return '<a href="' + target + '">' + target + '</a>';
+    }
+}
 
 function Opcode(line, assembly) {
     this.line = line;
@@ -44,6 +505,7 @@ function Line(file, number) {
 Line.prototype.addOpcode = function(pc, count, assembly) {
     // Ignore bogus data from -D output
     // Are there are other bogus 0 counts to ignore, too?
+    // XXX ifne in for(;;) loops often has a 0 count, too.
     if (count === 0 && (assembly === "pop" || assembly === "stop")) return;
 
     var opcode = this.opcodes[pc];
@@ -169,387 +631,3 @@ File.prototype.detail = function(n) {
         return "Full coverage: " + counts[0];
     return "Full coverage, with branches: " + counts.join(',');
 }
-
-// Pass in an array of filenames of the -D output files to parse.
-// Returns an object that maps JS source filenames to File objects
-// Each File object includes a map of line numbers to Line objects.
-// Each Line object includes a map of bytecode PC addresses to Opcode objects
-function parse(datafiles) {
-
-    var START = /^--- PC COUNTS ([^:]+):(\d+) ---$/;
-    var END = /^--- END PC COUNTS/;
-    var DATA = /^(\d+):(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
-
-    // We skip any lines that look like these:
-    var skip = {
-        "" : true,
-        "main:" : true,
-        "loc   counts           x line  op" : true,
-        "----- ----------------   ----  --" : true,
-    }
-
-    var files = {};  // This is the data structure we'll return
-    
-    if (typeof datafiles === "string") datafiles = [datafiles];
-
-    datafiles.forEach(function(datafilename)  {
-        var datafiledir = path.dirname(datafilename);
-        var datalines
-        var jsfile;  // The current File object
-
-        try {
-            datalines = fs.readFileSync(datafilename, 'utf8').split("\n");
-        }
-        catch(e) {
-            console.log("Can't read file %s: %s", datafilename, e.message);
-            process.exit(1);
-        }
-
-        for(var n = 0; n < datalines.length; n++) {
-            var dataline = datalines[n];
-            var match;
-
-            if (skip[dataline]) continue;
-            if (dataline[0] === "\t") continue;  // lookupswitch data we skip
-            if (dataline.match(END)) continue;
-
-            if (match = dataline.match(START)) {
-                var jsfilename = path.resolve(datafiledir, match[1]);
-                // the filename plus line number identifies the start
-                // of the function that is being disassembled. Opcodes are
-                // relative to that this
-                var jsfuncstart = match[1] + ":" + match[2];
-                
-                if (!files[jsfilename]) {
-                    files[jsfilename] = new File(jsfilename);
-                }
-                jsfile = files[jsfilename];
-            }
-            else if (match = dataline.match(DATA)) {
-                var pc = match[1] + "@" + jsfuncstart;
-                var count = parseInt(match[2], 10) +
-                    parseInt(match[3], 10) +
-                    parseInt(match[4], 10);
-                var linenum = parseInt(match[5], 10);
-                var assembly = match[6];
-
-                jsfile.line(linenum).addOpcode(pc, count, assembly);
-            }
-            else {
-                assert.fail("", "", "Can't parse line " + n + ": " + dataline);
-            }
-        }
-    });
-
-    return files;
-}
-
-function usage() {
-    console.log("usage: profilage [options] datafiles...");
-    console.log("Options:");
-    console.log("  -q       Quiet: display coverage % only");
-    console.log("  -s       Server: run as an HTTP server to display data");
-    console.log("           implies -q");
-    console.log("  -p port  Port number for server (default: 8000)");
-    console.log("  -t file  Display coverage stats for target js file");
-    console.log("           default: all files; multiple -t args allowed");
-    console.log("  -j       Output coverage stats to stdout in JSON format");
-}
-
-
-// Loop through the command-line arguments collecting input files and options
-
-var datafiles = [];
-var quiet = false;   // quiet: only output coverage %
-var targets = [];    // Which js files do we want stats on?
-var server = false;  // Launch web server for exploring coverage
-var port = 8000;
-var statistics_data = {};
-var output_json = false;
-
-var argv = process.argv;
-argv.shift();  // throw away the path to node
-argv.shift();  // throw away the path to this script
-
-if (!argv.length) usage();
-while(argv.length) {
-    var arg = argv.shift();
-    switch(arg) {
-    case '-q':
-        quiet = true;
-        break;
-    case '-s':
-        server = true;
-        break;
-    case '-p':
-        if (!argv.length) usage();
-        port = parseInt(argv.shift());
-        if (port === 0) usage();
-        break;
-    case '-t':
-        if (!argv.length) usage();
-        targets.push(path.resolve(argv.shift()));
-        break;
-    case '-j':
-        output_json = true;
-        break;
-    default: 
-        if (arg[0] === '-') usage();
-        datafiles.push(arg);
-        break;
-    }
-}
-
-// Now analyze the data
-var data = parse(datafiles);
-
-// And generate our output
-
-// If no targets specified, output all
-if (targets.length === 0) { 
-    for(filename in data) targets.push(filename);
-    targets.sort();         // Alphabetially
-}
-
-targets.forEach(function(target, index) {
-    var file = data[target];
-
-    // If file is null here look for a file name with the same basename
-    // And alter the target in the array
-    if (!file) {
-        target = path.basename(target);
-
-        for(var filename in data) {
-            if (path.basename(filename) === target) {
-                target = filename;
-                file = data[filename];
-                targets[index] = target;
-                break;
-            }
-        }
-        if (!file) {
-            console.warn("Unknown target file %s", target);
-            return; 
-        }
-    }
-
-    var coverage = file.coverage();
-    var covered = coverage[0];
-    var partial = coverage[1];
-    var uncovered = coverage[2];
-    var total = covered + partial + uncovered;
-
-    if (!output_json) {
-        if (quiet || server) {
-            console.log("%s: %d%", target, percent(covered/total));
-        }
-        else {
-            console.log("%s:\n\t" +
-                        "significant lines: %d\n\t" +
-                        "          covered: %d (%d%)\n\t" +
-                        "partially covered: %d (%d%)\n\t" +
-                        "        uncovered: %d (%d%)",
-                        target, total,
-                        covered, percent(covered/total),
-                        partial, percent(partial/total),
-                        uncovered, percent(uncovered/total));
-        }
-    } else {
-        statistics_data[target] = {significant: total, covered: covered, partial: partial, uncovered: uncovered}
-    }
-});
-
-if (output_json) {
-    console.log(JSON.stringify(statistics_data));
-}
-
-function percent(x) { return Math.round(x*100); }
-
-if (server) {
-    var server = http.createServer(function(request, response) {
-        if (request.url === "/" || request.url === "/index.html") {
-            response.statusCode = 200;
-            response.setHeader("Content-Type", "text/html");
-            writeIndexFile(targets, response);
-        }
-        else if (request.url.indexOf(":") !== -1) {
-            // : separates line number from filename
-            var a = request.url.split(":");
-            var filename = a[0];
-            var linenum = parseInt(a[1]);
-            var file = data[filename];
-            if (file) {
-                response.statusCode = 200;
-                response.setHeader("Content-Type", "text/html");
-                writeAssemblyFile(filename, linenum, response);
-            }
-            else {
-                response.statusCode = 404;
-                response.setHeader("Content-Type", "text/html");
-                response.end("Unknown file: " + request.url);
-            }
-        }
-        else if (data[request.url]) {
-            // If it is the name of one of our targets
-            response.statusCode = 200;
-            response.setHeader("Content-Type", "text/html");
-            writeCoverageFile(request.url, response);
-        }
-        else {
-            response.statusCode = 404;
-            response.setHeader("Content-Type", "text/html");
-            response.end("Unknown file: " + request.url);
-        }
-    }).listen(port, "localhost", function() {
-        console.log("Details available at http://localhost:%d", port);
-    });
-}
-
-var indextitle = "CoverMonkey Code Coverage Report";
-var stylesheet = 
-    ".line {white-space: pre; font-family: monospace; padding:1px;}" +
-    ".full {background-color: #afa}" +     // Full coverage
-    ".none {background-color: #faa}" +     // No coverage
-    ".some {background-color: #ffa}" +     // Partial coverage
-    ".p0 {color:hsl(0,0%,0%)}" +           // Profile classes
-    ".p1 {color:hsl(0,10%,5%)}" +          // digit is base-10 logarithm 
-    ".p2 {color:hsl(0,20%,10%)}" +         // of # of executions
-    ".p3 {color:hsl(0,30%,15%)}" +
-    ".p4 {color:hsl(0,40%,20%)}" +
-    ".p5 {color:hsl(0,50%,25%)}" +
-    ".p6 {color:hsl(0,60%,30%)}" +
-    ".p7 {color:hsl(0,70%,35%)}" +
-    ".p8 {color:hsl(0,80%,40%)}" +
-    ".p9 {color:hsl(0,90%,45%)}" +
-    "table {border-collapse:collapse;}" +
-    "td, th {border:solid black 1px; padding:3px 5px 3px 5px;}" +
-    "th {background-color:#bbb}" +
-    ".linenum {float:left; font-weight:bold; text-align:right; margin-right:10px; width:5%}" +
-    "";
-
-var index_file_prefix = 
-    '<html><head><title>%s</title>\n' + 
-    '<style type="text/css">%s</style>\n</head>\n' +
-    '<body><h1>%s</h1>' + 
-    '<table><tr>' +
-    '<th>Source File<th>Executable Lines<th>Covered<th>Partial<th>Uncovered' +
-    '</tr>\n';
-
-var index_file_suffix = '</table></body></html>';
-
-var index_file_row =
-    '<tr><td>%s<td>%d<td>%d (%d%)<td>%d (%d%)<td>%d (%d%)</tr>\n';
-
-
-// Write an HTML summary of the profiling/coverage data to the specified
-// stream and call the stream's end() method when done.
-function writeIndexFile(targets, stream) {
-    stream.write(util.format(index_file_prefix,
-                             indextitle, stylesheet, indextitle));
-
-    targets.forEach(function(target) {
-        var file = data[target];
-        var coverage = file.coverage();
-        var covered = coverage[0];
-        var partial = coverage[1];
-        var uncovered = coverage[2];
-        var total = covered + partial + uncovered;
-        
-        stream.write(util.format(index_file_row, filelink(target), total, 
-                                 covered, percent(covered/total),
-                                 partial, percent(partial/total),
-                                 uncovered, percent(uncovered/total)));
-                                 
-    });
-
-    if (targets.length == 1) {
-        stream.write('</table><h1>' + targets[0] + '</h1>');
-        writeCoverageFile(targets[0], stream, true);
-    }
-    else 
-        stream.end(index_file_suffix);
-}
-
-var coverage_file_prefix = 
-    '<html><head><title>%s</title>' + 
-    '<style type="text/css">%s</style></head>' +
-    '<body><h1>%s</h1>' + 
-    '';
-
-var coverage_file_script = 
-    '<script>' +
-    'document.addEventListener("click", clickHandler, true);' +
-    'function clickHandler(e) {' +
-    '    if (e.target.className === "linenum")' +
-    '        window.location = "%s" + ":" + e.target.textContent;' +
-    '}' +
-    '</script>';
-
-var coverage_file_suffix = "</body></html>";
-
-var coverage_line =
-    '<div class="%s" title="%s"><span class="linenum">%d</span>%s</div>\n';
-
-// Write an HTML page that lists a js source file with color coding to
-// indicate coverage and profiling information.  Write to the specified stream
-// and close the stream when done
-function writeCoverageFile(target, stream, noprefix) {
-    var file = data[target];
-    var lines = fs.readFileSync(target, "utf8").split("\n");
-    var title = "CoverMonkey Report for " + target;
-
-    if (!noprefix) {
-        stream.write(util.format(coverage_file_prefix,
-                                 title, stylesheet, title));
-    }
-
-    stream.write(util.format(coverage_file_script, target));
-
-    lines.forEach(function(line, linenum) {
-        linenum += 1; // line numbers are 1-based, not 0-based
-        var c = "line" +
-            file.coverageClass(linenum) +
-            file.profileClass(linenum);
-        var tooltip = file.detail(linenum);
-        if (line === "") line = " ";  // To make the HTML format right.
-        stream.write(util.format(coverage_line, c, tooltip, linenum, line));
-    });
-
-    stream.end(coverage_file_suffix);
-}
-
-var assembly_file_prefix = 
-    '<html><head><title>%s</title>' + 
-    '<style type="text/css">%s</style></head>' +
-    '<body><h1>%s</h1>' + 
-    '';
-var assembly_file_suffix = "</body></html>";
-
-
-function writeAssemblyFile(target, linenum, stream) {
-    var file = data[target];
-    var title = "CoverMonkey: " + target + ":" + linenum;
-    var line = file.lines[linenum];
-    
-    stream.write(util.format(assembly_file_prefix, title, stylesheet, title));
-
-    if (!line) {
-        stream.write("No executable code on this line")
-    }
-    else {
-        stream.write("<table>");
-        for(pc in line.opcodes) {
-            var opcode = line.opcodes[pc];
-            stream.write(util.format("<tr><td>%s<td>%d<td>%s</tr>",
-                                     pc, opcode.count, opcode.assembly));
-        }
-        stream.write("</table>");
-    }
-    stream.end(assembly_file_suffix);
-}
-
-// Return an <a> tag with a URL that will generate a file listing
-function filelink(target) {
-    return '<a href="' + target + '">' + target + '</a>';
-}
-
