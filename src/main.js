@@ -4,4 +4,5 @@ defineLazyProperty(global, "document", function() {
                idl.Document);
 });
 
-global.assert = assert
+global.assert = assert;
+
