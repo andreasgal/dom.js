@@ -158,21 +158,7 @@ function parseData(stream, directory, callback) {
 
     var parsing_lines = false; // Are we parsing lines or just echoing them?
     var linenum = 0;
-
-    var lastopwasjump = false;
-    var jumps = { // opcodes that jump to a new pc
-        "goto":true, "ifeq":true, "ifne":true, "or":true, "and":true,
-        "gosub":true, "case":true, "default":true,
-        "gotox":true,"ifeqx":true,"ifnex":true,"orx":true,"andx":true,
-        "gosubx":true,"casex":true,"defaultx":true,
-    };
-    var alwaysignored = { // always skip these opcodes with 0 counts
-        "nop":true, "stop":true, "trace":true,
-    };
-    var ignoreop = { // skip these opcodes if not after a jump
-        "pop":true, 
-        "ifne":true, "ifeq":true, "ifnex":true, "ifeqx": true,
-    };
+    var lastopcode;
 
     function parseLine(dataline) {
         var match;
@@ -206,6 +192,7 @@ function parseData(stream, directory, callback) {
             // Remember the current File object across invocations
             jsfile = files[jsfilename];
             lastopwasjump = false;
+            lastopcode = null;
         }
         else if (dataline.match(END)) {
             parsing_lines = false;
@@ -219,22 +206,41 @@ function parseData(stream, directory, callback) {
             var assembly = match[6];
             var opcode = assembly.match(/^(\w+)/)[1];
 
+            // Discard the (potentially very long) anonymous function 
+            // souce associated with lambda opcodes
+            if (opcode === "lambda") assembly = opcode;
+
             // Sometimes spidermonkey optimizations cause certain opcodes
             // to appear as if they are never executed. sfink (who implemented
             // the -D option) doesn't think that it is easily possible to
             // figure out exactly when this occurs in general. So here are
             // some heuristic tests to prevent lines from being inappropriately
             // marked as having partial coverage.
-            if (count === 0 &&
-                (alwaysignored[opcode] ||
-                 (lastopwasjump === false && ignoreop[opcode]))) {
-                lastopwasjump = jumps[opcode] || false;
-                return;  // Ignore this opcode
-            }
+            var skip = false;
 
-            lastopwasjump = jumps[opcode] || false;
+            // Skip even stops with a non-zero count
+            if (lastopcode && opcode === "stop") skip = true;  
 
-            jsfile.line(linenum).addOpcode(pc, count, assembly);
+            // Setting getters and setters in an object literal
+            if (opcode === "initprop" &&
+                (lastopcode === "getter" || lastopcode === "setter"))
+                skip = true;
+
+            // For loops have this optimization
+            if (count === 0 && opcode === "ifne" &&
+                (lastopcode === "lt" ||
+                 lastopcode === "le" ||
+                 lastopcode === "gt" ||
+                 lastopcode === "ge"))
+                skip = true;
+
+            if (count === 0 && opcode === "pop")
+                skip = true;
+
+            if (!skip) 
+                jsfile.line(linenum).addOpcode(pc, count, assembly);
+
+            lastopcode = opcode;
         }
         else {
             // -D output prints out anonymous function bodies along with
@@ -244,6 +250,61 @@ function parseData(stream, directory, callback) {
         }
     }
 }
+
+/*
+  This is old attempts to get partial line coverage analysis correct.
+
+  A better approach might be to analyze one function worth of opcodes at a time,
+  triggered by the END line. Figure out which opcodes are branches and where
+  they go to, and figure out which ops are unreachable.  That should get
+  rid of a few cases that currently have 0 counts.  Still have to special
+  case pop, I think, and ifne?
+  
+
+            // Adding thise to the pop test above only makes a small difference.
+            // Some of them only work when used in combination
+            || opcode === "nope" ||
+                 opcode === "ifeq" || opcode === "ifne" || opcode === "trace" ||
+                 opcode === "localinc" ||
+                 opcode === "blockchain" || opcode === "leaveblock" ||
+                   opcode === "goto" ||
+                 opcode === "nullblockchain"
+
+
+
+
+            // Sometimes spidermonkey optimizations cause certain opcodes
+            // to appear as if they are never executed. sfink (who implemented
+            // the -D option) doesn't think that it is easily possible to
+            // figure out exactly when this occurs in general. So here are
+            // some heuristic tests to prevent lines from being inappropriately
+            // marked as having partial coverage.
+    var lastopwasjump = false;
+    var jumps = { // opcodes that jump to a new pc
+        "goto":true, "ifeq":true, "ifne":true, "or":true, "and":true,
+        "gosub":true, "case":true, "default":true,
+        "gotox":true,"ifeqx":true,"ifnex":true,"orx":true,"andx":true,
+        "gosubx":true,"casex":true,"defaultx":true,
+    };
+    var alwaysignored = { // always skip these opcodes with 0 counts
+        "nop":true, "stop":true, "trace":true,
+    };
+    var ignoreop = { // skip these opcodes if not after a jump
+        "pop":true, 
+        "ifne":true, "ifeq":true, "ifnex":true, "ifeqx": true,
+    };
+
+            if (count === 0 &&
+                (alwaysignored[opcode] ||
+                 (lastopwasjump === false && ignoreop[opcode]))) {
+                lastopwasjump = jumps[opcode] || false;
+                return;  // Ignore this opcode
+            }
+
+            lastopwasjump = jumps[opcode] || false;
+*/
+
+
 
 // Generate output
 function reportCoverage(data) {
