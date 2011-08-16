@@ -155,7 +155,8 @@ function parseData(stream, directory, callback) {
         "----- ----------------   ----  --" : true,
     }
 
-    var found_first_line = false;
+
+    var parsing_lines = false; // Are we parsing lines or just echoing them?
     var linenum = 0;
 
     var lastopwasjump = false;
@@ -177,13 +178,13 @@ function parseData(stream, directory, callback) {
         var match;
         linenum++;
 
-        if (!found_first_line && dataline.match(START)) {
-            found_first_line = true;
+        if (!parsing_lines && dataline.match(START)) {
+            parsing_lines = true;
         }
 
         // If we haven't found the first START line, and we're reading
         // from stdin, just write this first line to stdout
-        if (!found_first_line) {
+        if (!parsing_lines) {
             if (stream === process.stdin) 
                 console.log(dataline);
             return;
@@ -191,7 +192,6 @@ function parseData(stream, directory, callback) {
 
         if (SKIP[dataline]) return;
         if (dataline[0] === "\t") return;  // lookupswitch data we skip
-        if (dataline.match(END)) return;
 
         if (match = dataline.match(START)) {
             var jsfilename = path.resolve(directory, match[1]);
@@ -206,6 +206,9 @@ function parseData(stream, directory, callback) {
             // Remember the current File object across invocations
             jsfile = files[jsfilename];
             lastopwasjump = false;
+        }
+        else if (dataline.match(END)) {
+            parsing_lines = false;
         }
         else if (match = dataline.match(DATA)) {
             var pc = funcid + ":" + match[1];
