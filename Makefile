@@ -106,9 +106,6 @@ test-summary: dom.js
 test-detailed: dom.js
 	${JSTESTS_PATH}/jstests.py -dso -j ${NUM_CORES} -m ${DOM_TEST_DIR}/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
 
-
 coverage: dom.js
-	@rm -f disassembly.out
-	tools/test_runner
-	tools/CoverMonkey -s -d html disassembly.out
+	tools/test_runner | tools/CoverMonkey -s -d html 
 

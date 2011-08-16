@@ -11,7 +11,7 @@ function run_next_test(files) {
         var stdout = '';
         var stderr = '';
         var process = spawn('jsd', [
-            '-D', 'disassembly.out',
+            '-D',
             '-f', 'dom.js',
             '-f', 'tests/newtests/' + fileName]);
         process.stdout.on('data', function (data) {
@@ -30,6 +30,8 @@ function run_next_test(files) {
                 console.log(stderr);
                 console.log("\x1b[31m\x1b[1m[FAIL]\x1b[0m", fileName);
             } else {
+                console.log(stdout);
+                console.log(stderr);
                 console.log("\x1b[32m\x1b[1m[PASS]\x1b[0m", fileName);
             }
 //            console.log('child process exited with code ' + code);
