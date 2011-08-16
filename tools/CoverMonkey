@@ -12,6 +12,36 @@
 //   There is still some other weirdness. Maybe having to do with
 //   try blocks?  This will take more work
 //
+//  A better approach might be to analyze one function worth of
+//  opcodes at a time, triggered by the END line. Figure out which
+//  opcodes are branches and where they go to, and figure out which
+//  ops are unreachable.  That should get rid of a few cases that
+//  currently have 0 counts.  Still have to special case pop and the
+//  other things I've got in there now, I think.
+// 
+// Another benefit of analzying entire functions at a time: based on the 
+// length of the function (in lines or (easier) opcodes) I can distinguish
+// inner from outer functions.  Currently, with this code:
+// 1: function a() { 
+// 2:    function b() { foo(); }
+// 3: }
+// Both function a and b have opcode 0 mapping to line 2.  As currently
+// written I can't really distinguish the two cases and the counts get
+// conflated, I think.  But if I knew where the end of the function was,
+// I could give each opcode a unique prefix or suffix.
+// Actually, the code above is probably okay currently because I use the 
+// start line of each function as an opcode prefix.  But if the first newline
+// was removed, I'd be in trouble.
+//
+// When analyzing -D output from multiple runs of the interpreter, I can get
+// the same code emitted more than once.  If I analize whole functions, 
+// maybe I can hash the disassembly somehow (omitting counts) to create a
+// unique identifier for that function.
+// 
+// Then, my data structure would be filename -> File object, file objects map
+// line numbers to zero or more functions (usually one).  And functions map 
+// line numbers to opcodes.
+
 /* 
 // Sample code demonstrating problems with -D
 // Talk to sfink about this.
@@ -254,11 +284,6 @@ function parseData(stream, directory, callback) {
 /*
   This is old attempts to get partial line coverage analysis correct.
 
-  A better approach might be to analyze one function worth of opcodes at a time,
-  triggered by the END line. Figure out which opcodes are branches and where
-  they go to, and figure out which ops are unreachable.  That should get
-  rid of a few cases that currently have 0 counts.  Still have to special
-  case pop, I think, and ifne?
   
 
             // Adding thise to the pop test above only makes a small difference.
@@ -390,7 +415,7 @@ function reportCoverage(data) {
                 if (path.basename(filename) === target) {
                     target = filename;
                     file = data[filename];
-                    targets[index] = target;
+                    options.targets[index] = target;
                     break;
                 }
             }
