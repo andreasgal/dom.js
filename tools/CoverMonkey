@@ -12,15 +12,6 @@
 //   There is still some other weirdness. Maybe having to do with
 //   try blocks?  This will take more work
 //
-// -d option that takes a directory name and generates static HTML
-// coverage files in that directory.
-// 
-// See if I can make it work on the -D output of an unpatched
-// spidermonkey debug build.  It would have to ignore more lines and
-// it would have to be able to read from stdin, which would mean
-// converting to a streaming parser rather than reading the whole file
-// at once and breaking into lines.
-//
 /* 
 // Sample code demonstrating problems with -D
 // Talk to sfink about this.
@@ -167,6 +158,21 @@ function parseData(stream, directory, callback) {
     var found_first_line = false;
     var linenum = 0;
 
+    var lastopwasjump = false;
+    var jumps = { // opcodes that jump to a new pc
+        "goto":true, "ifeq":true, "ifne":true, "or":true, "and":true,
+        "gosub":true, "case":true, "default":true,
+        "gotox":true,"ifeqx":true,"ifnex":true,"orx":true,"andx":true,
+        "gosubx":true,"casex":true,"defaultx":true,
+    };
+    var alwaysignored = { // always skip these opcodes with 0 counts
+        "nop":true, "stop":true, "trace":true,
+    };
+    var ignoreop = { // skip these opcodes if not after a jump
+        "pop":true, 
+        "ifne":true, "ifeq":true, "ifnex":true, "ifeqx": true,
+    };
+
     function parseLine(dataline) {
         var match;
         linenum++;
@@ -199,6 +205,7 @@ function parseData(stream, directory, callback) {
             }
             // Remember the current File object across invocations
             jsfile = files[jsfilename];
+            lastopwasjump = false;
         }
         else if (match = dataline.match(DATA)) {
             var pc = funcid + ":" + match[1];
@@ -207,6 +214,22 @@ function parseData(stream, directory, callback) {
                 parseInt(match[4], 10);
             var linenum = parseInt(match[5], 10);
             var assembly = match[6];
+            var opcode = assembly.match(/^(\w+)/)[1];
+
+            // Sometimes spidermonkey optimizations cause certain opcodes
+            // to appear as if they are never executed. sfink (who implemented
+            // the -D option) doesn't think that it is easily possible to
+            // figure out exactly when this occurs in general. So here are
+            // some heuristic tests to prevent lines from being inappropriately
+            // marked as having partial coverage.
+            if (count === 0 &&
+                (alwaysignored[opcode] ||
+                 (lastopwasjump === false && ignoreop[opcode]))) {
+                lastopwasjump = jumps[opcode] || false;
+                return;  // Ignore this opcode
+            }
+
+            lastopwasjump = jumps[opcode] || false;
 
             jsfile.line(linenum).addOpcode(pc, count, assembly);
         }
@@ -503,11 +526,6 @@ function Line(file, number) {
 }
 
 Line.prototype.addOpcode = function(pc, count, assembly) {
-    // Ignore bogus data from -D output
-    // Are there are other bogus 0 counts to ignore, too?
-    // XXX ifne in for(;;) loops often has a 0 count, too.
-    if (count === 0 && (assembly === "pop" || assembly === "stop")) return;
-
     var opcode = this.opcodes[pc];
     if (!opcode) {
         opcode = new Opcode(this, assembly);
