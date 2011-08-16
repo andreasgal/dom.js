@@ -108,8 +108,7 @@ test-detailed: dom.js
 
 
 coverage: dom.js
-	@rm -f tests/cmdline/disassembly.out
-	${JSTESTS_PATH}/jstests.py -C -d -j 1 -m ${DOM_TEST_DIR}/jstests.list --xul-info=none:none:true ${JS_PATH}/js ${TEST_PAT}
-	cd tests/jsdom && ${JS_PATH}/js -D ../../disassembly.out core.js
-	python tools/coverage_parser.py disassembly.out
+	@rm -f disassembly.out
+	tools/test_runner
+	tools/CoverMonkey -s -d html disassembly.out
 

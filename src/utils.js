@@ -1,7 +1,9 @@
 // Utility functions and other globals used throughout dom.js
 
 function assert(expr, msg) {
-    if (!expr) throw new Error("Assertion failed " + (msg||""));
+    if (!expr) {
+        throw new Error("Assertion failed: " + (msg || "") + "\n" + new Error().stack);
+    }
 }
 
 // For stuff that I haven't implemented yet

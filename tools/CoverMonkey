@@ -342,19 +342,19 @@ function reportCoverage(data) {
         var uncovered = coverage[2];
         var total = covered + partial + uncovered;
 
-        if (options.quiet || options.server) {
-            console.log("%s: %d%", target, percent(covered/total));
+        if (options.quiet || covered/total == 1) {
+            console.log("%s: %d.%d%", target, percent(covered/total), covered % total);
         }
         else {
-            console.log("%s:\n\t" +
+            console.log("%s: %d.%d%\n\t" +
                         "significant lines: %d\n\t" +
-                        "          covered: %d (%d%)\n\t" +
-                        "partially covered: %d (%d%)\n\t" +
-                        "        uncovered: %d (%d%)",
-                        target, total,
-                        covered, percent(covered/total),
-                        partial, percent(partial/total),
-                        uncovered, percent(uncovered/total));
+                        "          covered: %d (%d.%d%)\n\t" +
+                        "partially covered: %d (%d.%d%)\n\t" +
+                        "        uncovered: %d (%d%.d%)",
+                        target, percent(covered/total), covered % total, total,
+                        covered, percent(covered/total), covered % total,
+                        partial, percent(partial/total), partial % total,
+                        uncovered, percent(uncovered/total), uncovered % total);
         }
     });
 
