@@ -1,0 +1,47 @@
+#!/usr/local/bin/node
+
+var spawn = require('child_process').spawn;
+var fs = require('fs');
+
+var js_file_re = /.*\.js$/;
+
+function run_next_test(files) {
+    fileName = files.pop();
+    if (fileName.match(js_file_re)) {
+        var stdout = '';
+        var stderr = '';
+        var process = spawn('jsd', [
+            '-D', 'disassembly.out',
+            '-f', 'dom.js',
+            '-f', 'tests/newtests/' + fileName]);
+        process.stdout.on('data', function (data) {
+            stdout += data;
+        });
+
+        process.stderr.on('data', function (data) {
+            stderr += data;
+        });
+
+        process.on('exit', function (code) {
+            if (code) {
+                console.log('OUT:', fileName);
+                console.log(stdout);
+                console.log('ERR:', fileName);
+                console.log(stderr);
+                console.log("\x1b[31m\x1b[1m[FAIL]\x1b[0m", fileName);
+            } else {
+                console.log("\x1b[32m\x1b[1m[PASS]\x1b[0m", fileName);
+            }
+//            console.log('child process exited with code ' + code);
+            if (files.length) {
+                run_next_test(files);
+            }
+        });
+    }
+}
+
+fs.readdir('tests/newtests', function(err, files) {
+    if (files.length) {
+        run_next_test(files);
+    }
+});
