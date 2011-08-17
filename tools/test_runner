@@ -10,8 +10,7 @@ var all_disassemblies = '';
 
 function runCoverMonkey() {
     var covermonkey = spawn('tools/CoverMonkey', ['-d', 'html']);
-    var lines = all_disassemblies.split('\n');
-    lines.forEach(function(line) { covermonkey.stdin.write(line + '\n') });
+    covermonkey.stdin.write(all_disassemblies);
     covermonkey.stdin.end()
     covermonkey.stdout.on('data', function(data) { console.log(data.toString()); });
     covermonkey.stderr.on('data', function(data) { console.log(data.toString()); } );
