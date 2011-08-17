@@ -170,10 +170,7 @@ function parseData(stream, directory, callback) {
     });
 
     stream.on('end', function() {
-        if (fragment != "") {
-            var lines = fragment.split("\n");
-            lines.forEach(parseLine);
-        }
+        if (fragment != "") parseLine(fragment);
         return callback(files);
     });
 
