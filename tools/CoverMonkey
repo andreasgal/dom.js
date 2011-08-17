@@ -400,8 +400,10 @@ function reportCoverage(data) {
     // If no targets specified, output all
     if (options.targets.length === 0) { 
         for(filename in data) {
+            console.log("FILENAME: ", filename);
             // -D outputs a "(null)" script for the toplevel
             if (path.basename(filename) === "(null)") continue;
+            console.log("FILENAME: ", filename);
             options.targets.push(filename);
         }
         options.targets.sort();         // Alphabetially
@@ -458,12 +460,12 @@ function reportCoverage(data) {
                                                     "index.html"));
         writeIndexFile(options.targets, stream, true);
         
-        for(var jsfile in data) {
+        options.targets.forEach(function(jsfile) {
             var outputname = jsfile.replace(/\//g, "_") + ".html";
             stream = fs.createWriteStream(path.join(options.outputdir,
                                                     outputname));
             writeCoverageFile(jsfile, stream, false, true);
-        }
+        });
     }
 
     if (options.server) {
