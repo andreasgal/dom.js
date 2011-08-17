@@ -140,13 +140,16 @@ function parseData(stream, directory, callback) {
     });
 
     stream.on('end', function() {
-        if (fragment != "") parseLine(fragment);
+        if (fragment != "") {
+            var lines = fragment.split("\n");
+            lines.forEach(parseLine);
+        }
         return callback(files);
     });
 
     
-    const START = /^--- PC COUNTS ([^:]+):(\d+) ---$/;
-    const END = /^--- END PC COUNTS/;
+    const START = /^--- SCRIPT ([^:]+):(\d+) ---$/;
+    const END = /^--- END SCRIPT/;
     const DATA = /^(\d+):(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
     const SKIP = {
         "" : true,
@@ -454,6 +457,9 @@ function reportCoverage(data) {
     // indicate coverage and profiling information.  Write to the specified stream
     // and close the stream when done
     function writeCoverageFile(target, stream, noprefix, staticlink) {
+        if (target.match(/(null)/)) {
+            return;
+        }
         var file = data[target];
         var lines = fs.readFileSync(target, "utf8").split("\n");
         var title = "CoverMonkey Report for " + target;

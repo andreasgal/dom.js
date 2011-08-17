@@ -3,19 +3,40 @@
 var spawn = require('child_process').spawn;
 var fs = require('fs');
 
-var js_file_re = /.*\.js$/;
+const JS_FILE_RE = /.*\.js$/;
+const START_PC_COUNTS = /\n--- SCRIPT ([^:]+):(\d+) ---\n/;
 
-function run_next_test(files) {
+var all_disassemblies = '';
+
+function runCoverMonkey() {
+    var covermonkey = spawn('tools/CoverMonkey', ['-d', 'html']);
+    var lines = all_disassemblies.split('\n');
+    lines.forEach(function(line) { covermonkey.stdin.write(line + '\n') });
+    covermonkey.stdin.end()
+    covermonkey.stdout.on('data', function(data) { console.log(data.toString()); });
+    covermonkey.stderr.on('data', function(data) { console.log(data.toString()); } );
+    covermonkey.on('exit', function(code) {
+        console.log("CoverMonkey exited. (%d)", code);
+    });
+}
+
+function runNextTest(files) {
+    if (!files.length) {
+        return runCoverMonkey();
+    }
+
     fileName = files.pop();
-    if (fileName.match(js_file_re)) {
+    if (fileName.match(JS_FILE_RE)) {
         var stdout = '';
         var stderr = '';
-        var process = spawn('jsd', [
+        var pc_counts = false;
+        var process = spawn('js', [
             '-D',
+            '-f', 'src/testutils.js',
             '-f', 'dom.js',
             '-f', 'tests/newtests/' + fileName]);
         process.stdout.on('data', function (data) {
-            stdout += data;
+            stdout += data.toString();
         });
 
         process.stderr.on('data', function (data) {
@@ -23,6 +44,7 @@ function run_next_test(files) {
         });
 
         process.on('exit', function (code) {
+            all_disassemblies += stdout;
             if (code) {
                 console.log('OUT:', fileName);
                 console.log(stdout);
@@ -30,20 +52,14 @@ function run_next_test(files) {
                 console.log(stderr);
                 console.log("\x1b[31m\x1b[1m[FAIL]\x1b[0m", fileName);
             } else {
-                console.log(stdout);
-                console.log(stderr);
                 console.log("\x1b[32m\x1b[1m[PASS]\x1b[0m", fileName);
             }
-//            console.log('child process exited with code ' + code);
-            if (files.length) {
-                run_next_test(files);
-            }
+
+            runNextTest(files);
         });
     }
 }
 
 fs.readdir('tests/newtests', function(err, files) {
-    if (files.length) {
-        run_next_test(files);
-    }
+    runNextTest(files);
 });
