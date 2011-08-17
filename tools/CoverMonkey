@@ -399,7 +399,11 @@ function reportCoverage(data) {
 
     // If no targets specified, output all
     if (options.targets.length === 0) { 
-        for(filename in data) options.targets.push(filename);
+        for(filename in data) {
+            // -D outputs a "(null)" script for the toplevel
+            if (path.basename(filename) === "(null)") continue;
+            options.targets.push(filename);
+        }
         options.targets.sort();         // Alphabetially
     }
 
@@ -537,12 +541,9 @@ function reportCoverage(data) {
     }
 
     // Write an HTML page that lists a js source file with color coding to
-    // indicate coverage and profiling information.  Write to the specified stream
-    // and close the stream when done
+    // indicate coverage and profiling information.
+    // Write to the specified stream and close the stream when done.
     function writeCoverageFile(target, stream, noprefix, staticlink) {
-        if (target.match(/(null)/)) {
-            return;
-        }
         var file = data[target];
         var lines = fs.readFileSync(target, "utf8").split("\n");
         var title = "CoverMonkey Report for " + target;
