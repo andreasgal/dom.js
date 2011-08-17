@@ -171,6 +171,13 @@ function parseData(stream, directory, callback) {
 
     stream.on('end', function() {
         if (fragment != "") parseLine(fragment);
+
+        if (Object.keys(files).length === 0) {
+            console.log("CoverMonkey: No coverage data to process.\n" +
+                        "CoverMonkey: Are you using a debug build of spidermonkey?");
+            process.exit(0);
+        }
+
         return callback(files);
     });
 
@@ -400,10 +407,8 @@ function reportCoverage(data) {
     // If no targets specified, output all
     if (options.targets.length === 0) { 
         for(filename in data) {
-            console.log("FILENAME: ", filename);
             // -D outputs a "(null)" script for the toplevel
             if (path.basename(filename) === "(null)") continue;
-            console.log("FILENAME: ", filename);
             options.targets.push(filename);
         }
         options.targets.sort();         // Alphabetially
