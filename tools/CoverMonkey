@@ -145,6 +145,11 @@ if (!options.input) {
 parseData(options.input, options.inputdir, reportCoverage);
 
 
+const SCRIPT_START = /^--- SCRIPT ([^:]+):(\d+) ---$/;
+const SCRIPT_END = /^--- END SCRIPT/;
+const SCRIPT_DATA = /^(\d+):(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
+
+
 // Read a stream of -D data and parse it. Interpret filenames relative to
 // the specified directory.  If stream is stdin then any lines before the
 // beginning of the -D data are printed to stdout.
@@ -166,40 +171,151 @@ function parseData(stream, directory, callback) {
         fragment = lines.pop();
         
         // Now process the complete lines we got
-        lines.forEach(parseLine);
+        lines.forEach(processLine);
     });
 
     stream.on('end', function() {
         if (fragment != "") {
             var lines = fragment.split("\n");
-            lines.forEach(parseLine);
+            lines.forEach(processLine);
         }
         return callback(files);
     });
 
-    
-    const START = /^--- SCRIPT ([^:]+):(\d+) ---$/;
-    const END = /^--- END SCRIPT/;
-    const DATA = /^(\d+):(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
+  
+
+    var inscript = false; // Are we collecting a script or just echoing lines?
+    var scriptlines;
+
+    function processLine(dataline) {
+        if (inscript) {
+            scriptlines.push(dataline);
+            if (dataline.match(SCRIPT_END)) {
+                var script = new Script(scriptlines);
+                inscript = false;
+                scriptlines = null;
+            }
+        }
+        else {
+            if (dataline.match(SCRIPT_START)) {
+                inscript = true;
+                scriptlines = [ dataline ];
+            }
+            else if (stream === process.stdin) {
+                console.log(dataline);
+            }
+        }
+    }        
+}
+
+/*
+ * Parse an array of lines to create a Script object.
+ * "Script" is used in the SpiderMonkey internals sense: it is the body
+ * of a JS function or the JS toplevel code, or an eval string.
+ * 
+ * Scripts have a name which is a (hopefully) unique id that includes the
+ * source filename and starting line number. That isn't enough to be unique
+ * because in "function a() { function b() {}}" both scripts have the same
+ * file and line number. So I also have to include the ending line number
+ * and/or ending opcode in the script name.  I could also include some kind
+ * of hashcode of the script's opcodes in the name.  Or just use the
+ * entire script disassembly as the name, I suppose.
+ * 
+ * XXX: Am I ever going
+ * to be able to disambiguate functions a and b in the following, though?
+ *   function() { function a(){} function b(){} }
+ *
+ * Instead of having a totally unique name, scripts could also have an 
+ * equals() method, I suppose, so that we could detect whether we've already
+ * seen a script by that name.  Then each script name could map to an array
+ * of scripts, possibly.
+ * 
+ * Scripts also have a filename property that gives their absolute filename?
+ * 
+ * In addition to their name, scripts also have an array of opcodes and
+ * a map of pc addresses to opcode indexes.
+ *
+ * Finally, each script has an entry point: the index of the starting opcode.
+ * 
+ * Each opcode includes its string of assembly code.  
+ * And, after the script is analyzed, each opcode will also have a
+ * reachable flag to indicate if it can ever actually be executed.
+ *
+ * Eventually, opcodes will also have flags indicating whether they are
+ * the start or end of a non-branching linear sequence.
+ */
+function Script(lines) {
+    var script = this;
+    script.opcodes = [];
+    script.pcToOpcodeIndex = {};
+    var 
+    lines.forEach(function(dataline) {
+        var match;
+
+        if (match = dataline.match(SCRIPT_START)) {
+            script.filename = path.resolve(directory, match[1]); 
+            script.startline = parseInt(match[2], 10);
+
+            // Script name is supposed to be a unique identifier for
+            // the script, but it may need to include the opcodes to 
+            // be maximally unique.
+            script.name = match[1] + ":" + match[2];
+        }
+        else if (dataline === "main:") {
+            script.entrypoint = script.opcodes.length;
+        }
+        else if (match = dataline.match(SCRIPT_DATA)) {
+            var opcode = {
+                pc: match[1],
+                count: parseInt(match[2], 10) +
+                    parseInt(match[3], 10) +
+                    parseInt(match[4], 10),
+                srcline: parseInt(match[5], 10),
+                assembly: match[6];
+            };
+
+            // Discard the (potentially very long) anonymous function 
+            // souce associated with lambda opcodes
+            if (opcode.assembly.match(/^lambda /))
+                opcode.assembly = "lambda";
+
+
+            script.pcToOpcodeIndex[opcode.pc] = script.opcodes.length;
+            script.opcodes.push(opcode);
+        }
+        else if (dataline[0] === '\t') {
+            // this is part of a switch (or other?) disassembly
+            // for the previous opcode, so append it there
+            XXX
+        }
+
+
+    });
+}
+
+
+/*
+ * This is old parseLine() code:
+ *
+    var linenum = 0;
+    var lastopcode;
     const SKIP = {
         "" : true,
         "main:" : true,
         "loc   counts           x line  op" : true,
         "----- ----------------   ----  --" : true,
-    }
+    };
 
 
-    var parsing_lines = false; // Are we parsing lines or just echoing them?
-    var linenum = 0;
-    var lastopcode;
 
-    function parseLine(dataline) {
+
         var match;
         linenum++;
 
         if (!parsing_lines && dataline.match(START)) {
             parsing_lines = true;
         }
+
 
         // If we haven't found the first START line, and we're reading
         // from stdin, just write this first line to stdout
@@ -282,7 +398,7 @@ function parseData(stream, directory, callback) {
             return;
         }
     }
-}
+*/
 
 /*
   This is old attempts to get partial line coverage analysis correct.
