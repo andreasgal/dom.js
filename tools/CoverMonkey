@@ -276,17 +276,24 @@ function Script(lines) {
             if (opcode.assembly.match(/^lambda /))
                 opcode.assembly = "lambda";
 
-
             script.pcToOpcodeIndex[opcode.pc] = script.opcodes.length;
             script.opcodes.push(opcode);
         }
         else if (dataline[0] === '\t') {
             // this is part of a switch (or other?) disassembly
             // for the previous opcode, so append it there
-            XXX
+            script.opcodes[script.opcodes.length-1].assembly += dataline;
         }
-
-
+        else if (dataline === "loc   counts           x line  op") {
+            return;
+        }
+        else if (dataline === "----- ----------------   ----  --") {
+            return;
+        }
+        else {
+            console.log("Unexpected line in -D output: ", dataline);
+            process.exit(1);
+        }
     });
 }
 
@@ -299,8 +306,6 @@ function Script(lines) {
     const SKIP = {
         "" : true,
         "main:" : true,
-        "loc   counts           x line  op" : true,
-        "----- ----------------   ----  --" : true,
     };
 
 
