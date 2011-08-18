@@ -1,7 +1,24 @@
 #!/usr/local/bin/node
 // -*- mode: javascript; -*-
-
+//
 // TODO:
+//
+// The dead code analysis is saying that catch blocks are unreachable.
+// I think they must be their own entry points.  Need to ask someone on #jsapi
+// 
+// I'm getting warnings about unreachable non-zero opcodes...
+// 
+// The HTML output needs to be searchable for uncovered, partial and dead lines
+// Implement a -l option to actually list the line numbers that need attention?
+//
+// Output the opcodes for all lines directly into the main coverage
+// file?  And make lines clickable to toggle display of the
+// instructions?  Simpler and better for static files.  Output files
+// probably won't get more than 5x bigger.
+//
+// Clean up the code: its gotten really messy.
+//
+//
 //
 // The -D output is including pop opcodes with zero counts on
 // executed lines that don't have any branches, so they are
@@ -142,21 +159,31 @@ if (!options.input) {
     options.inputdir = process.cwd();
 }
 
-parseData(options.input, options.inputdir, reportCoverage);
+parseScripts(options.input, reportCoverage);
+
+
+const SCRIPT_START = /^--- SCRIPT ([^:]+):(\d+) ---$/;
+const SCRIPT_END = /^--- END SCRIPT/;
+const SCRIPT_DATA = /^(\d+):(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
 
 
 // Read a stream of -D data and parse it. Interpret filenames relative to
 // the specified directory.  If stream is stdin then any lines before the
 // beginning of the -D data are printed to stdout.
-function parseData(stream, directory, callback) {
+function parseScripts(stream, callback) {
     var fragment = "";  // line fragments we haven't processed yet
     
+/*
     // These are the state variables used across invocations of parseLine()
     var files = {}; // The return value: maps filenames to File objects
     var jsfile;     // The current File object we're adding data to
     var funcid;     // A file:line pair that identifies the start of the
                     // function currently being disassembled. Used with opcodes
                     // for disambiguation
+*/
+
+    var scripts = [];   // Array of Script objects that hold the data
+    var scriptMap = {}; // String->Script map for detecting duplicate scripts
 
     stream.on('data', function(chunk) {
         // Add any pending fragment to this chunk and break into lines
@@ -166,44 +193,351 @@ function parseData(stream, directory, callback) {
         fragment = lines.pop();
         
         // Now process the complete lines we got
-        lines.forEach(parseLine);
+        lines.forEach(processLine);
     });
 
     stream.on('end', function() {
-        if (fragment != "") parseLine(fragment);
+        if (fragment != "") processLine(fragment);
 
-        if (Object.keys(files).length === 0) {
+        if (scripts.length === 0) {
             console.log("CoverMonkey: No coverage data to process.\n" +
                         "CoverMonkey: Are you using a debug build of spidermonkey?");
             process.exit(0);
         }
 
-        return callback(files);
+        callback(scripts);
     });
 
+    var inscript = false; // Are we collecting a script or just echoing lines?
+    var scriptlines;
+
+    function processLine(dataline) {
+        if (inscript) {
+            scriptlines.push(dataline);
+            if (dataline.match(SCRIPT_END)) {
+                // Skip initial dummy script
+                if (scriptlines[0] !== "--- SCRIPT (null):0 ---") {
+                    var script = new Script(scriptlines);
+                    var string = script.toString();
+
+                    var existingScript = scriptMap[string];
+                    if (existingScript) {
+                        // We've seen this script before
+                        existingScript.addCounts(script);
+                    }
+                    else {
+                        scripts.push(script);
+                        scriptMap[string] = script;
+                        script.checkReachability();
+                    }
+
+/*                    
+                    console.log("Script: %s", script.name);
+                    script.checkReachability();
+                    for(var i = 0; i < script.opcodes.length; i++) {
+                        if (!script.opcodes[i].reachable)
+                            console.log("Opcode %d at pc %d is not reachable",
+                                        i, script.opcodes[i].pc);
+                    }
+*/
+                }
+                
+                scriptlines = null;
+                inscript = false;
+
+            }
+        }
+        else {
+            if (dataline.match(SCRIPT_START)) {
+                inscript = true;
+                scriptlines = [ dataline ];
+            }
+            else if (stream === process.stdin) {
+                console.log(dataline);
+            }
+        }
+    }        
+}
+
+/*
+ * Parse an array of lines to create a Script object.
+ * "Script" is used in the SpiderMonkey internals sense: it is the body
+ * of a JS function or the JS toplevel code, or an eval string.
+ * 
+ * Scripts have a name which is a (hopefully) unique id that includes the
+ * source filename and starting line number. That isn't enough to be unique
+ * because in "function a() { function b() {}}" both scripts have the same
+ * file and line number. So I also have to include the ending line number
+ * and/or ending opcode in the script name.  I could also include some kind
+ * of hashcode of the script's opcodes in the name.  Or just use the
+ * entire script disassembly as the name, I suppose.
+ * 
+ * XXX: Am I ever going
+ * to be able to disambiguate functions a and b in the following, though?
+ *   function() { function a(){} function b(){} }
+ *
+ * Instead of having a totally unique name, scripts could also have an 
+ * equals() method, I suppose, so that we could detect whether we've already
+ * seen a script by that name.  Then each script name could map to an array
+ * of scripts, possibly.
+ * 
+ * Scripts also have a filename property that gives their absolute filename?
+ * 
+ * In addition to their name, scripts also have an array of opcodes and
+ * a map of pc addresses to opcode indexes.
+ *
+ * Finally, each script has an entry point: the index of the starting opcode.
+ * 
+ * Each opcode includes its string of assembly code.  
+ * And, after the script is analyzed, each opcode will also have a
+ * reachable flag to indicate if it can ever actually be executed.
+ *
+ * Eventually, opcodes will also have flags indicating whether they are
+ * the start or end of a non-branching linear sequence.
+ */
+function Script(lines) {
+    var script = this;
+    script.opcodes = [];
+    script.pcToOpcodeIndex = {};
+
+    lines.forEach(function(dataline) {
+        var match;
+
+        if (match = dataline.match(SCRIPT_START)) {
+            script.filename = match[1]; 
+            script.startline = parseInt(match[2], 10);
+
+            // Script name is supposed to be a unique identifier for
+            // the script, but it may need to include the opcodes to 
+            // be maximally unique.
+            script.name = match[1] + ":" + match[2];
+        }
+        else if (dataline.match(SCRIPT_END)) {
+            return;
+        }
+        else if (dataline === "main:") {
+            script.entrypoint = script.opcodes.length;
+        }
+        else if (match = dataline.match(SCRIPT_DATA)) {
+            var opcode = {
+                pc: parseInt(match[1], 10),
+                count: parseInt(match[2], 10) +
+                    parseInt(match[3], 10) +
+                    parseInt(match[4], 10),
+                srcline: parseInt(match[5], 10),
+                assembly: match[6]
+            };
+
+            // Discard the (potentially very long) anonymous function 
+            // souce associated with lambda opcodes
+            if (opcode.assembly.match(/^lambda /))
+                opcode.assembly = "lambda";
+            if (opcode.assembly.match(/^deflocalfun /))
+                opcode.assembly = "deflocalfun";
+
+            script.pcToOpcodeIndex[opcode.pc] = script.opcodes.length;
+            script.opcodes.push(opcode);
+        }
+        else if (dataline[0] === '\t') {
+            // this is part of a switch (or other?) disassembly
+            // for the previous opcode, so append it there
+            script.opcodes[script.opcodes.length-1].assembly += dataline;
+        }
+        else {
+            // Just ignore lines that we don't recognize.
+            // We have to do this because some opcodes like lambda and
+            // deflocalfun print out long function bodies on multiple lines
+            return;
+        }
+    });
+}
+
+/*
+ * XXX: I don't need this anymore since I'm using a toString method
+ * that returns a unique string
+ *
+// Return true if this Script object is the same as that Script object
+// This can happen when CoverMonkey is analzying data from multiple
+// spidermonkey runs.
+Script.prototype.equals = function(that) {
+    if (this.name !== that.name) return false;
+    if (this.entrypoint !== that.entrypoint) return false;
+    if (this.opcodes.length !== that.opcodes.length) return false;
+
+    for(var i = 0; i < this.opcodes.length; i++) {
+        var thisop = this.opcodes[i], thatop = that.opcodes[i];
+        if (thisop.pc !== thatop.pc) return false;
+        if (thisop.srcline !== thatop.srcline) return false;
+        if (thisop.assembly !== thatop.assembly) return false;
+    }
+
+    return true;
+};
+*/
+
+// Return a verbose representation of a script.  Distinct scripts will
+// always return distinct strings.
+Script.prototype.toString = function() {
+    var s = this.name + ":" + this.entrypoint + "\n";
+    var ops = this.opcodes.map(function(opcode) {
+        return opcode.pc + ":" + opcode.srcline + ":"+ opcode.assembly;
+    });
+    return s + ops.join("\n");
+}
+
+
+// Add the opcode counts from that script to the opcodes in this script.
+// This method requires that this.equals(that)
+Script.prototype.addCounts = function(that) {
+    for(var i = 0; i < this.opcodes.length; i++)
+        this.opcodes[i].count += that.opcodes[i].count;
+};
+
+Script.prototype.checkReachability = function() {
+    var switches = {
+        "tableswitch":true,
+        "lookupswitch":true,
+        "tableswitchx":true,
+        "lookupswitchx":true,
+
+    };
+
+    var terminators = {
+        "stop": true,
+        "return": true,
+        "throw": true,
+        "retrval":true,
+        // treat retsub as a terminator because I treated gosub as a conditional
+        "retsub":true
+    };
+
+
+    var unconditionals = {
+        "goto": true,
+        "gotox":true,
+        "default":true,
+        "defaultx":true, 
+        "filter": true // E4X opcode: we'll probably never see it
+    };
     
-    const START = /^--- SCRIPT ([^:]+):(\d+) ---$/;
-    const END = /^--- END SCRIPT/;
-    const DATA = /^(\d+):(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
+    var conditionals = {
+        "ifeq": true,
+        "ifeqx": true,
+        "ifne": true,
+        "ifnex": true,
+        "or":true,
+        "orx":true,
+        "and":true,
+        "andx":true,
+        // Treat gosub as a conditional because when it
+        // returns the following opcode is reachable
+        "gosub":true,
+        "gosubx":true,
+        "case":true,   
+        "casex":true,  
+        "ifcantcalltop":true,
+        "endfilter": true // E4X opcode: we'll probably never see it
+    };
+
+
+    function reachable(script, opcodeIndex) {
+        assert.ok(opcodeIndex < script.opcodes.length);
+
+        var opcode = script.opcodes[opcodeIndex];
+
+        // If this opcode is already marked as reachable, then
+        // we've already been here and don't want to loop
+        if (opcode.reachable) return;
+        
+
+        // Mark this opcode as reachable.
+        opcode.reachable = true;
+
+        // Now, based on the opcode, determine which other opcodes
+        // are reachable from it.  For most opcodes this will just be the
+        // next opcode.  For conditional branches, it will be the next opcode
+        // plus the branch target.  For unconditional it will just be
+        // the branch target.  For switches, there will be many. 
+        // And for things like stop, return and throw, there will be no
+        // reachable opcodes.  Just recurse for each reachable opcode.
+        var op = opcode.assembly.match(/(\w+)/)[1];
+
+        function branchIndex(assembly) {
+            return script.pcToOpcodeIndex[assembly.match(/^\w+\s+(\d+)/)[1]];
+        }
+        
+        if (op in terminators) {
+            // This opcode makes the script exit, so nothing is 
+            // reachable from here.
+            return;
+        }
+        else if (op in unconditionals) {
+            // The unconditional jump target is reachable
+            reachable(script, branchIndex(opcode.assembly));
+        }
+        else if (op in conditionals) {
+            // The next opcode and the jump target are both reachable
+            reachable(script, opcodeIndex+1);
+            reachable(script, branchIndex(opcode.assembly));
+        }
+        else if (op in switches) {
+            // Multiple opcodes are reachable
+            // The -D output for switches includes relative jump offsets
+            // not absolute ones like those used by jumps
+
+            // Each case is on its own line, starting with the 2nd line
+            // The default offset is on the first line after the string "ffset"
+            var cases = opcode.assembly.split("\t");
+
+            var offset = parseInt(cases[0].match(/ffset (\d+)/)[1], 10);
+            var absolute = opcode.pc + offset;
+            var index = script.pcToOpcodeIndex[absolute];
+            reachable(script, index);
+
+            for(var i = 1; i < cases.length; i++) {
+                offset = parseInt(cases[i].match(/: (\d+)$/)[1], 10);
+                absolute = opcode.pc + offset;
+                index = script.pcToOpcodeIndex[absolute];
+                reachable(script, index);
+            }
+        }
+        else {
+            // For any other opcode, just the next one is reachable
+            reachable(script, opcodeIndex+1);
+
+            // Mark these opcodes to indicate that they fall-through
+            opcode.fallsthrough = true;
+        }
+    }
+
+    // Mark the entry point of the script as reachable, and
+    // from there recursively determine what else is reachable.
+    reachable(this, this.entrypoint);
+};
+
+
+
+
+/*
+ * This is old parseLine() code:
+ *
+    var linenum = 0;
+    var lastopcode;
     const SKIP = {
         "" : true,
         "main:" : true,
-        "loc   counts           x line  op" : true,
-        "----- ----------------   ----  --" : true,
-    }
+    };
 
 
-    var parsing_lines = false; // Are we parsing lines or just echoing them?
-    var linenum = 0;
-    var lastopcode;
 
-    function parseLine(dataline) {
+
         var match;
         linenum++;
 
         if (!parsing_lines && dataline.match(START)) {
             parsing_lines = true;
         }
+
 
         // If we haven't found the first START line, and we're reading
         // from stdin, just write this first line to stdout
@@ -286,7 +620,7 @@ function parseData(stream, directory, callback) {
             return;
         }
     }
-}
+*/
 
 /*
   This is old attempts to get partial line coverage analysis correct.
@@ -336,17 +670,40 @@ function parseData(stream, directory, callback) {
             lastopwasjump = jumps[opcode] || false;
 */
 
+// Analyze the array of Script objects and return an object that maps
+// filenames to File objects.
+function analyzeScripts(scripts) {
+    var data = {};
+
+    scripts.forEach(function(script) {
+        var filename = path.resolve(options.inputdir, script.filename);
+        if (!(filename in data)) {
+            data[filename] = new File(filename);
+        }
+        var file = data[filename];
+
+        script.opcodes.forEach(function(opcode) {
+            file.line(opcode.srcline).addOpcode(script.name + ":" + opcode.pc,
+                                                opcode);
+        });
+    });
+
+    return data;
+}
 
 
 // Generate output
-function reportCoverage(data) {
+function reportCoverage(scripts) {
+
+    var data = analyzeScripts(scripts);
 
     var indextitle = "CoverMonkey Code Coverage Report";
     var stylesheet = 
         ".line {white-space: pre; font-family: monospace; padding:1px;}" +
-        ".full {background-color: #afa}" +     // Full coverage
-        ".none {background-color: #faa}" +     // No coverage
-        ".some {background-color: #ffa}" +     // Partial coverage
+        ".full {background-color: #afa}" +     // green for full coverage
+        ".none {background-color: #faa}" +     // red for no coverage
+        ".some {background-color: #ffa}" +     // yellow for partial coverage
+        ".dead {background-color: #fca}" +     // orange for dead code
         ".p0 {color:hsl(0,0%,0%)}" +           // Profile classes
         ".p1 {color:hsl(0,10%,5%)}" +          // digit is base-10 logarithm 
         ".p2 {color:hsl(0,20%,10%)}" +         // of # of executions
@@ -440,7 +797,8 @@ function reportCoverage(data) {
         var covered = coverage[0];
         var partial = coverage[1];
         var uncovered = coverage[2];
-        var total = covered + partial + uncovered;
+        var dead = coverage[3];
+        var total = covered + partial + uncovered + dead;
 
         if (options.quiet || covered === total) {
             console.log("%s: %s%", target, percent(covered/total));
@@ -450,11 +808,13 @@ function reportCoverage(data) {
                         "significant lines: %d\n\t" +
                         "          covered: %d (%s%)\n\t" +
                         "partially covered: %d (%s%)\n\t" +
-                        "        uncovered: %d (%s%)",
+                        "        uncovered: %d (%s%)\n\t" +
+                        "             dead: %d (%d%)",
                         target, percent(covered/total),  total,
                         covered, percent(covered/total),
                         partial, percent(partial/total),
-                        uncovered, percent(uncovered/total));
+                        uncovered, percent(uncovered/total),
+                        dead, percent(dead/total));
         }
     });
 
@@ -612,56 +972,75 @@ function reportCoverage(data) {
     }
 }
 
-function Opcode(line, assembly) {
-    this.line = line;
-    this.assembly = assembly;
-    this.count = 0;
-}
-
 function Line(file, number) {
     this.file = file;
     this.number = number;
     this.opcodes = {};  // Map pc to Opcode object
 }
 
-Line.prototype.addOpcode = function(pc, count, assembly) {
-    var opcode = this.opcodes[pc];
-    if (!opcode) {
-        opcode = new Opcode(this, assembly);
-        this.opcodes[pc] = opcode;
+Line.prototype.addOpcode = function(pc, opcode) {
+    if (this.opcodes[pc]) {
+        console.log("Ignoring duplicate opcode");
+        return;
     }
-    else {
-        // Each time we get the same pc it had better have the same
-        // opcode associated with it
-        assert.equal(assembly, opcode.assembly, "different assembly for " +
-                     this.file.name + ":" + this.number + ":" + pc + 
-                     "\n\t" + assembly + " != " + opcode.assembly);
-    }
-
-    // Adjust the count for this opcode.
-    opcode.count += count;
-    this._counts = null;  // clear cache
+    this.opcodes[pc] = opcode;
 };
 
 // Return an array of the counts for this line.  If all opcodes have
 // the same count, then this will be a single element array.  If the line
 // includes a branch then there may be two or three branches.  The counts will
 // be sorted from fewest to most.
+// If all opcodes are unreachable, then the returned array will be empty
+// indicating that the line is dead code.
+// Unreachable opcodes have a count of -1
 Line.prototype.counts = function() {
     if (!this._counts) {
         var min = Infinity, max = 0;
         var rawcounts = [];
+        var lastopcode;
 
         for(var pc in this.opcodes) {
-            var c = this.opcodes[pc].count;
-            min = Math.min(min, c);
-            max = Math.max(max, c);
-            rawcounts.push(c);
+            var opcode = this.opcodes[pc];
+            var c = opcode.count;
+            if (opcode.reachable) {
+
+                // If the last opcode continues unconditionally on to this one
+                // then skip this opcode if the count is the same (it might
+                // be different if this one is also a jump target).
+                // And also skip this opcode if it has a zero count and
+                // the last one did not: that is just the sign of an
+                // interpreter optimization that messes up the counts
+                if (lastopcode && lastopcode.fallsthrough) {
+                    if (c === lastopcode.count) continue;
+                    if (c === 0 && lastopcode.count !== 0) continue;
+                }
+
+                min = Math.min(min, c);
+                max = Math.max(max, c);
+                rawcounts.push(c);
+            }
+            else {  // Unreachable opcode
+                if (c !== 0)
+                    console.log("WARNING: unreachable opcode with non-0 count");
+                rawcounts.push(-1);
+            }
+
+            lastopcode = opcode;
         }
 
         var counts;
 
-        if (min === max) counts = [min];  // special case: all lines are same
+        
+        if (min === max && min >=0) {      // Special case: all lines are same
+            counts = [min];  
+        }
+        else if (rawcounts.length === 1 && rawcounts[0] === -1) {
+            // A single unreachable opcode.  If it is a stop opcode, then
+            // this isn't really a dead line and should be treated as an
+            // insignificant line instead.
+            if (this.opcodes[Object.keys(this.opcodes)[0]].assembly === "stop")
+                counts = [];
+        }
         else {
             rawcounts.sort(function(a,b) { return a-b; });  // Numerical order
             
@@ -679,12 +1058,21 @@ Line.prototype.counts = function() {
     return this._counts;
 }
 
-// Return coverage for this line.  One of the strings "full", "some", "none"
+// Return coverage for this line.
+// One of the strings "full", "some", "none", "dead" or ""
 Line.prototype.coverage = function() {
     var counts = this.counts();
+    // We return "" if the code should be treated as insignificant code
+    // like comments and whitespace.  This happens when there is a single
+    // unreachable stop opcode
+    if (counts.length === 0) return "";
+
     if (counts[0] > 0) return "full";
-    if (counts.length > 1) return "some";
-    return "none";
+    if (counts.length === 1) {
+        if (counts[0] === 0) return "none";
+        if (counts[0] === -1) return "dead";
+    }
+    return "some";
 }
 
 function File(name) {
@@ -700,7 +1088,7 @@ File.prototype.line = function(linenum) {
 };
 
 File.prototype.coverage = function() {
-    var covered = 0, partial = 0, uncovered = 0;
+    var covered = 0, partial = 0, uncovered = 0, dead = 0;
 
     for(var linenum in this.lines) {
         var line = this.lines[linenum];
@@ -708,10 +1096,12 @@ File.prototype.coverage = function() {
         case "full": covered++; break;
         case "some": partial++; break;
         case "none": uncovered++; break;
+        case "dead": dead++; break;
+        case "": // do nothing in this case
         }
     }
 
-    return [covered, partial, uncovered];
+    return [covered, partial, uncovered, dead];
 }
 
 // Return the coverage class for line n of the specified file.
@@ -740,6 +1130,8 @@ File.prototype.detail = function(n) {
     if (!(n in this.lines))
         return "No executable code here";
     var counts = this.lines[n].counts();
+    if (counts.length === 0)
+        return "Dead code: this line can never be executed";
     if (counts.length === 1 && counts[0] === 0)
         return "This line was never executed";
     if (counts[0] === 0) 
