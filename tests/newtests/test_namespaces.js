@@ -6,3 +6,4 @@ assert(ns.lookupPrefix('namespace') === "ns", ns.lookupPrefix('namespace'));
 
 assert(ns.lookupNamespaceURI('ns') === 'namespace', ns.lookupNamespaceURI('ns'));
 
+	
