@@ -27,3 +27,4 @@ assert(cloned.data === "clone", cloned.data);
 
 assert(proc.target === "target");
 assert(cloned.target === "target");
+

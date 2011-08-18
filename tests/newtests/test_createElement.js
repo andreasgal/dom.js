@@ -3,9 +3,19 @@ assert(Node);
 assert(Element);
 assert(NodeList);
 
+var foo = document.createElement('foo');
+
+assert(foo.tagName === 'FOO', foo.tagName);
+assert(foo.localName === 'foo', foo.localName);
+
+foo.setAttribute('hello', 'world');
+assert(foo.getAttribute('hello') === 'world', foo.getAttribute('hello'));
+assert(foo.hasAttribute('hello'));
+foo.removeAttribute('hello');
+assert(!foo.hasAttribute('hello'));
+
 var div = document.createElement('div');
 var span = document.createElement('span');
-var foo = document.createElement('foo');
 
 div.setAttribute('id', 'HELLO');
 div.setAttribute('class', 'CLASS');
