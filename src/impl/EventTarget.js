@@ -96,7 +96,7 @@ defineLazyProperty(impl, "EventTarget", function() {
             
             // Begin dispatching the event now
             event._dispatching = true;
-            event.target = this;
+            event.target = wrap(this);
 
             // Build the list of targets for the capturing and bubbling phases
             // XXX: we'll eventually have to add Window to this list.
