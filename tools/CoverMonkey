@@ -9,32 +9,15 @@
 // I'm getting warnings about unreachable non-zero opcodes...
 // 
 // The HTML output needs to be searchable for uncovered, partial and dead lines
-// Implement a -l option to actually list the line numbers that need attention?
+//    done
+// 
+// give lines an id with line number so they can be used in the URL
+//   done
 //
-// Output the opcodes for all lines directly into the main coverage
-// file?  And make lines clickable to toggle display of the
-// instructions?  Simpler and better for static files.  Output files
-// probably won't get more than 5x bigger.
+// Implement a -l option to actually list the line numbers that need attention?
 //
 // Clean up the code: its gotten really messy.
 //
-//
-//
-// The -D output is including pop opcodes with zero counts on
-// executed lines that don't have any branches, so they are
-// incorrectly being reported as having partial coverage.
-// Probably just filter out 0 count pops on lines that have other
-// non-zero opcodes, while reading the lines.
-//   I've filtered out 0 count pops and stops
-//   There is still some other weirdness. Maybe having to do with
-//   try blocks?  This will take more work
-//
-//  A better approach might be to analyze one function worth of
-//  opcodes at a time, triggered by the END line. Figure out which
-//  opcodes are branches and where they go to, and figure out which
-//  ops are unreachable.  That should get rid of a few cases that
-//  currently have 0 counts.  Still have to special case pop and the
-//  other things I've got in there now, I think.
 // 
 // Another benefit of analzying entire functions at a time: based on the 
 // length of the function (in lines or (easier) opcodes) I can distinguish
@@ -50,33 +33,7 @@
 // start line of each function as an opcode prefix.  But if the first newline
 // was removed, I'd be in trouble.
 //
-// When analyzing -D output from multiple runs of the interpreter, I can get
-// the same code emitted more than once.  If I analize whole functions, 
-// maybe I can hash the disassembly somehow (omitting counts) to create a
-// unique identifier for that function.
-// 
-// Then, my data structure would be filename -> File object, file objects map
-// line numbers to zero or more functions (usually one).  And functions map 
-// line numbers to opcodes.
 
-/* 
-// Sample code demonstrating problems with -D
-// Talk to sfink about this.
-(function() {
-    var x = 1;  // 0 count pop at the end of this line
-
-    for(var i = 0; i < 1000; i++) {  // 0 count pop in i=0, and 0 count ifne in loop condition
-        x += i; // 0 count pop at the end of this assigment
-    }
-
-    try {
-        throw 1;  // 0 count goto on this line never executed because of throw
-    }
-    catch(e) {
-        print(1); // 0 count 'nop' filler instruction on this ilne
-    }
-})();  // long lambda body gets printed out with -D output here
-*/
 
 
 
@@ -717,7 +674,10 @@ function reportCoverage(scripts) {
         "table {border-collapse:collapse;}" +
         "td, th {border:solid black 1px; padding:3px 5px 3px 5px;}" +
         "th {background-color:#bbb}" +
-        ".linenum {float:left; font-weight:bold; text-align:right; margin-right:10px; width:5%}" +
+        ".num {float:left; font-weight:bold; text-align:right; margin-right:1%; width:4%}" +
+        ".type {float:right; font-weight:bold; font-size:smaller; text-align:left; margin-left:1%; width:4%; }" +
+        '.ops { margin-left: 5%; padding-left: 10px; }' +
+        '.hidden { display:none; }' +
         "";
 
     var index_file_prefix = 
@@ -743,15 +703,24 @@ function reportCoverage(scripts) {
         '<script>' +
         'document.addEventListener("click", clickHandler, true);' +
         'function clickHandler(e) {' +
-        '    if (e.target.className === "linenum")' +
-        '        window.location = "%s" + ":" + e.target.textContent;' +
+        '    for(var elt = e.target; elt; elt = elt.parentNode) {' +
+        '        if (elt.classList.contains("line")) {' +
+        '            elt = elt.getElementsByTagName("table")[0];' +
+        ' console.log(elt.classList); ' +
+        '            if (elt) elt.classList.toggle("hidden");' +
+        ' console.log(elt.classList); ' +
+        '            return;' +
+        '        }' +
+        '    }' +
         '}' +
         '</script>';
 
     var coverage_file_suffix = "</body></html>";
 
+    // the closing div is output explicitly
     var coverage_line =
-        '<div class="%s" title="%s"><span class="linenum">%d</span>%s</div>\n';
+        '<div id="%d" class="%s"><span class="num">%d</span>' +
+        '<span class="type">%s</span>%s\n';
 
     var assembly_file_prefix = 
         '<html><head><title>%s</title>' + 
@@ -840,6 +809,7 @@ function reportCoverage(scripts) {
                 response.setHeader("Content-Type", "text/html");
                 writeIndexFile(options.targets, response);
             }
+/*
             else if (request.url.indexOf(":") !== -1) {
                 // : separates line number from filename
                 var a = request.url.split(":");
@@ -857,6 +827,7 @@ function reportCoverage(scripts) {
                     response.end("Unknown file: " + request.url);
                 }
             }
+*/
             else if (data[request.url]) {
                 // If it is the name of one of our targets
                 response.statusCode = 200;
@@ -928,17 +899,33 @@ function reportCoverage(scripts) {
 
         lines.forEach(function(line, linenum) {
             linenum += 1; // line numbers are 1-based, not 0-based
-            var c = "line" +
-                file.coverageClass(linenum) +
-                file.profileClass(linenum);
-            var tooltip = file.detail(linenum);
+            var cov = file.coverageClass(linenum);
+            var c = "line" + cov + file.profileClass(linenum);
             if (line === "") line = " ";  // To make the HTML format right.
-            stream.write(util.format(coverage_line, c, tooltip, linenum, line));
+            if (cov) cov = "//" + cov;
+            stream.write(util.format(coverage_line, linenum, c,
+                                     linenum, cov, line));
+
+            var linedata = file.lines[linenum];
+            if (linedata) {
+                stream.write('<table class="ops hidden">');
+                stream.write('<tr><th>Function @<th>PC<th>#<th>Instruction</tr>');
+                for(pc in linedata.opcodes) {
+                    var opcode = linedata.opcodes[pc];
+                    var match = pc.match(/^([^:]+:\d+):(\d+)$/);
+                    stream.write(util.format("<tr><td>%s<td>%s<td>%d<td>%s</tr>",
+                                             match[1], match[2],
+                                             opcode.count, opcode.assembly));
+                }
+                stream.write("</table>");
+            }
+            stream.write("</div>\n");  // close the line div
         });
 
         stream.end(coverage_file_suffix);
     }
 
+/*
     function writeAssemblyFile(target, linenum, stream) {
         var file = data[target];
         var title = "CoverMonkey: " + target + ":" + linenum;
@@ -960,7 +947,7 @@ function reportCoverage(scripts) {
         }
         stream.end(assembly_file_suffix);
     }
-
+*/
     // Return an <a> tag with a URL that will generate a file listing
     function filelink(target, staticlink) {
         if (staticlink) {
@@ -1126,11 +1113,12 @@ File.prototype.profileClass = function(n) {
     }
 }
 
+/*
 File.prototype.detail = function(n) {
     if (!(n in this.lines))
         return "No executable code here";
     var counts = this.lines[n].counts();
-    if (counts.length === 0)
+    if (counts.length === 1 && counts[0] === -1)
         return "Dead code: this line can never be executed";
     if (counts.length === 1 && counts[0] === 0)
         return "This line was never executed";
@@ -1140,3 +1128,4 @@ File.prototype.detail = function(n) {
         return "Full coverage: " + counts[0];
     return "Full coverage, with branches: " + counts.join(',');
 }
+*/
