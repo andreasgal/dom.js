@@ -46,6 +46,7 @@ function runNextTest(files) {
             all_disassemblies += stdout;
             if (code) {
                 console.log('OUT:', fileName);
+                stdout = stdout.replace(/^--- SCRIPT ([^:]+):(\d+) ---$[^]*/m, "")
                 console.log(stdout);
                 console.log('ERR:', fileName);
                 console.log(stderr);

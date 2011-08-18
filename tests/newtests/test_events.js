@@ -14,9 +14,12 @@ var clicked = false;
 
 function click_handler(evt) {
     assert(evt.type === "click", evt.type);
-    // Why does this fail?
-    assert(evt.target === node, "evt.target != node");
-    //assert(evt.currentTarget === node, evt.currentTarget);
+    assert(evt.bubbles);
+    assert(evt.cancelable);
+    assert(evt.timeStamp);
+    assert(!evt.isTrusted);
+    assert(evt.target == node);
+    assert(evt.currentTarget === node, evt.currentTarget);
     clicked = true;
 }
 

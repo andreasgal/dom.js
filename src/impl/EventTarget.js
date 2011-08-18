@@ -65,7 +65,7 @@ defineLazyProperty(impl, "EventTarget", function() {
 
             function invoke(target, event) {
                 let type = event.type, phase = event.eventPhase;
-                event.currentTarget = target;
+                event.currentTarget = wrap(target);
 
                 if (!target._listeners) return;
                 let list = target._listeners[type];
