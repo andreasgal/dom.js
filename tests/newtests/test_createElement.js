@@ -8,9 +8,13 @@ var foo = document.createElement('foo');
 assert(foo.tagName === 'FOO', foo.tagName);
 assert(foo.localName === 'foo', foo.localName);
 
+// not yet implemented
+//assert(foo.baseURI === '', foo.baseURI);
+
 foo.setAttribute('hello', 'world');
 assert(foo.getAttribute('hello') === 'world', foo.getAttribute('hello'));
 assert(foo.hasAttribute('hello'));
+assert(foo.attributes.length === 1);
 foo.removeAttribute('hello');
 assert(!foo.hasAttribute('hello'));
 
@@ -78,6 +82,8 @@ var three = document.createElement('span');
 
 assert(one.isEqualNode(two));
 assert(!one.isEqualNode(three));
+
+assert(DocumentFragment);
 
 var fragment = document.createDocumentFragment();
 assert(fragment.nodeType === document.DOCUMENT_FRAGMENT_NODE);
