@@ -12,7 +12,7 @@ assert(doctype.systemId === "baz", doctype.systemId);
 var doc = document.implementation.createDocument(
     "http://example.com/namespace", "qual", doctype);
 
-assert(ProcessingInstruction);
+assert(doc.isDefaultNamespace('http://example.com/namespace'));
 
 var proc = doc.createProcessingInstruction("target", "proc");
 
