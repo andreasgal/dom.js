@@ -1,40 +1,56 @@
 #!/usr/local/bin/node
 // -*- mode: javascript; -*-
 //
+// Copyright (c) 2011 The Mozilla Foundation.
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+//     Redistributions of source code must retain the above copyright
+//     notice, this list of conditions and the following disclaimer.
+//
+//     Redistributions in binary form must reproduce the above copyright
+//     notice, this list of conditions and the following disclaimer in the
+//     documentation and/or other materials provided with the distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+// TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Contributor(s): David Flanagan (dflanagan@mozilla.com)
+//                 Donovan Preston (dpreston@mozilla.com)
+
+//
 // TODO:
 //
 // The dead code analysis is saying that catch blocks are unreachable.
 // I think they must be their own entry points.  Need to ask someone on #jsapi
+//   I've filed a patch for spidermonkey that will make -D associate the
+//   offset of the catch with each try.  If accepted, this problem will 
+//   go away.  If not, I'll have to be more creative to figure out where
+//   the catch block is.
 // 
 // I'm getting warnings about unreachable non-zero opcodes...
+//   fixed: they were in a prolog before the main: entry point.  Now
+//   I just start reachability analysis from pc 0 and ignore the entry point.
 // 
-// The HTML output needs to be searchable for uncovered, partial and dead lines
-//    done
-// 
-// give lines an id with line number so they can be used in the URL
-//   done
-//
 // Implement a -l option to actually list the line numbers that need attention?
 //
 // Clean up the code: its gotten really messy.
-//
 // 
-// Another benefit of analzying entire functions at a time: based on the 
-// length of the function (in lines or (easier) opcodes) I can distinguish
-// inner from outer functions.  Currently, with this code:
-// 1: function a() { 
-// 2:    function b() { foo(); }
-// 3: }
-// Both function a and b have opcode 0 mapping to line 2.  As currently
-// written I can't really distinguish the two cases and the counts get
-// conflated, I think.  But if I knew where the end of the function was,
-// I could give each opcode a unique prefix or suffix.
-// Actually, the code above is probably okay currently because I use the 
-// start line of each function as an opcode prefix.  But if the first newline
-// was removed, I'd be in trouble.
+// Abandon the server option and port to spidermonkey so users don't need 
+// to have two different js interpreters installed?
 //
-
-
 
 
 var assert = require("assert");
@@ -129,16 +145,6 @@ const SCRIPT_DATA = /^(\d+):(\d+)\/(\d+)\/(\d+)\s+x\s+(\d+)\s+(.*)$/;
 // beginning of the -D data are printed to stdout.
 function parseScripts(stream, callback) {
     var fragment = "";  // line fragments we haven't processed yet
-    
-/*
-    // These are the state variables used across invocations of parseLine()
-    var files = {}; // The return value: maps filenames to File objects
-    var jsfile;     // The current File object we're adding data to
-    var funcid;     // A file:line pair that identifies the start of the
-                    // function currently being disassembled. Used with opcodes
-                    // for disambiguation
-*/
-
     var scripts = [];   // Array of Script objects that hold the data
     var scriptMap = {}; // String->Script map for detecting duplicate scripts
 
@@ -187,21 +193,10 @@ function parseScripts(stream, callback) {
                         scriptMap[string] = script;
                         script.checkReachability();
                     }
-
-/*                    
-                    console.log("Script: %s", script.name);
-                    script.checkReachability();
-                    for(var i = 0; i < script.opcodes.length; i++) {
-                        if (!script.opcodes[i].reachable)
-                            console.log("Opcode %d at pc %d is not reachable",
-                                        i, script.opcodes[i].pc);
-                    }
-*/
                 }
                 
                 scriptlines = null;
                 inscript = false;
-
             }
         }
         else {
@@ -232,13 +227,8 @@ function parseScripts(stream, callback) {
  * XXX: Am I ever going
  * to be able to disambiguate functions a and b in the following, though?
  *   function() { function a(){} function b(){} }
- *
- * Instead of having a totally unique name, scripts could also have an 
- * equals() method, I suppose, so that we could detect whether we've already
- * seen a script by that name.  Then each script name could map to an array
- * of scripts, possibly.
  * 
- * Scripts also have a filename property that gives their absolute filename?
+ * Scripts also have a filename property that gives their filename
  * 
  * In addition to their name, scripts also have an array of opcodes and
  * a map of pc addresses to opcode indexes.
@@ -248,9 +238,6 @@ function parseScripts(stream, callback) {
  * Each opcode includes its string of assembly code.  
  * And, after the script is analyzed, each opcode will also have a
  * reachable flag to indicate if it can ever actually be executed.
- *
- * Eventually, opcodes will also have flags indicating whether they are
- * the start or end of a non-branching linear sequence.
  */
 function Script(lines) {
     var script = this;
@@ -308,29 +295,6 @@ function Script(lines) {
         }
     });
 }
-
-/*
- * XXX: I don't need this anymore since I'm using a toString method
- * that returns a unique string
- *
-// Return true if this Script object is the same as that Script object
-// This can happen when CoverMonkey is analzying data from multiple
-// spidermonkey runs.
-Script.prototype.equals = function(that) {
-    if (this.name !== that.name) return false;
-    if (this.entrypoint !== that.entrypoint) return false;
-    if (this.opcodes.length !== that.opcodes.length) return false;
-
-    for(var i = 0; i < this.opcodes.length; i++) {
-        var thisop = this.opcodes[i], thatop = that.opcodes[i];
-        if (thisop.pc !== thatop.pc) return false;
-        if (thisop.srcline !== thatop.srcline) return false;
-        if (thisop.assembly !== thatop.assembly) return false;
-    }
-
-    return true;
-};
-*/
 
 // Return a verbose representation of a script.  Distinct scripts will
 // always return distinct strings.
@@ -393,9 +357,28 @@ Script.prototype.checkReachability = function() {
         "case":true,   
         "casex":true,  
         "ifcantcalltop":true,
-        "endfilter": true // E4X opcode: we'll probably never see it
-    };
+        // E4X opcode: we'll probably never see it
+        "endfilter": true,
 
+        // I treat the try opcode as a conditional as well even though it isn't
+        // With my patched spidermonkey, -D outputs try opcodes with the offset
+        // of the corresponding catch block, if there is one.  If the try
+        // is reachable, then the catch block is reachable, too, and treating
+        // it like a conditional jump is an easy way to handle it.  Note, 
+        // however, that some try opcodes (like try/finally) won't have an
+        // offset.  So if the offset is missing for any conditional, I'll just
+        // treat it as if it falls through.
+        // 
+        // XXX:
+        // If I can't get my patch to the try disasembly accepted into the tree
+        // then I'll have to analyze each script to match try opcodes to
+        // the corresponding enterblock for the catch.  -D output doesn't 
+        // give me access to the source notes, and a try/finally inside of a
+        // a try/catch would probably break my heuristics, though I might
+        // be able to figure it out by looking for gosubs.
+        // 
+        "try": true,
+    };
 
     function reachable(script, opcodeIndex) {
         assert.ok(opcodeIndex < script.opcodes.length);
@@ -420,7 +403,9 @@ Script.prototype.checkReachability = function() {
         var op = opcode.assembly.match(/(\w+)/)[1];
 
         function branchIndex(assembly) {
-            return script.pcToOpcodeIndex[assembly.match(/^\w+\s+(\d+)/)[1]];
+            var match = assembly.match(/^\w+\s+(\d+)/);
+            if (!match) return null;
+            return script.pcToOpcodeIndex[match[1]];
         }
         
         if (op in terminators) {
@@ -435,7 +420,11 @@ Script.prototype.checkReachability = function() {
         else if (op in conditionals) {
             // The next opcode and the jump target are both reachable
             reachable(script, opcodeIndex+1);
-            reachable(script, branchIndex(opcode.assembly));
+            // If there is a branch address, then that is reachable, too.
+            // (I have to test this since I'm treating try opcodes as
+            // branches, and they don't always have offsets)
+            var branch = branchIndex(opcode.assembly)
+            if (branch) reachable(script, branch);
         }
         else if (op in switches) {
             // Multiple opcodes are reachable
@@ -469,163 +458,13 @@ Script.prototype.checkReachability = function() {
 
     // Mark the entry point of the script as reachable, and
     // from there recursively determine what else is reachable.
-    reachable(this, this.entrypoint);
+    // Note that this code treats 0 as the entry point, even when
+    // this.entrypoint is something else.  Before this.entrypoint
+    // we get things like defvar opcodes that just fall through to the
+    // entrypoint.  If we start at this.entrypoint then sometime we'll
+    // have opcodes marked unreachable that we don't want marked that way.
+    reachable(this, 0);
 };
-
-
-
-
-/*
- * This is old parseLine() code:
- *
-    var linenum = 0;
-    var lastopcode;
-    const SKIP = {
-        "" : true,
-        "main:" : true,
-    };
-
-
-
-
-        var match;
-        linenum++;
-
-        if (!parsing_lines && dataline.match(START)) {
-            parsing_lines = true;
-        }
-
-
-        // If we haven't found the first START line, and we're reading
-        // from stdin, just write this first line to stdout
-        if (!parsing_lines) {
-            if (stream === process.stdin) 
-                console.log(dataline);
-            return;
-        }
-
-        if (SKIP[dataline]) return;
-        if (dataline[0] === "\t") return;  // lookupswitch data we skip
-
-        if (match = dataline.match(START)) {
-            var jsfilename = path.resolve(directory, match[1]);
-            // the filename plus line number identifies the start
-            // of the function that is being disassembled. Opcodes are
-            // relative to that this
-            funcid = match[1] + ":" + match[2];
-            
-            if (!files[jsfilename]) {
-                files[jsfilename] = new File(jsfilename);
-            }
-            // Remember the current File object across invocations
-            jsfile = files[jsfilename];
-            lastopwasjump = false;
-            lastopcode = null;
-        }
-        else if (dataline.match(END)) {
-            parsing_lines = false;
-        }
-        else if (match = dataline.match(DATA)) {
-            var pc = funcid + ":" + match[1];
-            var count = parseInt(match[2], 10) +
-                parseInt(match[3], 10) +
-                parseInt(match[4], 10);
-            var linenum = parseInt(match[5], 10);
-            var assembly = match[6];
-            var opcode = assembly.match(/^(\w+)/)[1];
-
-            // Discard the (potentially very long) anonymous function 
-            // souce associated with lambda opcodes
-            if (opcode === "lambda") assembly = opcode;
-
-            // Sometimes spidermonkey optimizations cause certain opcodes
-            // to appear as if they are never executed. sfink (who implemented
-            // the -D option) doesn't think that it is easily possible to
-            // figure out exactly when this occurs in general. So here are
-            // some heuristic tests to prevent lines from being inappropriately
-            // marked as having partial coverage.
-            var skip = false;
-
-            // Skip even stops with a non-zero count
-            if (lastopcode && opcode === "stop") skip = true;  
-
-            // Setting getters and setters in an object literal
-            if (opcode === "initprop" &&
-                (lastopcode === "getter" || lastopcode === "setter"))
-                skip = true;
-
-            // For loops have this optimization
-            if (count === 0 && opcode === "ifne" &&
-                (lastopcode === "lt" ||
-                 lastopcode === "le" ||
-                 lastopcode === "gt" ||
-                 lastopcode === "ge"))
-                skip = true;
-
-            if (count === 0 && opcode === "pop")
-                skip = true;
-
-            if (!skip) 
-                jsfile.line(linenum).addOpcode(pc, count, assembly);
-
-            lastopcode = opcode;
-        }
-        else {
-            // -D output prints out anonymous function bodies along with
-            // lambda opcodes.  These can be long and can run onto multiple 
-            // lines.  So basically we ignore any unknown lines.
-            return;
-        }
-    }
-*/
-
-/*
-  This is old attempts to get partial line coverage analysis correct.
-
-  
-
-            // Adding thise to the pop test above only makes a small difference.
-            // Some of them only work when used in combination
-            || opcode === "nope" ||
-                 opcode === "ifeq" || opcode === "ifne" || opcode === "trace" ||
-                 opcode === "localinc" ||
-                 opcode === "blockchain" || opcode === "leaveblock" ||
-                   opcode === "goto" ||
-                 opcode === "nullblockchain"
-
-
-
-
-            // Sometimes spidermonkey optimizations cause certain opcodes
-            // to appear as if they are never executed. sfink (who implemented
-            // the -D option) doesn't think that it is easily possible to
-            // figure out exactly when this occurs in general. So here are
-            // some heuristic tests to prevent lines from being inappropriately
-            // marked as having partial coverage.
-    var lastopwasjump = false;
-    var jumps = { // opcodes that jump to a new pc
-        "goto":true, "ifeq":true, "ifne":true, "or":true, "and":true,
-        "gosub":true, "case":true, "default":true,
-        "gotox":true,"ifeqx":true,"ifnex":true,"orx":true,"andx":true,
-        "gosubx":true,"casex":true,"defaultx":true,
-    };
-    var alwaysignored = { // always skip these opcodes with 0 counts
-        "nop":true, "stop":true, "trace":true,
-    };
-    var ignoreop = { // skip these opcodes if not after a jump
-        "pop":true, 
-        "ifne":true, "ifeq":true, "ifnex":true, "ifeqx": true,
-    };
-
-            if (count === 0 &&
-                (alwaysignored[opcode] ||
-                 (lastopwasjump === false && ignoreop[opcode]))) {
-                lastopwasjump = jumps[opcode] || false;
-                return;  // Ignore this opcode
-            }
-
-            lastopwasjump = jumps[opcode] || false;
-*/
 
 // Analyze the array of Script objects and return an object that maps
 // filenames to File objects.
@@ -656,26 +495,26 @@ function reportCoverage(scripts) {
 
     var indextitle = "CoverMonkey Code Coverage Report";
     var stylesheet = 
-        ".line {white-space: pre; font-family: monospace; padding:1px;}" +
-        ".full {background-color: #afa}" +     // green for full coverage
+        ".line {white-space: pre; font-family: monospace; font-weight: bold; padding:1px;}" +
+        ".full {background-color: #fff}" +     // white for full coverage
         ".none {background-color: #faa}" +     // red for no coverage
         ".some {background-color: #ffa}" +     // yellow for partial coverage
         ".dead {background-color: #fca}" +     // orange for dead code
-        ".p0 {color:hsl(0,0%,0%)}" +           // Profile classes
-        ".p1 {color:hsl(0,10%,5%)}" +          // digit is base-10 logarithm 
-        ".p2 {color:hsl(0,20%,10%)}" +         // of # of executions
-        ".p3 {color:hsl(0,30%,15%)}" +
-        ".p4 {color:hsl(0,40%,20%)}" +
-        ".p5 {color:hsl(0,50%,25%)}" +
-        ".p6 {color:hsl(0,60%,30%)}" +
-        ".p7 {color:hsl(0,70%,35%)}" +
-        ".p8 {color:hsl(0,80%,40%)}" +
-        ".p9 {color:hsl(0,90%,45%)}" +
+        ".p0 {color:#000;}" +
+        ".p1 {color:#200;}" +
+        ".p2 {color:#400;}" +
+        ".p3 {color:#600;}" +
+        ".p4 {color:#800;}" +
+        ".p5 {color:#a00;}" +
+        ".p6 {color:#c00;}" +
+        ".p7 {color:#e00;}" +
+        ".p8 {color:#f00;}" +
+        ".p9 {color:#f00;}" +
         "table {border-collapse:collapse;}" +
         "td, th {border:solid black 1px; padding:3px 5px 3px 5px;}" +
-        "th {background-color:#bbb}" +
-        ".num {float:left; font-weight:bold; text-align:right; margin-right:1%; width:4%}" +
-        ".type {float:right; font-weight:bold; font-size:smaller; text-align:left; margin-left:1%; width:4%; }" +
+        "th {background-color:rgba(0,0,0,0.1)}" +
+        ".num {float:left; font-weight:bold; text-align:right; margin-right:1%; width:4%; text-decoration:none; color:inherit;}" +
+        ".type {float:right; font-weight:bold; font-size:smaller; text-align:left; margin-left:1%; width:9%; }" +
         '.ops { margin-left: 5%; padding-left: 10px; }' +
         '.hidden { display:none; }' +
         "";
@@ -703,6 +542,7 @@ function reportCoverage(scripts) {
         '<script>' +
         'document.addEventListener("click", clickHandler, true);' +
         'function clickHandler(e) {' +
+        '    if (e.target.classList.contains("num")) return;' +
         '    for(var elt = e.target; elt; elt = elt.parentNode) {' +
         '        if (elt.classList.contains("line")) {' +
         '            elt = elt.getElementsByTagName("table")[0];' +
@@ -719,7 +559,7 @@ function reportCoverage(scripts) {
 
     // the closing div is output explicitly
     var coverage_line =
-        '<div id="%d" class="%s"><span class="num">%d</span>' +
+        '<div id="%d"class="%s"><a href="#%d" class="num">%d</a>' +
         '<span class="type">%s</span>%s\n';
 
     var assembly_file_prefix = 
@@ -809,25 +649,6 @@ function reportCoverage(scripts) {
                 response.setHeader("Content-Type", "text/html");
                 writeIndexFile(options.targets, response);
             }
-/*
-            else if (request.url.indexOf(":") !== -1) {
-                // : separates line number from filename
-                var a = request.url.split(":");
-                var filename = a[0];
-                var linenum = parseInt(a[1]);
-                var file = data[filename];
-                if (file) {
-                    response.statusCode = 200;
-                    response.setHeader("Content-Type", "text/html");
-                    writeAssemblyFile(filename, linenum, response);
-                }
-                else {
-                    response.statusCode = 404;
-                    response.setHeader("Content-Type", "text/html");
-                    response.end("Unknown file: " + request.url);
-                }
-            }
-*/
             else if (data[request.url]) {
                 // If it is the name of one of our targets
                 response.statusCode = 200;
@@ -899,23 +720,32 @@ function reportCoverage(scripts) {
 
         lines.forEach(function(line, linenum) {
             linenum += 1; // line numbers are 1-based, not 0-based
+            var linedata = file.lines[linenum];
             var cov = file.coverageClass(linenum);
             var c = "line" + cov + file.profileClass(linenum);
             if (line === "") line = " ";  // To make the HTML format right.
-            if (cov) cov = "//" + cov;
-            stream.write(util.format(coverage_line, linenum, c,
+            if (cov) {
+                if (cov === " full") {
+                    var counts = linedata.counts();
+                    cov = "// " + counts[counts.length-1];
+                }
+                else
+                    cov = "//" + cov;
+            }
+            stream.write(util.format(coverage_line, linenum, c, linenum,
                                      linenum, cov, line));
 
-            var linedata = file.lines[linenum];
             if (linedata) {
                 stream.write('<table class="ops hidden">');
                 stream.write('<tr><th>Function @<th>PC<th>#<th>Instruction</tr>');
                 for(pc in linedata.opcodes) {
                     var opcode = linedata.opcodes[pc];
-                    var match = pc.match(/^([^:]+:\d+):(\d+)$/);
+                    var idx = pc.lastIndexOf(":");
                     stream.write(util.format("<tr><td>%s<td>%s<td>%d<td>%s</tr>",
-                                             match[1], match[2],
-                                             opcode.count, opcode.assembly));
+                                             pc.substring(0,idx),
+                                             pc.substring(idx+1),
+                                             opcode.count,
+                                             opcode.assembly));
                 }
                 stream.write("</table>");
             }
@@ -925,29 +755,6 @@ function reportCoverage(scripts) {
         stream.end(coverage_file_suffix);
     }
 
-/*
-    function writeAssemblyFile(target, linenum, stream) {
-        var file = data[target];
-        var title = "CoverMonkey: " + target + ":" + linenum;
-        var line = file.lines[linenum];
-        
-        stream.write(util.format(assembly_file_prefix, title, stylesheet, title));
-
-        if (!line) {
-            stream.write("No executable code on this line")
-        }
-        else {
-            stream.write("<table>");
-            for(pc in line.opcodes) {
-                var opcode = line.opcodes[pc];
-                stream.write(util.format("<tr><td>%s<td>%d<td>%s</tr>",
-                                         pc, opcode.count, opcode.assembly));
-            }
-            stream.write("</table>");
-        }
-        stream.end(assembly_file_suffix);
-    }
-*/
     // Return an <a> tag with a URL that will generate a file listing
     function filelink(target, staticlink) {
         if (staticlink) {
@@ -1007,8 +814,11 @@ Line.prototype.counts = function() {
                 rawcounts.push(c);
             }
             else {  // Unreachable opcode
-                if (c !== 0)
+                if (c !== 0) {
                     console.log("WARNING: unreachable opcode with non-0 count");
+                    console.log(pc, opcode.count, opcode.assembly);
+                }
+                
                 rawcounts.push(-1);
             }
 
@@ -1112,20 +922,3 @@ File.prototype.profileClass = function(n) {
         return Math.min(Math.floor(Math.log(x)/Math.LN10), 9);
     }
 }
-
-/*
-File.prototype.detail = function(n) {
-    if (!(n in this.lines))
-        return "No executable code here";
-    var counts = this.lines[n].counts();
-    if (counts.length === 1 && counts[0] === -1)
-        return "Dead code: this line can never be executed";
-    if (counts.length === 1 && counts[0] === 0)
-        return "This line was never executed";
-    if (counts[0] === 0) 
-        return "Partial coverage: " + counts.join(',');
-    if (counts.length === 1) 
-        return "Full coverage: " + counts[0];
-    return "Full coverage, with branches: " + counts.join(',');
-}
-*/
