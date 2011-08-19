@@ -1,5 +1,7 @@
 
 
+assert(HTMLDivElement);
+
 var foo = document.createElement('foo');
 
 foo.appendChild(document.createTextNode('text'));

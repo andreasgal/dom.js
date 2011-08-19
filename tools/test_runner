@@ -9,7 +9,7 @@ const START_PC_COUNTS = /\n--- SCRIPT ([^:]+):(\d+) ---\n/;
 var all_disassemblies = '';
 
 function runCoverMonkey() {
-    var covermonkey = spawn('tools/CoverMonkey', ['-d', 'html']);
+    var covermonkey = spawn('tools/CoverMonkey', ['-d', 'html', '-t', 'dom.js']);
     covermonkey.stdin.write(all_disassemblies);
     covermonkey.stdin.end()
     covermonkey.stdout.on('data', function(data) { console.log(data.toString()); });

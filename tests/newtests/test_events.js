@@ -18,7 +18,7 @@ function click_handler(evt) {
     assert(evt.cancelable);
     assert(evt.timeStamp);
     assert(!evt.isTrusted);
-    assert(evt.target == node);
+    assert(evt.target === node);
     assert(evt.currentTarget === node, evt.currentTarget);
     clicked = true;
 }
@@ -38,3 +38,6 @@ node.removeEventListener("click", click_handler, false);
 node.dispatchEvent(evt);
 assert(!clicked);
 
+//var newevent = new Event("click", {bubbles: true, cancelable: true});
+
+//assert(newevent.type === "click", newevent.type);
