@@ -1,4 +1,4 @@
-#!/usr/local/bin/node
+#!/usr/bin/env node
 
 var spawn = require('child_process').spawn;
 var fs = require('fs');
@@ -13,7 +13,8 @@ var numProcesses = 0;
 var allDisassemblies = '';
 
 function runCoverMonkey() {
-    var covermonkey = spawn('tools/CoverMonkey', ['-d', 'html', '-t', 'dom.js']);
+    var covermonkey = spawn('tools/CoverMonkey',
+                            ['-h', 'coverage.html', '-b', '-t', 'dom.js']);
     covermonkey.stdin.write(allDisassemblies);
     covermonkey.stdin.end();
     covermonkey.stdout.on('data', function(data) { console.log(data.toString()); });
