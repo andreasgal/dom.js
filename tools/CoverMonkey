@@ -33,6 +33,34 @@
 //
 // TODO:
 //
+//
+// Clean up the code: its gotten really messy.
+//
+// Abandon the server option?
+// 
+// -b option to output to a temp file and launch a browser tab
+//    Is there a nice way to launch a firefox tab to display the results
+//    (and generate the results in a tmp file, maybe?)  On macos, use the
+//    open command...  (Linux maybe xdg-open or gnome-open)
+// 
+// Can I change the HTML output so it always outputs only a single
+// HTML file instead of a directory of files?  Then the -d option
+// would change to -o (or maybe -h for HTML) and I wouldn't have to
+// expose the absolute paths of the JS files in the html filenames.
+//
+// Think about output options.  Better ASCII tables for
+// file/lines/covered/partial/uncovered/dead stats?
+// -s option for summary instead of -q?
+// -p option to just print out coverage percent?
+// -ld to just list dead lines? -lu for just uncovered?
+//
+// Change path handling?  I'm not sure that converting everything to an 
+// absolute path is the best way to go.  Makes for long html filenames, e.g.
+//
+// If there is just one target, then just generate the one index file
+//  not also a per-target file
+//   done
+//
 // The dead code analysis is saying that catch blocks are unreachable.
 // I think they must be their own entry points.  Need to ask someone on #jsapi
 //   I've filed a patch for spidermonkey that will make -D associate the
@@ -45,13 +73,35 @@
 //   I just start reachability analysis from pc 0 and ignore the entry point.
 // 
 // Implement a -l option to actually list the line numbers that need attention?
+//    done
 //
-// Clean up the code: its gotten really messy.
+// Why has it gotten slow? Is outputting all the assembly slowing it down
+// that much?  Or am I doing something inefficiently?
+//   seems okay to me.  Probably just the addd load of the opcodes.
+//   dom.js is a big file....
 // 
-// Abandon the server option and port to spidermonkey so users don't need 
-// to have two different js interpreters installed?
+// Port to spidermonkey so users don't need to have two different js
+// interpreters installed?  NO: spidermonkey can't write to files
+// 
+//   Before starting on this make sure that spidermonkey's snarf() function
+//   will be able to find the desired source code files... snarf() apparently
+//   resolves filenames relative to the script file, and if this is 
+//   different than the relative filenames passed to js -D, I may not be
+//   able to find them 
+// 
+//   Actually, environment.PWD might be enough if I do my own path handling
 //
-
+//   But there is no way to write a file from spidermonkey, or even
+//    to print to stderr, so I can't output HTML I think.
+// 
+//   spidermonkey shell undocumented stuff: arguments[] (used to be scriptArgs)
+//      environment, 
+//      readline(), snarf() (aka read(): can read binary files as typed
+//          arrays now, pass "binary" as 2nd argument),
+//      print() (appends newline), putstr (no newline)
+//      assertEq()
+//      search for JS_FN macro
+// 
 
 var assert = require("assert");
 var fs = require("fs");
@@ -65,12 +115,13 @@ function usage() {
     console.log("Reads js -D data from <file> or stdin if no file specified.");
     console.log("Options:");
     console.log("  -q       Quiet: display coverage % only");
-    console.log("  -s       Server: run as an HTTP server to display data");
-    console.log("           implies -q");
-    console.log("  -p port  Port number for server (default: 8000)");
     console.log("  -t file  Display coverage stats for target js file");
     console.log("           default: all files; multiple -t args allowed");
     console.log("  -d dir   Output HTML coverage files to directory dir");
+    console.log("  -l       List uncovered lines individually");
+    console.log("  -s       Server: run as an HTTP server to display data");
+    console.log("           implies -q");
+    console.log("  -p port  Port number for server (default: 8000)");
     process.exit(1);
 }
 
@@ -81,6 +132,7 @@ var options = {
     input: null,
     inputdir: null,
     quiet: false,     // quiet: only output coverage %
+    listlines: false, // list individual uncovered lines
     targets: [],      // Which js files do we want stats on?
     server: false,    // Start web server for exploring coverage
     port: 8000,
@@ -97,13 +149,8 @@ while(process.argv.length) {
     case '-q':
         options.quiet = true;
         break;
-    case '-s':
-        options.server = true;
-        break;
-    case '-p':
-        if (!process.argv.length) usage();
-        options.port = parseInt(process.argv.shift());
-        if (options.port === 0) usage();
+    case '-l':
+        options.listlines = true;
         break;
     case '-t':
         if (!process.argv.length) usage();
@@ -113,6 +160,14 @@ while(process.argv.length) {
         if (!process.argv.length) usage();
         if (options.outputdir) usage(); // only specify one
         options.outputdir = path.resolve(process.argv.shift());
+        break;
+    case '-s':
+        options.server = true;
+        break;
+    case '-p':
+        if (!process.argv.length) usage();
+        options.port = parseInt(process.argv.shift());
+        if (options.port === 0) usage();
         break;
     default: 
         if (options.filename) usage(); // One file only
@@ -559,16 +614,8 @@ function reportCoverage(scripts) {
 
     // the closing div is output explicitly
     var coverage_line =
-        '<div id="%d"class="%s"><a href="#%d" class="num">%d</a>' +
+        '<div id="%d" class="%s"><a href="#%d" class="num">%d</a>' +
         '<span class="type">%s</span>%s\n';
-
-    var assembly_file_prefix = 
-        '<html><head><title>%s</title>' + 
-        '<style type="text/css">%s</style></head>' +
-        '<body><h1>%s</h1>' + 
-        '';
-    var assembly_file_suffix = "</body></html>";
-
 
     // If no targets specified, output all
     if (options.targets.length === 0) { 
@@ -625,6 +672,26 @@ function reportCoverage(scripts) {
                         uncovered, percent(uncovered/total),
                         dead, percent(dead/total));
         }
+
+        if (options.listlines) {
+            for(linenum in file.lines) {
+                var line = file.lines[linenum];
+                var msg = null;
+                switch(line.coverage()) {
+                case 'some':
+                    msg = "partially covered";
+                    break;
+                case 'none':
+                    msg = "uncovered";
+                    break;
+                case 'dead':
+                    msg = "unreachable";
+                    break;
+                }
+                if (msg) console.log("%s:%d: %s", file.name, linenum, msg);
+            }
+            
+        }
     });
 
     function percent(x) { return (x*100).toFixed(2); }
@@ -634,12 +701,16 @@ function reportCoverage(scripts) {
                                                     "index.html"));
         writeIndexFile(options.targets, stream, true);
         
-        options.targets.forEach(function(jsfile) {
-            var outputname = jsfile.replace(/\//g, "_") + ".html";
-            stream = fs.createWriteStream(path.join(options.outputdir,
-                                                    outputname));
-            writeCoverageFile(jsfile, stream, false, true);
-        });
+        // If there is only one target, then everything will be included
+        // in the index file.  Otherwise write out one file per target.
+        if (options.targets.length > 1) {
+            options.targets.forEach(function(jsfile) {
+                var outputname = jsfile.replace(/\//g, "_") + ".html";
+                stream = fs.createWriteStream(path.join(options.outputdir,
+                                                        outputname));
+                writeCoverageFile(jsfile, stream);
+            });
+        }
     }
 
     if (options.server) {
@@ -681,9 +752,9 @@ function reportCoverage(scripts) {
             var partial = coverage[1];
             var uncovered = coverage[2];
             var total = covered + partial + uncovered;
+            var link = targets.length > 1 ? filelink(target,staticlink):target;
             
-            stream.write(util.format(index_file_row,
-                                     filelink(target,staticlink),
+            stream.write(util.format(index_file_row, link,
                                      total, 
                                      covered, percent(covered/total),
                                      partial, percent(partial/total),
@@ -702,7 +773,7 @@ function reportCoverage(scripts) {
     // Write an HTML page that lists a js source file with color coding to
     // indicate coverage and profiling information.
     // Write to the specified stream and close the stream when done.
-    function writeCoverageFile(target, stream, noprefix, staticlink) {
+    function writeCoverageFile(target, stream, noprefix) {
         var file = data[target];
         var lines = fs.readFileSync(target, "utf8").split("\n");
         var title = "CoverMonkey Report for " + target;
@@ -715,8 +786,7 @@ function reportCoverage(scripts) {
         // The script make the line numbers clickable.
         // This only works when running as a server, so don't include
         // the script when generating static files.
-        if (!staticlink)
-            stream.write(util.format(coverage_file_script, target));
+        stream.write(util.format(coverage_file_script, target));
 
         lines.forEach(function(line, linenum) {
             linenum += 1; // line numbers are 1-based, not 0-based
@@ -727,7 +797,7 @@ function reportCoverage(scripts) {
             if (cov) {
                 if (cov === " full") {
                     var counts = linedata.counts();
-                    cov = "// " + counts[counts.length-1];
+                    cov = "// " + counts.join(",");
                 }
                 else
                     cov = "//" + cov;
