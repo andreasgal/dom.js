@@ -34,7 +34,7 @@ function runNextTest(files) {
 
     var fileName = files.pop();
 
-    if (!fileName.match(JS_FILE_RE)) return runNextText(files);
+    if (!fileName.match(JS_FILE_RE)) return runNextTest(files);
 
     numProcesses++;
 
