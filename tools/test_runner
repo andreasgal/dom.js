@@ -6,12 +6,16 @@ var fs = require('fs');
 const JS_FILE_RE = /.*\.js$/;
 const START_PC_COUNTS = /\n--- SCRIPT ([^:]+):(\d+) ---\n/;
 
-var all_disassemblies = '';
+const MAX_PROCESSES = 8;
+
+var numProcesses = 0;
+
+var allDisassemblies = '';
 
 function runCoverMonkey() {
     var covermonkey = spawn('tools/CoverMonkey', ['-d', 'html', '-t', 'dom.js']);
-    covermonkey.stdin.write(all_disassemblies);
-    covermonkey.stdin.end()
+    covermonkey.stdin.write(allDisassemblies);
+    covermonkey.stdin.end();
     covermonkey.stdout.on('data', function(data) { console.log(data.toString()); });
     covermonkey.stderr.on('data', function(data) { console.log(data.toString()); } );
     covermonkey.on('exit', function(code) {
@@ -21,43 +25,50 @@ function runCoverMonkey() {
 
 function runNextTest(files) {
     if (!files.length) {
-        return runCoverMonkey();
+        if (numProcesses===0) return runCoverMonkey();
+        else return;
     }
+
+    if (numProcesses === MAX_PROCESSES) return;
 
     fileName = files.pop();
-    if (fileName.match(JS_FILE_RE)) {
-        var stdout = '';
-        var stderr = '';
-        var pc_counts = false;
-        var process = spawn('js', [
-            '-D',
-            '-f', 'src/testutils.js',
-            '-f', 'dom.js',
-            '-f', 'tests/newtests/' + fileName]);
-        process.stdout.on('data', function (data) {
-            stdout += data.toString();
-        });
 
-        process.stderr.on('data', function (data) {
-            stderr += data;
-        });
+    if (!fileName.match(JS_FILE_RE)) return runNextText(files);
 
-        process.on('exit', function (code) {
-            all_disassemblies += stdout;
-            if (code) {
-                console.log('OUT:', fileName);
-                stdout = stdout.replace(/^--- SCRIPT ([^:]+):(\d+) ---$[^]*/m, "")
-                console.log(stdout);
-                console.log('ERR:', fileName);
-                console.log(stderr);
-                console.log("\x1b[31m\x1b[1m[FAIL]\x1b[0m", fileName);
-            } else {
-                console.log("\x1b[32m\x1b[1m[PASS]\x1b[0m", fileName);
-            }
+    numProcesses++;
 
-            runNextTest(files);
-        });
-    }
+    var stdout = '';
+    var stderr = '';
+    var process = spawn('js', [
+        '-D',
+        '-f', 'src/testutils.js',
+        '-f', 'dom.js',
+        '-f', 'tests/newtests/' + fileName]);
+    process.stdout.on('data', function (data) {
+        stdout += data.toString();
+    });
+
+    process.stderr.on('data', function (data) {
+        stderr += data;
+    });
+
+    process.on('exit', function (code) {
+        allDisassemblies += stdout;
+        if (code) {
+            console.log('OUT:', fileName);
+            stdout = stdout.replace(/^--- SCRIPT ([^:]+):(\d+) ---$[^]*/m, "")
+            console.log(stdout);
+            console.log('ERR:', fileName);
+            console.log(stderr);
+            console.log("\x1b[31m\x1b[1m[FAIL]\x1b[0m", fileName);
+        } else {
+            console.log("\x1b[32m\x1b[1m[PASS]\x1b[0m", fileName);
+        }
+        numProcesses--;
+        runNextTest(files);
+    });
+
+    runNextTest(files);
 }
 
 fs.readdir('tests/newtests', function(err, files) {
