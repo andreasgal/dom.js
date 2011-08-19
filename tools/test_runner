@@ -31,7 +31,7 @@ function runNextTest(files) {
 
     if (numProcesses === MAX_PROCESSES) return;
 
-    fileName = files.pop();
+    var fileName = files.pop();
 
     if (!fileName.match(JS_FILE_RE)) return runNextText(files);
 
