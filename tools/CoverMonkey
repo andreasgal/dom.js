@@ -48,6 +48,12 @@
 //
 // Support @line comments.
 //
+// Check on performance issues.  Why so slow for make coverage?  Can
+// we discard scripts early if they are not in the target list?  Is
+// the verbose toString() method for identifying unique scripts
+// slowing things down a lot?  Or is test_runner sending the data
+// inefficiently maybe?
+//
 // -b option to output to a temp file and launch a browser tab
 //    Is there a nice way to launch a firefox tab to display the results
 //    (and generate the results in a tmp file, maybe?)  On macos, use the
