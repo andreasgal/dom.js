@@ -10,12 +10,11 @@ const MAX_PROCESSES = 8;
 
 var numProcesses = 0;
 
-var allDisassemblies = '';
 
-function runCoverMonkey() {
+function runCoverMonkey(disassembly) {
     var covermonkey = spawn('tools/CoverMonkey',
                             ['-h', 'coverage.html', '-b', '-t', 'dom.js']);
-    covermonkey.stdin.write(allDisassemblies);
+    covermonkey.stdin.write(disassembly);
     covermonkey.stdin.end();
     covermonkey.stdout.on('data', function(data) { console.log(data.toString()); });
     covermonkey.stderr.on('data', function(data) { console.log(data.toString()); } );
@@ -24,9 +23,9 @@ function runCoverMonkey() {
     });
 }
 
-function runNextTest(files) {
+function runNextTest(files, disassemblies) {
     if (!files.length) {
-        if (numProcesses===0) return runCoverMonkey();
+        if (numProcesses===0) return runCoverMonkey(disassemblies.join('\n'));
         else return;
     }
 
@@ -34,7 +33,7 @@ function runNextTest(files) {
 
     var fileName = files.pop();
 
-    if (!fileName.match(JS_FILE_RE)) return runNextText(files);
+    if (!fileName.match(JS_FILE_RE)) return runNextText(files, disassemblies);
 
     numProcesses++;
 
@@ -54,7 +53,7 @@ function runNextTest(files) {
     });
 
     process.on('exit', function (code) {
-        allDisassemblies += stdout;
+        disassemblies.push(stdout);
         if (code) {
             console.log('OUT:', fileName);
             stdout = stdout.replace(/^--- SCRIPT ([^:]+):(\d+) ---$[^]*/m, "")
@@ -66,12 +65,12 @@ function runNextTest(files) {
             console.log("\x1b[32m\x1b[1m[PASS]\x1b[0m", fileName);
         }
         numProcesses--;
-        runNextTest(files);
+        runNextTest(files, disassemblies);
     });
 
-    runNextTest(files);
+    runNextTest(files, disassemblies);
 }
 
 fs.readdir('tests/newtests', function(err, files) {
-    runNextTest(files);
+    runNextTest(files, []);
 });
