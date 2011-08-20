@@ -23,19 +23,19 @@ function runCoverMonkey(disassembly) {
     });
 }
 
-function runNextTest(files, disassemblies) {
+function runNextTest(files, disassemblies, processes) {
     if (!files.length) {
-        if (numProcesses===0) return runCoverMonkey(disassemblies.join('\n'));
+        if (processes.p===0) return runCoverMonkey(disassemblies.join('\n'));
         else return;
     }
 
-    if (numProcesses === MAX_PROCESSES) return;
+    if (processes.p === MAX_PROCESSES) return;
 
     var fileName = files.pop();
 
-    if (!fileName.match(JS_FILE_RE)) return runNextTest(files, disassemblies);
+    if (!fileName.match(JS_FILE_RE)) return runNextTest(files, disassemblies, processes);
 
-    numProcesses++;
+    processes.p++;
 
     var stdout = '';
     var stderr = '';
@@ -64,13 +64,13 @@ function runNextTest(files, disassemblies) {
         } else {
             console.log("\x1b[32m\x1b[1m[PASS]\x1b[0m", fileName);
         }
-        numProcesses--;
-        runNextTest(files, disassemblies);
+        processes.p--;
+        runNextTest(files, disassemblies, processes);
     });
 
-    runNextTest(files, disassemblies);
+    runNextTest(files, disassemblies, processes);
 }
 
 fs.readdir('tests/newtests', function(err, files) {
-    runNextTest(files, []);
+    runNextTest(files, [], {p: 0});
 });
