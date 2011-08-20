@@ -33,7 +33,7 @@ function runNextTest(files, disassemblies) {
 
     var fileName = files.pop();
 
-    if (!fileName.match(JS_FILE_RE)) return runNextText(files, disassemblies);
+    if (!fileName.match(JS_FILE_RE)) return runNextTest(files, disassemblies);
 
     numProcesses++;
 
