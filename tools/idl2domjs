@@ -11,12 +11,9 @@
  * This program makes no attempt to handle every nuance of WebIDL.
  * I'll add features as I need them to translate particular DOM interfaces.
  * 
- * This script uses a fork of darobin's JavaScript WebIDL parser:
- * https://github.com/darobin/webidl.js and assumes that you've cloned
- * the forked webidl.js repo into the top-level directory of this repo:
- *
- *   cd dom.js;  # cd to this repo
- *   git clone git@github.com:davidflanagan/webidl.js.git
+ * This script uses darobin's JavaScript WebIDL parser:
+ * https://github.com/darobin/webidl.js as a submodule. To set up the
+ * submodules, use "git submodule init" and "git submodule update".
  * 
  * This program treats the [Callback] attribute like the [NoInterfaceObject]
  * attribute and does not create an interface for it.  So for DOM Core, 
@@ -46,7 +43,7 @@ if (!infile) {
     process.exit(1);
 }
 var sourceidl = require("fs").readFileSync(infile,"utf-8");
-var webidl = require("../webidl.js/node/WebIDLParser.js")
+var webidl = require("../deps/webidl.js/node/WebIDLParser.js")
 var parsedidl;
 try {
     parsedidl = webidl.Parser.parse(sourceidl);
