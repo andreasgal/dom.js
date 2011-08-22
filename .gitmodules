@@ -1,0 +1,3 @@
+[submodule "CoverMonkey"]
+	path = CoverMonkey
+	url = https://github.com/davidflanagan/CoverMonkey.git
