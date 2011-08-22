@@ -4,38 +4,24 @@ var spawn = require('child_process').spawn;
 var fs = require('fs');
 
 const JS_FILE_RE = /.*\.js$/;
-const START_PC_COUNTS = /\n--- SCRIPT ([^:]+):(\d+) ---\n/;
-
 const MAX_PROCESSES = 8;
 
-var numProcesses = 0;
 
-
-function runCoverMonkey(disassembly) {
-    var covermonkey = spawn('tools/CoverMonkey',
-                            ['-h', 'coverage.html', '-b', '-t', 'dom.js']);
-    covermonkey.stdin.write(disassembly);
-    covermonkey.stdin.end();
-    covermonkey.stdout.on('data', function(data) { console.log(data.toString()); });
-    covermonkey.stderr.on('data', function(data) { console.log(data.toString()); } );
-    covermonkey.on('exit', function(code) {
-        console.log("CoverMonkey exited. (%d)", code);
-    });
-}
-
-function runNextTest(files, disassemblies, processes) {
+function runNextTest(files, processes) {
     if (!files.length) {
-        if (processes.p===0) return runCoverMonkey(disassemblies.join('\n'));
-        else return;
+        if (processes.num === 0) {
+            processes.cover.stdin.end();
+        }
+        return;
     }
 
-    if (processes.p === MAX_PROCESSES) return;
+    if (processes.num === MAX_PROCESSES) return;
 
     var fileName = files.pop();
 
-    if (!fileName.match(JS_FILE_RE)) return runNextTest(files, disassemblies, processes);
+    if (!fileName.match(JS_FILE_RE)) return runNextTest(files, processes);
 
-    processes.p++;
+    processes.num++;
 
     var stdout = '';
     var stderr = '';
@@ -45,7 +31,7 @@ function runNextTest(files, disassemblies, processes) {
         '-f', 'dom.js',
         '-f', 'tests/newtests/' + fileName]);
     process.stdout.on('data', function (data) {
-        stdout += data.toString();
+        stdout += data;
     });
 
     process.stderr.on('data', function (data) {
@@ -53,7 +39,7 @@ function runNextTest(files, disassemblies, processes) {
     });
 
     process.on('exit', function (code) {
-        disassemblies.push(stdout);
+        processes.cover.stdin.write(stdout);
         if (code) {
             console.log('OUT:', fileName);
             stdout = stdout.replace(/^--- SCRIPT ([^:]+):(\d+) ---$[^]*/m, "")
@@ -64,13 +50,21 @@ function runNextTest(files, disassemblies, processes) {
         } else {
             console.log("\x1b[32m\x1b[1m[PASS]\x1b[0m", fileName);
         }
-        processes.p--;
-        runNextTest(files, disassemblies, processes);
+        processes.num--;
+        runNextTest(files, processes);
     });
 
-    runNextTest(files, disassemblies, processes);
+    runNextTest(files, processes);
 }
 
 fs.readdir('tests/newtests', function(err, files) {
-    runNextTest(files, [], {p: 0});
+    var covermonkey = spawn('tools/CoverMonkey',
+                            ['-h', 'coverage.html', '-b', '-t', 'dom.js']);
+    covermonkey.stdout.on('data', function(data) { console.log(data.toString()); });
+    covermonkey.stderr.on('data', function(data) { console.log(data.toString()); } );
+    covermonkey.on('exit', function(code) {
+        console.log("CoverMonkey exited. (%d)", code);
+    });
+
+    runNextTest(files, {num: 0, cover: covermonkey});
 });
