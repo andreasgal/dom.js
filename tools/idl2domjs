@@ -438,6 +438,8 @@ function convert(a, v) {
         c = "unwrap";
     else if (t.idlType === "DOMString")
         c = "String";
+    else if (t.idlType === "DOMTimeStamp")  // XXX: really unsigned long long
+        c = "toULong"; 
     else if (t.idlType === "unsigned long")
         c = "toULong";
     else if (t.idlType === "long")
@@ -481,5 +483,6 @@ function isInterfaceType(t) {
     if (t === "void")  // Annoyingly, void is just a string 
         return false;  
     return (t.idlType !== "DOMString" &&
+            t.idlType !== "DOMTimeStamp" &&
             t.idlType !== t.idlType.toLowerCase())
 }

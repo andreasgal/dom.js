@@ -65,7 +65,7 @@ defineLazyProperty(impl, "EventTarget", function() {
 
             function invoke(target, event) {
                 let type = event.type, phase = event.eventPhase;
-                event.currentTarget = wrap(target);
+                event.currentTarget = target;
 
                 if (!target._listeners) return;
                 let list = target._listeners[type];
@@ -78,7 +78,7 @@ defineLazyProperty(impl, "EventTarget", function() {
                         (phase === BUBBLING_PHASE && l.capture))
                         continue;
                     if (l.f) {
-                        l.f.call(event.currentTarget, event);
+                        l.f.call(event.currentTarget, wrap(event));
                     }
                     else {
                         let f = l.listener.handleEvent;
@@ -86,7 +86,7 @@ defineLazyProperty(impl, "EventTarget", function() {
                             throw TypeError("handleEvent property of " +
                                             "event listener object is " +
                                             "not a function.");
-                        f.call(l.listener, event);
+                        f.call(l.listener, wrap(event));
                     }
                 }
             }
@@ -96,7 +96,7 @@ defineLazyProperty(impl, "EventTarget", function() {
             
             // Begin dispatching the event now
             event._dispatching = true;
-            event.target = wrap(this);
+            event.target = this;
 
             // Build the list of targets for the capturing and bubbling phases
             // XXX: we'll eventually have to add Window to this list.
