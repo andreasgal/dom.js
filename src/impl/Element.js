@@ -13,7 +13,9 @@ defineLazyProperty(impl, "Element", function() {
             this.tagName = toUpperCase(this.tagName);
 
         this.attributes = [];
+        this.attributes._idlName = "AttrArray";
         this.childNodes = [];
+        this.childNodes._idlName = "NodeList";
     }
 
     let recursiveGetText = recursive(function(n,a) {
@@ -34,7 +36,7 @@ defineLazyProperty(impl, "Element", function() {
     }
 
     Element.prototype = O.create(impl.Node.prototype, {
-        _idlName: constant(""),
+        _idlName: constant("Element"),
         nodeType: constant(ELEMENT_NODE),
         nodeName: attribute(function() { return this.tagName; }),
         nodeValue: attribute(fnull, fnoop),
@@ -367,6 +369,7 @@ defineLazyProperty(impl, "Element", function() {
     }
 
     ChildrenCollection.prototype = {
+        _idlName: "HTMLCollection",
         get length() { 
             this.updateCache();
             return this.childrenByNumber.length;

@@ -15,6 +15,8 @@ defineLazyProperty(impl, "FilteredElementList", function() {
     }
 
     FilteredElementList.prototype = {
+        _idlName: "NodeList",
+
         get length() { 
             this.checkcache();
             if (!this.done) this.traverse();

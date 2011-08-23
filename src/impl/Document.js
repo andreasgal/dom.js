@@ -14,6 +14,7 @@ defineLazyProperty(impl, "Document", function() {
         this.doctype = null;
         this.documentElement = null;
         this.childNodes = [];
+        this.childNodes._idlName = "NodeList";
 
         // Documents are always rooted, by definition
         this._nid = 1;

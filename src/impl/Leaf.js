@@ -21,6 +21,7 @@ defineLazyProperty(impl, "Leaf", function() {
         // a property to refer back to the IDL NodeList wrapper.
         childNodes: attribute(function() {
             var a = [];
+            a._idlName = "NodeList";
             O.defineProperty(this, "childNodes", constant(a));
             return a;
         }),
