@@ -78,7 +78,10 @@ defineLazyProperty(impl, "EventTarget", function() {
                         (phase === BUBBLING_PHASE && l.capture))
                         continue;
                     if (l.f) {
-                        l.f.call(event.currentTarget, wrap(event));
+                        // Wrap both the this value of the call and the
+                        // argument passed to the call, since these impl
+                        // objects are being exposed through the public API
+                        l.f.call(wrap(event.currentTarget), wrap(event));
                     }
                     else {
                         let f = l.listener.handleEvent;
@@ -86,6 +89,9 @@ defineLazyProperty(impl, "EventTarget", function() {
                             throw TypeError("handleEvent property of " +
                                             "event listener object is " +
                                             "not a function.");
+                        // Here we only have to wrap the event object, since
+                        // the listener object was passed in to us from
+                        // the public API.
                         f.call(l.listener, wrap(event));
                     }
                 }
