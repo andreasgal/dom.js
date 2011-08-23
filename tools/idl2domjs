@@ -194,11 +194,9 @@ function outputInterface(idl) {
         out('        constructor: function %s%s{',
             idl.name,
             arglist(c,"        "));
-        out('            return wrap(new impl.%s(%s),',
+        out('            return wrap(new impl.%s(%s));',
             idl.name,
             invokeargs(c, prefix + "                   "));
-        out('                        idl.%s);', idl.name);
-        
         out('        },');
     }
 
@@ -350,8 +348,12 @@ function outputMethod(m, prefix) {
 
     if (isInterfaceType(m.idlType)) {
         out("%s    let rv = %s;", prefix, invocation);
-        out("%s    return wrap(rv, idl.%s);",
-            prefix, typeName(m.idlType));
+        out("%s    return wrap(rv);", prefix);
+        if (m.idlType.array) {
+           // If this is an array type, remember that we've used it
+           // so that we can output an IDL interface for it later.
+           arrayTypes[m.idlType.idlType + "Array"] = true;
+        }       
     }
     else {
         out("%s    return %s;", prefix, invocation);
@@ -385,9 +387,14 @@ function invokeargs(m, prefix) {
 
 function outputAttribute(a, prefix) {
     out("%sget %s() {", prefix, a.name);
-    if (isInterfaceType(a.idlType)) 
-        out("%s    return wrap(unwrap(this).%s, idl.%s);",
-            prefix, a.name, typeName(a.idlType));
+    if (isInterfaceType(a.idlType)) {
+        out("%s    return wrap(unwrap(this).%s);", prefix, a.name);
+        if (a.idlType.array) {
+           // If this is an array type, remember that we've used it
+           // so that we can output an IDL interface for it later.
+           arrayTypes[a.idlType.idlType + "Array"] = true;
+        }       
+    }       
     else 
         out("%s    return unwrap(this).%s;", prefix, a.name);
     out("%s},", prefix);
@@ -462,19 +469,6 @@ function convert(a, v) {
         return c + "(" + v + ")";
     else
         return v;
-}
-
-function typeName(t) {
-    var s = t.idlType;
-    if (t.array) {
-        s += "Array";
-
-        // Remember that we've seen this type so we can output an
-        // IDL interface for it later.
-        arrayTypes[s] = true;
-    }
-    if (t.sequence) s+= "Sequence";
-    return s;
 }
 
 function isDictionaryType(t) {

@@ -58,28 +58,24 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
     }
 
     // Return the interface object (a DOM node) for the implementation object n,
-    // creating it if necessary. Most implementation objects define the type
-    // of wrapper they require by defining an _idlName property.  When the
-    // implementation object is an array, however, it is the second argument
-    // to this wrap() method that defines the wrapper type.
-    // XXX
-    // I don't like the special case for arrays.  Does that apply to anything
-    // other than childNodes?  Can I just define an _idlName property manually
-    // on every array that might get wrapped?
-    function wrap(n, idltype) {
+    // creating it if necessary. Implementation objects define the type
+    // of wrapper they require by defining an _idlName property. Most classes
+    // do this on their prototype.  For childNodes and attributes arrays, 
+    // we have to define _idlName directly on the array objects, however.
+    function wrap(n) {
         if (n === null) return null;
 
         // If n doesn't have a wrapper already, create one.
         if (!n._idl) {
-/*
-            // If n defines its own wrapper type, use that.
-            // Otherwise, use the type that IDL expects.
-            let type = n._idlName
-                ? idl[n._idlName]
-                : idltype;
-*/
-            n._idl = idl[n._idlName].factory(n);         // Create the wrapper
-            wmset(idlToImplMap, n._idl, n);   // Remember it for unwrap()
+            let typename = n._idlName;
+            if (!typename)
+                throw Error("Implementation object does not define _idlName");
+            let type = idl[typename];
+            if (!type) 
+                throw Error("Unknown idl type " + typename);
+
+            n._idl = type.factory(n);       // Create the wrapper
+            wmset(idlToImplMap, n._idl, n); // Remember it for unwrap()
         }
 
         return n._idl;
