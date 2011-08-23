@@ -14,8 +14,6 @@ var DOMSTR = (function() {
     const fromCharCode = String.fromCharCode;
 
     function stringify(n) {
-        return stringifyNode(n);
-
         function stringifyNode(n) {
             switch (n.nodeType) {
             case Node.TEXT_NODE:
@@ -103,6 +101,8 @@ var DOMSTR = (function() {
             }
             return s;
         }
+
+        return stringifyNode(n);
     }
 
 
@@ -111,8 +111,6 @@ var DOMSTR = (function() {
             eos = s.length;   // end-of-string
 
         if (!d) d = document;
-
-        return parseNode();
 
         function parseNode() {
             switch(s[n++]) {
@@ -203,6 +201,8 @@ var DOMSTR = (function() {
                 f.appendChild(parseNode());
             return f;
         }
+
+        return parseNode();
     }
 
     return { stringify: stringify, parse: parse };
