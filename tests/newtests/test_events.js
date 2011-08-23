@@ -20,6 +20,12 @@ function click_handler(evt) {
     assert(!evt.isTrusted);
     assert(evt.target === node);
     assert(evt.currentTarget === node, evt.currentTarget);
+    assert(evt.eventPhase === evt.AT_TARGET, evt.eventPhase);
+    // TODO move these to another test that actually tests that they function
+    evt.stopPropagation();
+    evt.stopImmediatePropagation();
+    evt.preventDefault();
+    assert(evt.defaultPrevented === true, evt.defaultPrevented);
     clicked = true;
 }
 
@@ -38,6 +44,27 @@ node.removeEventListener("click", click_handler, false);
 node.dispatchEvent(evt);
 assert(!clicked);
 
-//var newevent = new Event("click", {bubbles: true, cancelable: true});
+var newevent = new Event("click", {bubbles: true, cancelable: true});
 
-//assert(newevent.type === "click", newevent.type);
+assert(newevent.type === "click", newevent.type);
+assert(newevent.bubbles === true);
+assert(newevent.cancelable === true);
+
+var defaultevent = new Event("click");
+
+assert(defaultevent.type === "click", defaultevent.type);
+assert(defaultevent.bubbles === false);
+assert(defaultevent.cancelable === false);
+
+var customevent = new CustomEvent("foo", {bubbles: true, cancelable: true, detail: "hello"});
+
+assert(customevent.type === "foo", customevent.type);
+assert(customevent.bubbles === true);
+assert(customevent.cancelable === true);
+assert(customevent.detail === "hello", customevent.detail);
+
+var defaultcustom = new CustomEvent("bar");
+
+assert(defaultcustom.type === "bar", defaultcustom.type);
+assert(defaultcustom.bubbles === false);
+assert(defaultcustom.cancelable === false);
