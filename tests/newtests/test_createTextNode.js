@@ -20,6 +20,8 @@ var sub = foo.substringData(0, 3);
 
 assert(sub === "foo", sub);
 
+assert_throws(function() { foo.substringData(999,2); });
+
 foo.appendData("baz");
 
 assert(foo.data === "foobarbaz", foo.data);
@@ -28,9 +30,13 @@ foo.insertData(3, "bam");
 
 assert(foo.data === "foobambarbaz", foo.data);
 
+assert_throws(function() {foo.insertData(999,2); });
+
 foo.deleteData(3, 3);
 
 assert(foo.data === "foobarbaz", foo.data);
+
+assert_throws(function() { foo.deleteData(999,2); });
 
 foo.replaceData(1, 7, "rot");
 
@@ -49,3 +55,18 @@ assert(spl.data === "frotz", spl.data);
 var clone = spl.cloneNode();
 
 assert(clone.data === "frotz", clone.data);
+
+clone.deleteData(3,999);
+
+assert(clone.data === 'fro', clone.data);
+
+clone.replaceData(2,999,'ee');
+
+assert(clone.data === 'free', clone.data);
+
+assert_throws(function() { foo.replaceData(999,2,'asdfafsdasdffdsa'); });
+
+var free = document.createTextNode('free');
+
+assert(free.isEqualNode(clone));
+

@@ -6,10 +6,12 @@ function assert(expr, msg) {
 }
 
 function assert_throws(func, exception_type, msg) {
+    var raised = false;
     try {
         func();
-        throw new Error("Did not raise: ", func, + " " + (msg || "") + "\n" + new Error().stack);
     } catch (e) {
+        raised = true;
         // todo check the type of the exception
     }
+    if (!raised) throw new Error("Did not raise: ", func, + " " + (msg || "") + "\n" + new Error().stack);
 }
