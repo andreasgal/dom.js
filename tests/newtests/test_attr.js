@@ -31,6 +31,11 @@ assert(document.getElementsByTagNameNS('namespace', 'element').length === 1);
 assert(foo.attributes[999] === undefined);
 foo.attributes.bar = "baz";
 assert(foo.attributes.bar === "baz");
+
+// Here I am just covering the enumerate() implementation;
+for (var i in foo.attributes) {
+}
+
 delete foo.attributes.bar;
 assert(foo.attributes.bar === undefined);
 
@@ -46,13 +51,12 @@ assert(readonly);
 delete foo.attributes.length;
 assert(foo.attributes.length);
 
+// Can't delete attrs
 var attr = foo.attributes[0];
 delete foo.attributes[0];
 assert(attr === foo.attributes[0]);
 
-// Here I am just covering the enumerate() implementation;
-for (var i in foo.attributes) {
-}
 
-// TODO This does not seem to call the getOwnPropertyNames method on the proxy handler. Why?
-var blah = Object.getOwnPropertyNames(foo);
+assert(Object.getOwnPropertyNames(foo.attributes));
+assert(Object.keys(foo.attributes));
+

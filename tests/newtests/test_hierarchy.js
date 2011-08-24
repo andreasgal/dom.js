@@ -42,8 +42,8 @@ assert(parent.getElementsByClassName('foo').length === 2);
 
 assert(parent.childNodes[999] === undefined);
 
-// TODO: This does not call the getOwnPropertyNames function on the proxy handler.
-assert(Object.getOwnPropertyNames(parent));
+assert(Object.getOwnPropertyNames(parent.childNodes));
+assert(Object.keys(parent.childNodes));
 
 assert_throws(function () { parent.childNodes[1] = "HELLO"; });
 
