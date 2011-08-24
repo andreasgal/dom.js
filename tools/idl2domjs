@@ -438,8 +438,8 @@ function convert(a, v) {
         c = "unwrap";
     else if (t.idlType === "DOMString")
         c = "String";
-    else if (t.idlType === "DOMTimeStamp")  // XXX: really unsigned long long
-        c = "toULong"; 
+    else if (t.idlType === "DOMTimeStamp")  
+        c = "Number"; // XXX: really unsigned long long
     else if (t.idlType === "unsigned long")
         c = "toULong";
     else if (t.idlType === "long")

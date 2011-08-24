@@ -6,7 +6,6 @@ var fs = require('fs');
 const JS_FILE_RE = /.*\.js$/;
 const MAX_PROCESSES = 2;
 
-
 function runNextTest(files, processes) {
     if (!files.length) {
         if (processes.num === 0) {
@@ -60,8 +59,8 @@ function runNextTest(files, processes) {
 fs.readdir('tests/newtests', function(err, files) {
     var covermonkey = spawn('deps/CoverMonkey/CoverMonkey',
                             ['-h', 'coverage.html', '-c', '--atlines']);
-    covermonkey.stdout.on('data', function(data) { console.log(data.toString()); });
-    covermonkey.stderr.on('data', function(data) { console.log(data.toString()); } );
+    covermonkey.stdout.on('data', function(data) { process.stdout.write(data.toString()); });
+    covermonkey.stderr.on('data', function(data) { process.stdout.write(data.toString()); } );
     covermonkey.on('exit', function(code) {
         console.log("CoverMonkey exited. (%d)", code);
     });
