@@ -10,3 +10,7 @@ assert(document.compatMode === 'CSS1Compat', document.compatMode);
 
 assert(document.doctype);
 
+assert(
+    document.implementation.toString() === "[object DOMImplementation]",
+    document.implementation.toString());
+

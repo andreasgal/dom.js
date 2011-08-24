@@ -60,3 +60,8 @@ assert(attr === foo.attributes[0]);
 assert(Object.getOwnPropertyNames(foo.attributes));
 assert(Object.keys(foo.attributes));
 
+// Cover the document mutation event when the node is rooted
+document.body.appendChild(foo);
+foo.attributes[0].value = "hello"
+assert(foo.getAttribute("bar") === "hello");
+
