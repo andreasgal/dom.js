@@ -39,3 +39,24 @@ assert(parent.childElementCount === 5);
 assert(parent.getElementsByTagName('child').length === 4);
 
 assert(parent.getElementsByClassName('foo').length === 2);
+
+assert(parent.childNodes[999] === undefined);
+
+// TODO: This does not call the getOwnPropertyNames function on the proxy handler.
+assert(Object.getOwnPropertyNames(parent));
+
+assert_throws(function () { parent.childNodes[1] = "HELLO"; });
+
+parent.childNodes.foo = "bar";
+assert(parent.childNodes.foo === "bar", parent.childNodes.foo);
+
+// Trigger the enumerate func
+for (var i in parent.childNodes) {
+}
+
+delete parent.childNodes.foo;
+assert(parent.childNodes.foo === undefined, parent.childNodes.foo);
+
+assert(delete parent.childNodes[9999] === true);
+assert(delete parent.childNodes[0] === false);
+
