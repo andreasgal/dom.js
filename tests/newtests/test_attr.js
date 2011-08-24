@@ -26,3 +26,33 @@ assert(!foo.hasAttributeNS('namespace', 'foo'));
 var bar = document.createElementNS('namespace', 'element');
 document.body.appendChild(bar);
 assert(document.getElementsByTagNameNS('namespace', 'element').length === 1);
+
+// Cover the AttrArray implementation
+assert(foo.attributes[999] === undefined);
+foo.attributes.bar = "baz";
+assert(foo.attributes.bar === "baz");
+delete foo.attributes.bar;
+assert(foo.attributes.bar === undefined);
+
+var readonly = false;
+try {
+    foo.attributes[foo.attributes.length] = 50;
+} catch (e) {
+    readonly = true;
+}
+assert(readonly);
+
+// Can't delete length
+delete foo.attributes.length;
+assert(foo.attributes.length);
+
+var attr = foo.attributes[0];
+delete foo.attributes[0];
+assert(attr === foo.attributes[0]);
+
+// Here I am just covering the enumerate() implementation;
+for (var i in foo.attributes) {
+}
+
+// TODO This does not seem to call the getOwnPropertyNames method on the proxy handler. Why?
+var blah = Object.getOwnPropertyNames(foo);

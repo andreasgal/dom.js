@@ -82,7 +82,7 @@ NodeListProxy.handler = {
             // If an item exists at that index, return false: won't delete it
             // Otherwise, if no item, then the index was out of bounds and
             // we return true to indicate that the deletion was "successful"
-            return !this.list.time(name);
+            return !this.list.item(name);
         }
         return delete this.localprops[name];
     },
@@ -104,8 +104,8 @@ NodeListProxy.handler = {
         let r = [];
         for (let i = 0, n = this.list.length; i < n; i++)
             push(r, String(i));
-        for(name in this.localprops) push(r, name);
-        for(name in idl.NodeList.prototype) push(r, name);
+        for(let name in this.localprops) push(r, name);
+        for(let name in idl.NodeList.prototype) push(r, name);
         return r;
     }
 };
