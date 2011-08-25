@@ -302,7 +302,7 @@ defineLazyProperty(impl, "Element", function() {
                 this.attributes.length !== n.attributes.length)
                 return false;
 
-            for(let i = 0, j = this.attributes.length; i < j; i++) {
+            for(let i = 0, l = this.attributes.length; i < l; i++) {
                 if (!this.attributes[i].isEqual(n.attributes[i]))
                     return false;
             }
