@@ -28,3 +28,13 @@ assert(cloned.data === "clone", cloned.data);
 assert(proc.target === "target");
 assert(cloned.target === "target");
 
+document.implementation.createDocument("", "");
+
+assertThrows(function() {
+    document.implementation.createDocument("foo", "bar", doctype);
+});
+
+assertThrows(function() {
+    document.implementation.createDocumentType("", "");
+});
+
