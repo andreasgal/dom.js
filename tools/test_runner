@@ -58,7 +58,7 @@ function runNextTest(files, processes) {
 
 fs.readdir('tests/newtests', function(err, files) {
     var covermonkey = spawn('deps/CoverMonkey/CoverMonkey',
-                            ['-h', 'coverage.html', '-c', '--atlines']);
+                            ['-h', 'coverage.html', '-c', '--atlines', '-a']);
     covermonkey.stdout.on('data', function(data) { process.stdout.write(data.toString()); });
     covermonkey.stderr.on('data', function(data) { process.stdout.write(data.toString()); } );
     covermonkey.on('exit', function(code) {

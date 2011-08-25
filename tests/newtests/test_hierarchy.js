@@ -4,6 +4,8 @@ assert(HTMLDivElement);
 
 var foo = document.createElement('foo');
 
+notYetImplemented(function() { foo.baseURI; });
+
 foo.appendChild(document.createTextNode('text'));
 foo.appendChild(document.createElement('bar'));
 foo.appendChild(document.createTextNode('text'));

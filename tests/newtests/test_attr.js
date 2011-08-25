@@ -61,7 +61,12 @@ assert(Object.getOwnPropertyNames(foo.attributes));
 assert(Object.keys(foo.attributes));
 
 // Cover the document mutation event when the node is rooted
+// TODO Make sure the document mutation event fires
 document.body.appendChild(foo);
 foo.attributes[0].value = "hello"
 assert(foo.getAttribute("bar") === "hello");
+
+var cloned = foo.cloneNode();
+
+assert(foo.isEqualNode(cloned));
 
