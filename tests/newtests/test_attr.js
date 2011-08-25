@@ -27,6 +27,14 @@ var bar = document.createElementNS('namespace', 'element');
 document.body.appendChild(bar);
 assert(document.getElementsByTagNameNS('namespace', 'element').length === 1);
 
+assertThrows(function() { document.createElementNS('', '') });
+assertThrows(function() { document.createElementNS('not-xml-namespace', 'xml:foo') });
+assertThrows(function() { document.createElementNS('not-xml-namespace', 'xmlns:foo') });
+assertThrows(function() { document.createElementNS('http://www.w3.org/2000/xmlns/', 'notxmlns:foo') });
+
+var htmlelm = document.createElementNS('http://www.w3.org/1999/xhtml', 'foo');
+
+
 // Cover the AttrArray implementation
 assert(foo.attributes[999] === undefined);
 foo.attributes.bar = "baz";

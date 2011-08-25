@@ -41,3 +41,5 @@ assertThrows(function() {
     document.implementation.createDocumentType("", "");
 });
 
+var nulldoc = document.implementation.createDocument(null, null, null);
+
