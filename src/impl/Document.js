@@ -273,6 +273,7 @@ defineLazyProperty(impl, "Document", function() {
         }),
 
         insertBefore: constant(function insertBefore(child, refChild) {
+            if (refChild === null) return call(impl.Document.prototype.appendChild, this, child);
             if (refChild.parentNode !== this) NotFoundError();
             if (child.nodeType === TEXT_NODE) HierarchyRequestError();
             if (child.nodeType === ELEMENT_NODE) {
@@ -287,7 +288,7 @@ defineLazyProperty(impl, "Document", function() {
             if (child.nodeType === DOCUMENT_TYPE_NODE) {
                 if (this.doctype ||        
                     (this.documentElement &&
-                     refChild.index >= this.documentElement.index))
+                     refChild.index > this.documentElement.index))
                     HierarchyRequestError()
 
                 this.doctype = child;
