@@ -3,13 +3,19 @@ assert(Node);
 assert(Element);
 assert(NodeList);
 
+assertThrows(function () {
+    document.createElement('');
+});
+
 var foo = document.createElement('foo');
 
 assert(foo.tagName === 'FOO', foo.tagName);
 assert(foo.localName === 'foo', foo.localName);
 
 // not yet implemented
-//assert(foo.baseURI === '', foo.baseURI);
+notYetImplemented(function() {
+    foo.baseURI;
+});
 
 foo.setAttribute('hello', 'world');
 assert(foo.getAttribute('hello') === 'world', foo.getAttribute('hello'));
@@ -87,6 +93,8 @@ assert(DocumentFragment);
 
 var fragment = document.createDocumentFragment();
 assert(fragment.nodeType === document.DOCUMENT_FRAGMENT_NODE);
+var clone = fragment.cloneNode();
+assert(fragment.isEqualNode(clone));
 
 assert(document.documentElement.nodeName === 'HTML');
 

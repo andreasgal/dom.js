@@ -3,6 +3,10 @@
 assert(Event);
 assert(EventTarget);
 
+assertThrows(function() {
+    document.createEvent("this event does not exist");
+});
+
 var evt = document.createEvent("Event");
 
 evt.initEvent("click", true, true);

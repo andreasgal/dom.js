@@ -16,6 +16,11 @@ assert(doc.isDefaultNamespace('http://example.com/namespace'));
 
 var proc = doc.createProcessingInstruction("target", "proc");
 
+assertThrows(function() {
+    // Make sure we catch invalid characters
+    doc.createProcessingInstruction("", "");
+});
+
 assert(proc.data === "proc", proc.data);
 
 var cloned = proc.cloneNode();
@@ -27,8 +32,6 @@ assert(cloned.data === "clone", cloned.data);
 
 assert(proc.target === "target");
 assert(cloned.target === "target");
-
-document.implementation.createDocument("", "");
 
 assertThrows(function() {
     document.implementation.createDocument("foo", "bar", doctype);

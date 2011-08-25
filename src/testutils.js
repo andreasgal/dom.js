@@ -25,5 +25,6 @@ function notYetImplemented(func) {
             raised = true;
         }
     }
-    if (!raised) throw new Error("Expected Not Yet Implemented");
+    if (!raised) throw new Error(
+        "Expected Not Yet Implemented\n" + new Error().stack);
 }
