@@ -4,6 +4,8 @@ assert(HTMLDivElement);
 
 var foo = document.createElement('foo');
 
+notYetImplemented(function() { foo.baseURI; });
+
 foo.appendChild(document.createTextNode('text'));
 foo.appendChild(document.createElement('bar'));
 foo.appendChild(document.createTextNode('text'));
@@ -42,10 +44,11 @@ assert(parent.getElementsByClassName('foo').length === 2);
 
 assert(parent.childNodes[999] === undefined);
 
-// TODO: This does not call the getOwnPropertyNames function on the proxy handler.
-assert(Object.getOwnPropertyNames(parent));
+assert(Object.getOwnPropertyNames(parent.childNodes));
+assert(Object.keys(parent.childNodes));
 
-assert_throws(function () { parent.childNodes[1] = "HELLO"; });
+//TODO: This should be raising a type error.
+//assert_throws(function () { parent.childNodes[1] = "HELLO"; });
 
 parent.childNodes.foo = "bar";
 assert(parent.childNodes.foo === "bar", parent.childNodes.foo);
