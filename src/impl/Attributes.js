@@ -108,4 +108,224 @@
  * XXX: I don't know yet if these can just be plain JS objects created with
  *  object literals, or whether it will be useful to define a factory method
  *  or even an AttrDecl class with methods in it.
+ *
+ * IMPL NOTES:
+ *
+ * I think each Attr object I create from here will refer to the 
+ * attribute declaration, if there is one, and it is the value property
+ * of the attr that will do the interesting setter stuff in one location.
+ * 
+ * For the NS versions I have to find attributes by ns/lname. For the non-NS
+ * methods, I have to find them by qname.  So I think I need two maps. (Or in
+ * the ns case, a ns->{lname->Attr} 2-layer map? (No: probably just append
+ * ns string to the lname with some kind of prefix)  In the qname map, I have
+ * to be prepared to have more than one Attr that matches, so it maps to an
+ * attr or an array of attrs.
+ *
+ * the byNSAndLName map will work by using ns + "|" + lname as the map key "|"
+ * is not legal in a localname, so this should be unique.  If ns is "" or null
+ * then we'll use "|" + lname.  (I think that null and "" namespaces should
+ * always be treated as equivalent.)
  */
+defineLazyProperty(impl, "Attributes", function() {
+
+    function Attributes(element) {
+        this.element = element;  // The element to which these attributes belong
+        this.length = 0;         // How many attributes are there?
+        this.byQName = Object.create(null);      // The qname->Attr map
+        this.byNSAndLName = Object.create(null); // The ns|lname map
+    }
+
+    Attributes.prototype = O.create(Object.prototype, {
+        _idlName: constant("AttrArray"),
+
+        getAttribute: constant(function getAttribute(qname) {
+            if (this.element.isHTML) qname = toLowerCase(qname);
+            var attr = this.byQName[qname];
+            if (!attr) return null;
+
+            if (isArray(attr))  // If there is more than one
+                attr = attr[0];   // use the first
+
+            return attr.value;
+        }),
+
+        // The raw version is used by the getter functions of idl attributes
+        // Note that it doesn't do lowercasing
+        getAttributeRaw: constant(function getAttribute(qname) {
+            var attr = this.byQName[qname];
+            if (!attr) return null;
+
+            // XXX Reflected attributes will never have a prefix, so does that
+            // mean I can get rid of this isArray test? Think this through...
+            if (isArray(attr))  // If there is more than one
+                attr = attr[0];   // use the first
+
+            return attr.data;   // The raw value
+        }),
+
+        getAttributeNS: constant(function getAttributeNS(ns, lname) {
+            if (ns === null) ns = "";
+            var attr = this.byNSAndLName[ns + "|" + lname];
+            return attr ? attr.value : null;
+        }),
+        
+        hasAttribute: constant(function hasAttribute(qname) {
+            if (this.element.isHTML) qname = toLowerCase(qname);
+            return this.byQName[qname] !== null
+        }),
+
+        hasAttributeNS: constant(function hasAttributeNS(ns, lname) {
+            if (ns === null) ns = "";
+            return this.byNSAndLName[ns + "|" + lname] !== null;
+        }),
+
+        setAttribute: constant(function setAttribute(qname, value) {
+            if (!isValidName(qname)) InvalidCharacterError();
+            if (this.element.isHTML) qname = toLowerCase(qname);
+            // XXX: the spec says just "xmlns". I've added the colon
+            // and have an email pending on www-dom about it.
+            if (substring(qname, 0, 6) === "xmlns:") NamespaceError();
+
+            // XXX: the spec says that this next search should be done 
+            // on the local name, but I think that is an error.
+            // email pending on www-dom about it.
+            var attr = this.byQName[qname];
+            if (!attr) {
+                // If the attr doesn't exist, create it and insert it.
+                attr = new impl.Attr(this.element, qname);
+                this.byQName[qname] = attr;
+                this.byNSAndLName["|" + qname] = attr;
+                this.length++;
+            }
+            else {
+                if (isArray(attr)) attr = attr[0];
+            }
+
+            // Now set the attribute value on the new or existing Attr object.
+            // The Attr.value setter method handles mutation events, etc.
+            attr.value = value;
+        }),
+        
+        // XXX: setAttributeRaw() here?
+        // Would be a lot of duplication to copy the whole method and 
+        // just change the last line.  Maybe add a "raw" flag as a 3rd argument?
+        
+
+        setAttributeNS: constant(function setAttributeNS(ns, qname, value) {
+            if (!isValidName(qname)) InvalidCharacterError();
+            if (!isValidQName(qname)) NamespaceError();
+
+            let pos = S.indexOf(qname, ":"), prefix, lname;
+            if (pos === -1) {
+                prefix = null;
+                lname = qname;
+            }
+            else {
+                prefix = substring(qname, 0, pos);
+                lname = substring(qname, pos+1);
+            }
+
+            if (ns === "") ns = null;
+
+            if ((prefix !== null && ns === null) ||
+                (prefix === "xml" && ns !== XML_NAMESPACE) ||
+                ((qname === "xmlns" || prefix === "xmlns") &&
+                 (ns !== XMLNS_NAMESPACE)) ||
+                (ns === XMLNS_NAMESPACE && 
+                 !(qname === "xmlns" || prefix === "xmlns")))
+                NamespaceError();
+
+            var key = (ns||"") + "|" + lname;
+            var attr = this.byNSAndLName[key];
+            if (!attr) {
+                var attr = new impl.Attr(this.element, lname, prefix, ns);
+                this.byNSAndLName[key] = attr;
+
+                // We also have to make the attr searchable by qname.
+                // But we have to be careful because there may already
+                // be an attr with this qname.
+                var existing = this.byQName[qname];
+                if (!existing) {
+                    this.byQName[qname] = attr;
+                }
+                else if (isArray(existing)) {
+                    push(existing, attr);
+                }
+                else {
+                    this.byQName[qname] = [existing, attr];
+                }
+            }
+            else {
+                // existing attributes may have their prefix changed
+                attr.prefix = prefix;
+            }
+            attr.value = value; // Automatically sends mutation event
+        }),
+
+
+        removeAttribute: constant(function removeAttribute(qname) {
+            if (this.element.isHTML) qname = toLowerCase(qname);
+
+            var attr = this.byQName[qname];
+            if (!attr) return;
+
+            // If there is more than one match for this qname
+            // so don't delete the qname mapping, just remove the first
+            // element from it.
+            if (isArray(attr)) {
+                if (attr.length > 2) {
+                    attr = A.shift(attr);  // remove it from the array
+                }
+                else {
+                    this.byQName[qname] = attr[1];
+                    attr = attr[0];
+                }
+            }
+            else {
+                // only a single match, so remove the qname mapping
+                delete this.byQName[qname];
+            }
+
+            // Now attr is the removed attribute.  Figure out its
+            // ns+lname key and remove it from the other mapping as well.
+            var key = (attr.namespaceURI || "") + "|" + attr.localName;
+            delete this.byNSAndLName[key];
+
+            // Mutation event
+            if (this.element.rooted)
+                this.element.ownerDocument.mutateRemoveAttr(attr);
+        }),
+
+        removeAttributeNS: constant(function removeAttributeNS(ns, lname) {
+            var key = (ns || "") + "|" + lname;
+            var attr = this.byNSAndLName[key];
+            if (!attr) return;
+
+            delete this.byNSAndLName[key];
+
+            // Now find the same Attr object in the qname mapping and remove it
+            // But be careful because there may be more than one match.
+            var qname = attr.name;
+            var target = this.byQName[qname];
+
+            if (isArray(target)) {
+                var idx = A.indexOf(target, attr);
+                assert(idx !== -1); // It must be here somewhere
+                if (target.length === 2) {
+                    this.byQName[qname] = target[1-idx];
+                }
+                else {
+                    splice(target, idx, 1)
+                }
+            }
+            else {
+                assert(target === attr);  // If only one, it must match
+                delete this.byQName[qname];
+            }
+        }),
+
+    });
+
+    return Attributes;
+});

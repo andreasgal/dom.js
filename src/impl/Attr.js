@@ -1,3 +1,9 @@
+// XXX: Attributes.js now calls the Attr() constructor with no value.
+// Values are always set through the value attribute (or, when
+// implemented rawValue to do no conversion) so that mutation events
+// can be sent and other processing be done in the same way for newly
+// created attributes as existing ones.
+
 defineLazyProperty(impl, "Attr", function() {
 
     function Attr(elt, lname, value, prefix, namespace) {
