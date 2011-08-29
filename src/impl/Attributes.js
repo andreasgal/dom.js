@@ -13,7 +13,7 @@
  * - attributes can also be queried and set through the .attributes property
  *   of an element.  This property behaves like an array of Attr objects.  The
  *   value property of each Attr is writeable, so this is a third way to 
- *   read and write attribugtes.
+ *   read and write attributes.
  * 
  * - for efficiency, we really want to store attributes in some kind of
  *   name->attr map.  But the attributes[] array is an array, not a map, which
@@ -61,7 +61,7 @@
  * attributes object.  The get/set/has/removeAttribute{NS}() methods will all
  * call methods on the attributes object.  And there will be a proxy handler
  * that can be used when wrapping the element so that the attributes object
- * behaves like an Attr[], as required by WebIDL.
+ * behaves like an Attr[].
  *
  * In order to make this work, Element and each of its subtypes must declare
  * the set of reflected attributes that they define.  So each element type
@@ -91,7 +91,7 @@
  *      is different for class/className, for example
  *
  *   boolean: true if this is a boolean attribute and undefined
- *      otherwise.  boolean attribute have special behavior: setting
+ *      otherwise.  boolean attributes have special behavior: setting
  *      their IDL value to false is like calling removeAttribute() on them.
  * 
  * XXX: For enumerated attributes (such as dir) is it useful to declare
@@ -102,7 +102,7 @@
  * for rules on how attributes are reflected.
  *
  * Notice that the simplest string-valued reflected attributes do not
- * require any of these AttrDecl properties so an empty object (or null?)
+ * require any of the properties listed above so an empty object (or null?)
  * or some constant value will work for them.
  * 
  * XXX: I don't know yet if these can just be plain JS objects created with
@@ -134,10 +134,15 @@ defineLazyProperty(impl, "Attributes", function() {
         this.length = 0;         // How many attributes are there?
         this.byQName = Object.create(null);      // The qname->Attr map
         this.byNSAndLName = Object.create(null); // The ns|lname map
+        this.keys = [];                          // attr index -> ns|lname
     }
 
     Attributes.prototype = O.create(Object.prototype, {
         _idlName: constant("AttrArray"),
+
+        item: constant(function item(index) {
+            return this.byNSAndLName[this.keys[index]];
+        }),
 
         getAttribute: constant(function getAttribute(qname) {
             if (this.element.isHTML) qname = toLowerCase(qname);
@@ -150,20 +155,6 @@ defineLazyProperty(impl, "Attributes", function() {
             return attr.value;
         }),
 
-        // The raw version is used by the getter functions of idl attributes
-        // Note that it doesn't do lowercasing
-        getAttributeRaw: constant(function getAttribute(qname) {
-            var attr = this.byQName[qname];
-            if (!attr) return null;
-
-            // XXX Reflected attributes will never have a prefix, so does that
-            // mean I can get rid of this isArray test? Think this through...
-            if (isArray(attr))  // If there is more than one
-                attr = attr[0];   // use the first
-
-            return attr.data;   // The raw value
-        }),
-
         getAttributeNS: constant(function getAttributeNS(ns, lname) {
             if (ns === null) ns = "";
             var attr = this.byNSAndLName[ns + "|" + lname];
@@ -172,20 +163,18 @@ defineLazyProperty(impl, "Attributes", function() {
         
         hasAttribute: constant(function hasAttribute(qname) {
             if (this.element.isHTML) qname = toLowerCase(qname);
-            return this.byQName[qname] !== null
+            return qname in this.byQName;
         }),
 
         hasAttributeNS: constant(function hasAttributeNS(ns, lname) {
-            if (ns === null) ns = "";
-            return this.byNSAndLName[ns + "|" + lname] !== null;
+            var key = (ns || "") + "|" + lname;
+            return key in this.byNSAndLName;
         }),
 
         setAttribute: constant(function setAttribute(qname, value) {
             if (!isValidName(qname)) InvalidCharacterError();
             if (this.element.isHTML) qname = toLowerCase(qname);
-            // XXX: the spec says just "xmlns". I've added the colon
-            // and have an email pending on www-dom about it.
-            if (substring(qname, 0, 6) === "xmlns:") NamespaceError();
+            if (substring(qname, 0, 5) === "xmlns") NamespaceError();
 
             // XXX: the spec says that this next search should be done 
             // on the local name, but I think that is an error.
@@ -196,7 +185,8 @@ defineLazyProperty(impl, "Attributes", function() {
                 attr = new impl.Attr(this.element, qname);
                 this.byQName[qname] = attr;
                 this.byNSAndLName["|" + qname] = attr;
-                this.length++;
+                this.keys = O.keys(this.byNSAndLName);
+                this.length = this.keys.length;
             }
             else {
                 if (isArray(attr)) attr = attr[0];
@@ -241,28 +231,28 @@ defineLazyProperty(impl, "Attributes", function() {
             if (!attr) {
                 var attr = new impl.Attr(this.element, lname, prefix, ns);
                 this.byNSAndLName[key] = attr;
+                this.keys = O.keys(this.byNSAndLName);
+                this.length = this.keys.length;
 
                 // We also have to make the attr searchable by qname.
                 // But we have to be careful because there may already
                 // be an attr with this qname.
-                var existing = this.byQName[qname];
-                if (!existing) {
-                    this.byQName[qname] = attr;
-                }
-                else if (isArray(existing)) {
-                    push(existing, attr);
-                }
-                else {
-                    this.byQName[qname] = [existing, attr];
-                }
+                this._addQName(attr);
             }
             else {
-                // existing attributes may have their prefix changed
-                attr.prefix = prefix;
+                // Calling setAttributeNS() can change the prefix of an 
+                // existing attribute!
+                if (attr.prefix !== prefix) {
+                    // Unbind the old qname
+                    this._removeQName(attr);
+                    // Update the prefix
+                    attr.prefix = prefix;
+                    // Bind the new qname
+                    this._addQName(attr);
+                }
             }
             attr.value = value; // Automatically sends mutation event
         }),
-
 
         removeAttribute: constant(function removeAttribute(qname) {
             if (this.element.isHTML) qname = toLowerCase(qname);
@@ -291,6 +281,8 @@ defineLazyProperty(impl, "Attributes", function() {
             // ns+lname key and remove it from the other mapping as well.
             var key = (attr.namespaceURI || "") + "|" + attr.localName;
             delete this.byNSAndLName[key];
+            this.keys = O.keys(this.byNSAndLName);
+            this.length = this.keys.length;
 
             // Mutation event
             if (this.element.rooted)
@@ -303,9 +295,57 @@ defineLazyProperty(impl, "Attributes", function() {
             if (!attr) return;
 
             delete this.byNSAndLName[key];
+            this.keys = O.keys(this.byNSAndLName);
+            this.length = this.keys.length;
 
             // Now find the same Attr object in the qname mapping and remove it
             // But be careful because there may be more than one match.
+            this._removeQName(attr);
+
+            // Mutation event
+            if (this.element.rooted)
+                this.element.ownerDocument.mutateRemoveAttr(attr);
+        }),
+
+
+        // This "raw" version of getAttribute is used by the getter functions
+        // of reflected idl attributes. 
+        // This is the fast path for reading reflected attributes.
+        get: constant(function get(qname) {
+            // We assume that qname is already lowercased, so we don't 
+            // do it here.
+            var attr = this.byQName[qname];  
+            if (!attr) return "";  // Non-existant attributes reflect as ""
+
+            // We don't check whether attr is an array.  A qname with no
+            // prefix will never have two matching Attr objects (because
+            // setAttributeNS doesn't allow a non-null namespace with a 
+            // null prefix.
+
+            return attr.data;   // The raw value
+        }),
+
+        // Add a qname->Attr mapping to the byQName object, taking into 
+        // account that there may be more than one attr object with the 
+        // same qname
+        _addQName: constant(function(attr) {
+            var qname = attr.name;
+            var existing = this.byQName[qname];
+            if (!existing) {
+                this.byQName[qname] = attr;
+            }
+            else if (isArray(existing)) {
+                push(existing, attr);
+            }
+            else {
+                this.byQName[qname] = [existing, attr];
+            }
+        }),
+
+        // Remove a qname->Attr mapping to the byQName object, taking into 
+        // account that there may be more than one attr object with the 
+        // same qname
+        _removeQName: constant(function(attr) {
             var qname = attr.name;
             var target = this.byQName[qname];
 
@@ -324,8 +364,49 @@ defineLazyProperty(impl, "Attributes", function() {
                 delete this.byQName[qname];
             }
         }),
-
     });
 
     return Attributes;
+});
+
+// XXX: Attributes.js now calls the Attr() constructor with no value.
+// Values are always set through the value attribute (or, when
+// implemented rawValue to do no conversion) so that mutation events
+// can be sent and other processing be done in the same way for newly
+// created attributes as existing ones.
+
+defineLazyProperty(impl, "Attr", function() {
+
+    function Attr(elt, lname, prefix, namespace) {
+        // Always remember what element we're associated with.
+        // We need this to property handle mutations
+        this.ownerElement = elt;
+
+        // localName and namespace are constant for any attr object.
+        // But value may change.  And so can prefix, and so, therefore can name.
+        this.localName = lname;
+        this.prefix = prefix || null;
+        this.namespaceURI = namespace || null;
+    }
+
+    Attr.prototype = O.create(Object.prototype, {
+        _idlName: constant("Attr"),
+        name: attribute(function() {
+            return this.prefix
+                ? this.prefix + ":" + this.localName
+                : this.localName;
+        }),
+        value: attribute(function() { return this.data; },
+                         function(v) { 
+                             if (this.data === v) return;
+                             let oldval = this.data;
+                             this.data = v;
+                             if (this.ownerElement.rooted)
+                                 this.ownerElement.ownerDocument.mutateAttr(
+                                     this,
+                                     oldval);
+                         }),
+    });
+
+    return Attr;
 });
