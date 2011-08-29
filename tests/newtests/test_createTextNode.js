@@ -70,3 +70,11 @@ var free = document.createTextNode('free');
 
 assert(free.isEqualNode(clone));
 
+notYetImplemented(function() {
+    free.wholeText;
+});
+
+notYetImplemented(function() {
+    free.replaceWholeText("asdf");
+});
+
