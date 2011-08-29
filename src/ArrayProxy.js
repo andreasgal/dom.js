@@ -2,7 +2,9 @@
 //
 // The function takes the idl type of the array elements as its first argument
 // so we can create more specific factory functions with .bind().
-// See the end of the file for custom constructors for specific element types
+//
+// XXX: I used to use this for AttrArray, but that now has a custom proxy.
+// This file is currently unused, but it is sure to come in handy eventually.
 // 
 function ArrayProxy(elementType, array) {
     let handler = O.create(ArrayProxy.handler);
@@ -99,6 +101,3 @@ ArrayProxy.handler = {
         return r;
     }
 }
-
-//const AttrArrayProxy = ArrayProxy.bind(null, idl.Attr);
-function AttrArrayProxy(array) { return ArrayProxy(idl.Attr, array); }

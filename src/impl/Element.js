@@ -12,8 +12,7 @@ defineLazyProperty(impl, "Element", function() {
         if (this.isHTML)
             this.tagName = toUpperCase(this.tagName);
 
-        this.attributes = [];
-        this.attributes._idlName = "AttrArray";
+        this.attributes = new impl.Attributes(this);
         this.childNodes = [];
         this.childNodes._idlName = "NodeList";
     }
@@ -43,146 +42,35 @@ defineLazyProperty(impl, "Element", function() {
         textContent: attribute(textContentGetter, textContentSetter),
 
         getAttribute: constant(function getAttribute(qname) {
-            if (this.isHTML) qname = toLowerCase(qname);
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let attr = this.attributes[i];
-                if (attr.name === qname)
-                    return attr.value;
-            }
-            return null;
+            return this.attributes.getAttribute(qname);
         }),
 
         hasAttribute: constant(function hasAttribute(qname) {
-            return this.getAttribute(qname) !== null;
+            return this.attributes.hasAttribute(qname);
         }),
 
-
         setAttribute: constant(function setAttribute(qname, value) {
-            if (!isValidName(qname)) InvalidCharacterError();
-            if (this.isHTML) qname = toLowerCase(qname);
-            if (substring(qname, 0, 5) === "xmlns") NamespaceError();
-
-            // If id, class, or name changes, that may invalidate 
-            // NodeList or HTMLCollection caches.
-            if (qname === "id" || qname === "class" || qname === "name")
-                this.modify();
-
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let attr = this.attributes[i];
-                if (attr.name === qname) {
-                    attr.value = value;  // Setter sends mutation event for us
-                    return;
-                }
-            }
-
-            // The attribute doesn't already exist, so add a new one
-            let newattr = new impl.Attr(this, qname, value)
-            push(this.attributes, newattr);
-
-            // Send mutation event
-            if (this.rooted) this.ownerDocument.mutateAttr(newattr, null);
+            return this.attributes.setAttribute(qname, value);
         }),
 
         removeAttribute: constant(function removeAttribute(qname) {
-            if (this.isHTML) qname = toLowerCase(qname);
-
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let attr = this.attributes[i];
-                if (attr.name === qname) {
-                    splice(this.attributes, i, 1);
-
-                    // If id, class, or name changes, that may invalidate 
-                    // NodeList or HTMLCollection caches.
-                    if (qname === "id" || qname === "class" || qname === "name")
-                        this.modify();
-                    
-                    // Mutation event
-                    if (this.rooted) this.ownerDocument.mutateRemoveAttr(attr);
-                    return;
-                }
-            }
+            return this.attributes.removeAttribute(qname);
         }),
 
         getAttributeNS: constant(function getAttributeNS(ns, lname) {
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let attr = this.attributes[i];
-                if (attr.namespaceURI === ns && attr.localName === lname)
-                    return attr.value;
-            }
-            return null;
+            return this.attributes.getAttributeNS(ns, lname);
         }),
 
         hasAttributeNS: constant(function hasAttributeNS(ns, lname) {
-            return this.getAttributeNS(ns, lname) !== null;
+            return this.attributes.hasAttributeNS(ns, lname);
         }),
 
         setAttributeNS: constant(function setAttributeNS(ns, qname, value) {
-            if (!isValidName(qname)) InvalidCharacterError();
-            if (!isValidQName(qname)) NamespaceError();
-
-            let pos = S.indexOf(qname, ":"), prefix, lname;
-            if (pos === -1) {
-                prefix = null;
-                lname = qname;
-            }
-            else {
-                prefix = substring(qname, 0, pos);
-                lname = substring(qname, pos+1);
-            }
-
-            if (ns === "") ns = null;
-
-            if ((prefix !== null && ns === null) ||
-                (prefix === "xml" && ns !== XML_NAMESPACE) ||
-                ((qname === "xmlns" || prefix === "xmlns") &&
-                 (ns !== XMLNS_NAMESPACE)) ||
-                (ns === XMLNS_NAMESPACE && 
-                 !(qname === "xmlns" || prefix === "xmlns")))
-                NamespaceError();
-
-            // If id, class, or name changes, that may invalidate 
-            // NodeList or HTMLCollection caches.
-            if (ns === null &&
-                (qname === "id" || qname === "class" || qname === "name"))
-                this.modify();
-
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let attr = this.attributes[i];
-                if (attr.namespaceURI === ns && attr.localName === lname) {
-
-                    // setAttributeNS can change the prefix (and therefore 
-                    // qname) of an attribute
-                    if (attr.prefix !== prefix) {
-                        attr.prefix = prefix;
-                        attr.name = prefix + ":" + attr.localName 
-                    }
-
-                    attr.value = value;  // this automatically fires an event
-                    return;
-                }
-            }
-            let newattr = new impl.Attr(this, lname, value, prefix, ns)
-            push(this.attributes, newattr);
-            if (this.rooted) this.ownerDocument.mutateAddAttr(newattr);
+            return this.attributes.setAttributeNS(ns, qname, value);
         }),
 
-
         removeAttributeNS: constant(function removeAttributeNS(ns, lname) {
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let attr = this.attributes[i];
-                if (attr.namespaceURI === ns && attr.localName === lname) {
-                    splice(this.attributes, i, 1);
-
-                    // If id, class, or name changes, that may invalidate 
-                    // NodeList or HTMLCollection caches.
-                    if (ns === null &&
-                        (lname === "id"||lname === "class"||lname === "name"))
-                        this.modify();
-
-                    if (this.rooted) this.ownerDocument.mutateRemoveAttr(attr);
-                    return;
-                }
-            }
+            return this.attributes.removeAttributeNS(ns, lname);
         }),
 
         children: attribute(function() {
@@ -289,21 +177,27 @@ defineLazyProperty(impl, "Element", function() {
                 e = this.ownerDocument.createElement(this.localName);
 
             for(let i = 0, n = this.attributes.length; i < n; i++) {
-                push(e.attributes, this.attributes[i].clone(e));
+                let a = this.attributes.item(i);
+                e.setAttributeNS(a.namespaceURI, a.name, a.value);
             }
 
             return e;
         }),
 
-        isEqual: constant(function isEqual(n) {
-            if (this.localName !== n.localName ||
-                this.namespaceURI !== n.namespaceURI ||
-                this.prefix !== n.prefix ||
-                this.attributes.length !== n.attributes.length)
+        isEqual: constant(function isEqual(that) {
+            if (this.localName !== that.localName ||
+                this.namespaceURI !== that.namespaceURI ||
+                this.prefix !== that.prefix ||
+                this.attributes.length !== that.attributes.length)
                 return false;
 
-            for(let i = 0, l = this.attributes.length; i < l; i++) {
-                if (!this.attributes[i].isEqual(n.attributes[i]))
+            // Compare the sets of attributes, ignoring order
+            // and ignoring attribute prefixes.
+            for(let i = 0, n = this.attributes.length; i < n; i++) {
+                let a = this.attributes.item(i);
+                if (!that.hasAttributeNS(a.namespaceURI, a.localName))
+                    return false;
+                if (that.getAttributeNS(a.namespaceURI,a.localName) !== a.value)
                     return false;
             }
 
@@ -332,8 +226,8 @@ defineLazyProperty(impl, "Element", function() {
                 return this.prefix;
 
             for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let a = this.attributes[i];
-                if (a.prefix === "xmlns" && a.data === ns)
+                let a = this.attributes.item(i);
+                if (a.prefix === "xmlns" && a.value === ns)
                     return a.localName;
             }
 
@@ -348,7 +242,7 @@ defineLazyProperty(impl, "Element", function() {
                 return this.namespaceURI;
 
             for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let a = this.attributes[i];
+                let a = this.attributes.item(i);
                 if ((a.prefix === "xmlns" && a.localName === prefix) ||
                     (a.prefix === null && a.localName === "xmlns")) {
                     return a.value || null;

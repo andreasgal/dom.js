@@ -486,8 +486,10 @@ defineLazyProperty(impl, "Document", function() {
         // involve changes to the prefix (and therefore the qualified name)
         mutateAttr: constant(function(attr, oldval) {
             // Manage id->element mapping for getElementsById()
+            // XXX: this special case id handling should not go here, 
+            // but in the attribute declaration for the id attribute
             if (attr.localName === "id" && attr.namespaceURI === null) {
-                if (oldval !== null) delId(oldval, attr.ownerElement);
+                if (oldval) delId(oldval, attr.ownerElement);
                 addId(attr.value, attr.ownerElement);
             }
             
