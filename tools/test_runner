@@ -28,7 +28,7 @@ function runNextTest(files, processes) {
         '-D',
         '-f', 'src/testutils.js',
         '-f', 'dom.js',
-        '-f', 'tests/newtests/' + fileName]);
+        '-e', 'try { run("tests/newtests/' + fileName + '") } catch (e) { print(e.stack); throw e; }']);
     process.stdout.on('data', function (data) {
         stdout += data;
     });

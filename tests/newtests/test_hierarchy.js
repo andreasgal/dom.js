@@ -19,7 +19,7 @@ assert(foo.children.length === 3, foo.children.length);
 assert(foo.childElementCount === 3, foo.childElementCount);
 assert(foo.firstChild.data === 'text', foo.firstChild.text);
 assert(foo.firstElementChild.tagName === 'BAR');
-assert(foo.lastChild.data === 'text', foo.firstChild.data);
+assert(foo.lastChild.data === 'text', foo.lastChild.data);
 assert(foo.lastElementChild.tagName === 'FROTZ');
 
 assert(foo.firstChild.nextSibling.tagName === 'BAR');
