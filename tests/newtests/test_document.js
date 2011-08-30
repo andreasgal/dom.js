@@ -87,4 +87,3 @@ var doc = document.implementation.createDocument();
 
 assert(!doc.body);
 assert(!doc.head);
-

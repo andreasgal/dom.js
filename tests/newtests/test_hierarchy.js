@@ -63,3 +63,12 @@ assert(parent.childNodes.foo === undefined, parent.childNodes.foo);
 assert(delete parent.childNodes[9999] === true);
 assert(delete parent.childNodes[0] === false);
 
+var orphan = document.createElement("orphan");
+assert(!orphan.previousElementSibling);
+assert(!orphan.nextElementSibling);
+assert(!orphan.firstElementChild);
+assert(!orphan.lastElementChild);
+
+var orphanText = document.createTextNode("text");
+assert(!orphanText.hasChildNodes());
+
