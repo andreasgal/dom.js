@@ -1,12 +1,6 @@
 // TODO:
-// Work on the Attr.value setter: have it look at the attribute declaration
-// (pass this in to the Attr() constructor) and invoke the appropriate 
-// conversion and hook functions on setting.
 // 
 // Do I need a delete hook? (for boolean attributes?)
-// 
-// Create a different getter/setter pair on Attr that returns the
-//   value directly without conversion for use by idl attributes.
 // 
 
 

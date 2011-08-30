@@ -7,7 +7,6 @@ FILES= \
 	src/idl.js \
 	src/domcore.js \
 	src/htmlelts.js \
-	src/ArrayProxy.js \
 	src/AttrArrayProxy.js \
 	src/NodeListProxy.js \
 	src/HTMLCollectionProxy.js \

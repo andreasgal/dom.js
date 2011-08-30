@@ -5,15 +5,19 @@ function assert(expr, msg) {
     }
 }
 
-function assertThrows(func, exception_type, msg) {
-    var raised = false;
+function assertThrows(func, type, msg) {
     try {
         func();
     } catch (e) {
-        raised = true;
-        // todo check the type of the exception
+        if (type) {
+            if ((typeof type === "string" && e.name !== type) ||
+                (typeof type === "number" && e.code != type))
+                throw Error("Threw exception of wrong type. Expected: " + type + 
+                            " Got: " + e + " At: " + e.stack);
+        }
+        return;  // Assertion was successful
     }
-    if (!raised) throw new Error("Did not raise: ", func, + " " + (msg || "") + "\n" + new Error().stack);
+    throw Error("Did not raise: " + (msg || "") + "\n" + new Error().stack);
 }
 
 function notYetImplemented(func) {

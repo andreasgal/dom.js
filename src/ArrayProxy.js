@@ -54,7 +54,7 @@ ArrayProxy.handler = {
     },
 
     getOwnPropertyNames: function getOwnPropertyNames() {
-        let r = [];
+        let r = ["length"];
         for (let i = 0, n = this.array.length; i < n; i++)
             push(r, String(i));
         return concat(r, O.getOwnPropertyNames(this.localprops));

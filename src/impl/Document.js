@@ -511,11 +511,13 @@ defineLazyProperty(impl, "Document", function() {
 
         // Used by removeAttribute and removeAttributeNS for attributes.
         mutateRemoveAttr: constant(function(attr) {
+/*
+ * This is now handled in Attributes.js
             // Manage id to element mapping 
             if (attr.localName === "id" && attr.namespaceURI === null) {
-                delId(attr.value, attr.ownerElement);
+                this.delId(attr.value, attr.ownerElement);
             }
-
+*/
             if (this.mutationHandler) {
                 this.mutationHandler({
                     type: MUTATE_REMOVE_ATTR,

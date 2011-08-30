@@ -10,8 +10,7 @@ function AttrArrayProxy(attributes) {
     let handler = O.create(AttrArrayProxy.handler);
     handler.attributes = attributes;
     handler.localprops = O.create(null);
-
-    return Proxy.create(handler, idl.AttrArray.prototype);
+    return Proxy.create(handler, Array.prototype);
 }
 
 // This is the prototype object for the proxy handler object
@@ -50,14 +49,13 @@ AttrArrayProxy.handler = {
     },
     getPropertyDescriptor: function(name) {
         var desc = this.getOwnPropertyDescriptor(name) ||
-            O.getOwnPropertyDescriptor(idl.AttrArray.prototype, name) ||
             O.getOwnPropertyDescriptor(A.prototype, name) ||
             O.getOwnPropertyDescriptor(O.prototype, name);
         if (desc) desc.configurable = true; // Proxies require this
         return desc;
     },
     getOwnPropertyNames: function getOwnPropertyNames() {
-        let r = [];
+        let r = ["length"];
         for (let i = 0, n = this.attributes.length; i < n; i++)
             push(r, String(i));
         return concat(r, O.getOwnPropertyNames(this.localprops));
@@ -89,7 +87,7 @@ AttrArrayProxy.handler = {
         return delete this.localprops[name];
     },
 
-    // WebIDL: Host objects implementing an interface that supporst
+    // WebIDL: Host objects implementing an interface that supports
     // indexed or named properties defy being fixed; if Object.freeze,
     // Object.seal or Object.preventExtensions is called on one, these
     // the function MUST throw a TypeError.
