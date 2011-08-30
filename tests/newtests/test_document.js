@@ -87,3 +87,25 @@ var doc = document.implementation.createDocument();
 
 assert(!doc.body);
 assert(!doc.head);
+
+assertThrows(function() {
+    assert(document.images);
+});
+assertThrows(function() {
+    assert(document.embeds);
+});
+assertThrows(function() {
+    assert(document.plugins);
+});
+assertThrows(function() {
+    assert(document.links);
+});
+assertThrows(function() {
+    assert(document.forms);
+});
+assertThrows(function() {
+    assert(document.scripts);
+});
+assertThrows(function() {
+    assert(document.getElementsByName('foo'));
+});

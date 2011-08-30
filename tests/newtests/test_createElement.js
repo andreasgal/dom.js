@@ -114,3 +114,8 @@ div.appendChild(duplicateId);
 assert(document.getElementById('HELLO') === div);
 
 assert(document.getElementsByTagName('*').length);
+
+assertThrows(function() {
+    element.innerHTML;
+});
+
