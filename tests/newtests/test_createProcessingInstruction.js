@@ -4,13 +4,28 @@ assert(DocumentType);
 assert(Document);
 
 var doctype = document.implementation.createDocumentType("foo", "bar", "baz");
+var doctype2 = document.implementation.createDocumentType("foo", "bar", "baz");
 
 assert(doctype.name === "foo", doctype.name);
 assert(doctype.publicId === "bar", doctype.publicId);
 assert(doctype.systemId === "baz", doctype.systemId);
 
+assertThrows(function() {
+    doctype.cloneNode();
+});
+
 var doc = document.implementation.createDocument(
     "http://example.com/namespace", "qual", doctype);
+
+assertThrows(function() {
+    doc.cloneNode();
+});
+
+var doc2 = document.implementation.createDocument(
+    "http://example.com/namespace", "qual", doctype2);
+
+assert(doc.isEqualNode(doc2));
+assert(doctype.isEqualNode(doctype2));
 
 assert(doc.isDefaultNamespace('http://example.com/namespace'));
 var element = doc.createElementNS("foo", "bar");

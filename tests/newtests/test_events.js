@@ -34,6 +34,10 @@ function click_handler(evt) {
 }
 
 node.addEventListener("click", click_handler, false);
+// should be able to add again and it will be ignored
+node.addEventListener("click", click_handler, false);
+// should be able to pass no event handler and it will be ignored
+node.addEventListener("click", null, false);
 
 document.body.appendChild(node);
 
