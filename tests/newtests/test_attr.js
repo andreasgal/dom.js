@@ -10,6 +10,8 @@ assert(foo.attributes[0].name === 'bar', foo.attributes[0].name);
 assert(foo.attributes[0].value === 'baz', foo.attributes[0].value);
 
 foo.attributes[0].value = 'frotz';
+// cover the didn't change short path
+foo.attributes[0].value = 'frotz';
 assert(foo.getAttribute('bar') === 'frotz');
 
 foo.setAttributeNS('namespace', 'ns:foo', 'bamf');

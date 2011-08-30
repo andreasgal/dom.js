@@ -6,6 +6,10 @@ assert(Document);
 var doctype = document.implementation.createDocumentType("foo", "bar", "baz");
 var doctype2 = document.implementation.createDocumentType("foo", "bar", "baz");
 
+assertThrows(function() {
+    document.implementation.createDocumentType("asdf:foo:asdf", "bar", "baz");
+});
+
 assert(doctype.name === "foo", doctype.name);
 assert(doctype.publicId === "bar", doctype.publicId);
 assert(doctype.systemId === "baz", doctype.systemId);

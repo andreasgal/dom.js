@@ -1,6 +1,9 @@
 
 assert(DOMImplementation);
 
+assertThrows(function() {
+    new DOMImplementation();
+});
 assert(document.implementation.hasFeature("HTML", "1.0"));
 assert(document.implementation.hasFeature("HTML", "2.0"));
 assert(document.implementation.hasFeature("XHTML", "1.0"));
