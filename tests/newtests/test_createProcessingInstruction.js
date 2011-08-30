@@ -13,6 +13,8 @@ var doc = document.implementation.createDocument(
     "http://example.com/namespace", "qual", doctype);
 
 assert(doc.isDefaultNamespace('http://example.com/namespace'));
+var element = doc.createElement("foo");
+doc.documentElement.appendChild(element);
 
 var proc = doc.createProcessingInstruction("target", "proc");
 
@@ -42,4 +44,6 @@ assertThrows(function() {
 });
 
 var nulldoc = document.implementation.createDocument(null, null, null);
+
+assert(doc.getElementsByTagName("foo")[0] === element);
 
