@@ -89,23 +89,34 @@ assert(!doc.body);
 assert(!doc.head);
 
 assertThrows(function() {
-    assert(document.images);
+    document.images;
 });
 assertThrows(function() {
-    assert(document.embeds);
+    document.embeds;
 });
 assertThrows(function() {
-    assert(document.plugins);
+    document.plugins;
 });
 assertThrows(function() {
-    assert(document.links);
+    document.links;
 });
 assertThrows(function() {
-    assert(document.forms);
+    document.forms;
 });
 assertThrows(function() {
-    assert(document.scripts);
+    document.scripts;
 });
 assertThrows(function() {
-    assert(document.getElementsByName('foo'));
+    document.getElementsByName('foo');
 });
+
+assertThrows(function() {
+    document.adoptNode(doc);
+});
+
+var foreign = doc.createElement("foo");
+doc.documentElement.appendChild(foreign);
+assert(foreign.parentNode);
+document.adoptNode(foreign);
+assert(!foreign.parentNode);
+

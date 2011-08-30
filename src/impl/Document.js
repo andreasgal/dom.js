@@ -386,7 +386,11 @@ defineLazyProperty(impl, "Document", function() {
 
         getElementsByClassName: constant(function getElementsByClassName(names){
             names = names.trim();  
-            if (names === "") return []; // Empty node list
+            if (names === "") {
+                let result = []; // Empty node list
+                result._idlName = "NodeList";
+                return result;
+            }
             names = names.split(/\s+/);  // Split on spaces
             return new impl.FilteredElementList(this, 
                                            new classNamesElementFilter(names));

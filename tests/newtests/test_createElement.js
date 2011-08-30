@@ -119,3 +119,18 @@ assertThrows(function() {
     element.innerHTML;
 });
 
+assertThrows(function() {
+    document.createElementNS("asdf", "invalid:q:name");
+});
+
+var nselt = document.createElementNS("foo", "bar")
+document.body.appendChild(nselt);
+
+assert(document.getElementsByTagNameNS("*", "*").length);
+assert(document.getElementsByTagNameNS("*", "div").length === 1,
+    document.getElementsByTagNameNS("*", "div").length);
+assert(document.getElementsByTagNameNS("foo", "*").length === 1,
+    document.getElementsByTagNameNS("foo", "*").length);
+
+assert(document.getElementsByClassName("").length === 0,
+    document.getElementsByClassName("").length);
