@@ -162,7 +162,6 @@ defineLazyProperty(impl, "Attributes", function() {
         }),
 
         getAttributeNS: constant(function getAttributeNS(ns, lname) {
-            if (ns === null) ns = "";
             var attr = this.byNSAndLName[ns + "|" + lname];
             return attr ? attr.value : null;
         }),
@@ -173,7 +172,7 @@ defineLazyProperty(impl, "Attributes", function() {
         }),
 
         hasAttributeNS: constant(function hasAttributeNS(ns, lname) {
-            var key = (ns || "") + "|" + lname;
+            var key = ns + "|" + lname;
             return key in this.byNSAndLName;
         }),
 
@@ -213,6 +212,7 @@ defineLazyProperty(impl, "Attributes", function() {
                 lname = substring(qname, pos+1);
             }
 
+            var key = ns + "|" + lname;
             if (ns === "") ns = null;
 
             if ((prefix !== null && ns === null) ||
@@ -223,7 +223,6 @@ defineLazyProperty(impl, "Attributes", function() {
                  !(qname === "xmlns" || prefix === "xmlns")))
                 NamespaceError();
 
-            var key = (ns||"") + "|" + lname;
             var attr = this.byNSAndLName[key];
             if (!attr) {
                 var decl = prefix

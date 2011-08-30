@@ -105,7 +105,7 @@ AttrArrayProxy.handler = {
         for (let i = 0, n = this.attributes.length; i < n; i++)
             push(r, String(i));
         for(let name in this.localprops) push(r, name);
-        for(let name in idl.AttrArray.prototype) push(r, name);
+        for(let name in Array.prototype) push(r, name);
         return r;
     }
 };

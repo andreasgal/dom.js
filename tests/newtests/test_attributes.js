@@ -1,5 +1,5 @@
-// An element to test on
-var e = document.createElement("div");
+// The tests in this file exercise the code in src/impl/Attributes.js
+// and src/AttrArrayProxy.js
 
 // Namespaces to use in our tests
 var ns = "http://namespace.example.com/custom";
@@ -7,6 +7,7 @@ var ns2 = "http://namespace.example.com/custom2";
 var ns3 = "http://namespace.example.com/custom3";
 
 // Test basic set/get/has/delete methods
+// An element to test on
 e = document.createElement("div");
 assert(e.hasAttribute("a") === false);
 assert(e.getAttribute("a") === null);
@@ -72,14 +73,20 @@ e.setAttributeNS(ns3, "prefix:a", "3");
 assert(e.attributes.length === 3);
 assert(e.hasAttribute("prefix:a") === true);
 assert(e.getAttribute("prefix:a") === "1");
+e.setAttribute("prefix:a", "4");
+assert(e.getAttribute("prefix:a") === "4");
 e.removeAttribute("prefix:a");
 assert(e.attributes.length === 2);
 assert(e.hasAttribute("prefix:a") === true);
 assert(e.getAttribute("prefix:a") === "2");
+e.setAttribute("prefix:a", "4");
+assert(e.getAttribute("prefix:a") === "4");
 e.removeAttribute("prefix:a");
 assert(e.attributes.length === 1);
 assert(e.hasAttribute("prefix:a") === true);
 assert(e.getAttribute("prefix:a") === "3");
+e.setAttribute("prefix:a", "4");
+assert(e.getAttribute("prefix:a") === "4");
 e.removeAttribute("prefix:a");
 assert(e.attributes.length === 0);
 assert(e.hasAttribute("prefix:a") === false);
@@ -219,14 +226,43 @@ attrs[2].value = "33";
 assert(e.getAttribute("prefix:c") === "33");
 assert(e.getAttributeNS(ns, "c") === "33");
 
-// XXX: I think I need more testing on the array-like nature of attributes[]
 // The array is read-only
-assertThrows(function() { attrs[3] = 0 });
-assertThrows(function() { attrs.push(0); });
+assertThrows(function() { attrs[3] = 0 }, "TypeError");
+assertThrows(function() { attrs.push(0); }, "TypeError");
 // assertThrows(function() { attrs[2] = 0 });      // Why not throwing?
 // assertThrows(function() { attrs.length = 0; });
 assert(attrs.indexOf(attrs[1]) === 1);
 assert(attrs.indexOf(null) === -1);
+assert(JSON.stringify(Object.keys(attrs)) === '["0","1","2"]');
+assert(JSON.stringify(Object.getOwnPropertyNames(attrs).sort()) === '["0","1","2","length"]');
+
+assert(delete attrs.length === false);
+assert(delete attrs[0] === false);
+assert(delete attrs[3] === true);  // true for out-of-bounds elements
+// expand operty on attrs
+attrs.my_prop = 33;
+assert(attrs.my_prop === 33);
+assert("my_prop" in attrs === true);
+assert(delete attrs.my_prop === true);
+assert("my_prop" in attrs === false);
+// test for/in loops
+attrs.my_prop = 33;
+var props = [];
+for(var p in attrs) if (attrs.hasOwnProperty(p)) props.push(p);
+assert(JSON.stringify(props.sort()) === JSON.stringify(Object.keys(attrs).sort()));
+
+// If we stick something enumerable on Array.prototype, we'll see it
+// when we do a for/in over an attr object
+Array.prototype.foo = "1";
+var props = [];
+for(var p in attrs) props.push(p);
+assert(props.indexOf("foo" !== -1));
+delete Array.prototype.foo;
+var props = [];
+for(var p in attrs) props.push(p);
+assert(props.indexOf("foo" === -1));
+
+
 
 // The idl id property reflects the "id" attribute
 // And the id property works with document.getElementById()
@@ -295,4 +331,21 @@ e = document.createElement("div");
 assertThrows(function() { e.setAttribute("@@@", "1") },
              DOMException.INVALID_CHARACTER_ERR);
 assertThrows(function() { e.setAttribute("xmlns:foo", "1") },
+             DOMException.NAMESPACE_ERR);
+
+assertThrows(function() { e.setAttributeNS(ns, "@@@", "1") },
+             DOMException.INVALID_CHARACTER_ERR);
+assertThrows(function() { e.setAttributeNS(ns, ":f:o:o", "1") },
+             DOMException.NAMESPACE_ERR);
+
+assertThrows(function() { e.setAttributeNS("", "foo:bar", "1") },
+             DOMException.NAMESPACE_ERR);
+assertThrows(function() { e.setAttributeNS(ns, "xml:foo", "1") },
+             DOMException.NAMESPACE_ERR);
+assertThrows(function() { e.setAttributeNS(ns, "xmlns:foo", "1") },
+             DOMException.NAMESPACE_ERR);
+assertThrows(function() { e.setAttributeNS(ns, "xmlns", "1") },
+             DOMException.NAMESPACE_ERR);
+assertThrows(function() { e.setAttributeNS("http://www.w3.org/2000/xmlns/",
+                                           "foo:bar", "1") },
              DOMException.NAMESPACE_ERR);
