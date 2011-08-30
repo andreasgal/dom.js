@@ -82,33 +82,15 @@ assert(document.firstChild.nodeName === "html", document.firstChild.nodeName);
 assert(document.body);
 assert(document.head);
 
+assertThrows(function() {
+    document.body = null;
+});
+
 // Assert document.body and head are null for non-html doc.
 var doc = document.implementation.createDocument();
 
 assert(!doc.body);
 assert(!doc.head);
-
-assertThrows(function() {
-    document.images;
-});
-assertThrows(function() {
-    document.embeds;
-});
-assertThrows(function() {
-    document.plugins;
-});
-assertThrows(function() {
-    document.links;
-});
-assertThrows(function() {
-    document.forms;
-});
-assertThrows(function() {
-    document.scripts;
-});
-assertThrows(function() {
-    document.getElementsByName('foo');
-});
 
 assertThrows(function() {
     document.adoptNode(doc);
@@ -119,4 +101,30 @@ doc.documentElement.appendChild(foreign);
 assert(foreign.parentNode);
 document.adoptNode(foreign);
 assert(!foreign.parentNode);
+
+assert(foreign.lastChild === null);
+assert(foreign.previousSibling === null);
+assert(foreign.nextSibling === null);
+assert(foreign.lastChild === null);
+
+notYetImplemented(function() { document.images; });
+notYetImplemented(function() { document.embeds; });
+notYetImplemented(function() { document.plugins; });
+notYetImplemented(function() { document.links; });
+notYetImplemented(function() { document.forms; });
+notYetImplemented(function() { document.scripts; });
+notYetImplemented(function() { document.getElementsByName('foo'); });
+notYetImplemented(function() { document.URL; });
+notYetImplemented(function() { document.domain; });
+notYetImplemented(function() { document.domain = "foo"; });
+notYetImplemented(function() { document.referrer; });
+notYetImplemented(function() { document.cookie; });
+notYetImplemented(function() { document.cookie = "foo"; });
+notYetImplemented(function() { document.lastModified; });
+notYetImplemented(function() { document.readyState; });
+notYetImplemented(function() { document.title; });
+notYetImplemented(function() { document.title = "foo" });
+notYetImplemented(function() { document.dir; });
+notYetImplemented(function() { document.dir = "foo"; });
+
 
