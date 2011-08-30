@@ -19,7 +19,7 @@ assert(foo.children.length === 3, foo.children.length);
 assert(foo.childElementCount === 3, foo.childElementCount);
 assert(foo.firstChild.data === 'text', foo.firstChild.text);
 assert(foo.firstElementChild.tagName === 'BAR');
-assert(foo.lastChild.data === 'text', foo.firstChild.data);
+assert(foo.lastChild.data === 'text', foo.lastChild.data);
 assert(foo.lastElementChild.tagName === 'FROTZ');
 
 assert(foo.firstChild.nextSibling.tagName === 'BAR');
@@ -62,4 +62,13 @@ assert(parent.childNodes.foo === undefined, parent.childNodes.foo);
 
 assert(delete parent.childNodes[9999] === true);
 assert(delete parent.childNodes[0] === false);
+
+var orphan = document.createElement("orphan");
+assert(!orphan.previousElementSibling);
+assert(!orphan.nextElementSibling);
+assert(!orphan.firstElementChild);
+assert(!orphan.lastElementChild);
+
+var orphanText = document.createTextNode("text");
+assert(!orphanText.hasChildNodes());
 

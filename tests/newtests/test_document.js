@@ -79,3 +79,44 @@ blank4.appendChild(comment4);
 blank4.insertBefore(document.createElement('html'), comment4);
 assert(document.firstChild.nodeName === "html", document.firstChild.nodeName);
 
+assert(document.body);
+assert(document.head);
+
+// Assert document.body and head are null for non-html doc.
+var doc = document.implementation.createDocument();
+
+assert(!doc.body);
+assert(!doc.head);
+
+assertThrows(function() {
+    document.images;
+});
+assertThrows(function() {
+    document.embeds;
+});
+assertThrows(function() {
+    document.plugins;
+});
+assertThrows(function() {
+    document.links;
+});
+assertThrows(function() {
+    document.forms;
+});
+assertThrows(function() {
+    document.scripts;
+});
+assertThrows(function() {
+    document.getElementsByName('foo');
+});
+
+assertThrows(function() {
+    document.adoptNode(doc);
+});
+
+var foreign = doc.createElement("foo");
+doc.documentElement.appendChild(foreign);
+assert(foreign.parentNode);
+document.adoptNode(foreign);
+assert(!foreign.parentNode);
+

@@ -17,3 +17,6 @@ document.body.appendChild(other2);
 assert(document.getElementsByTagNameNS("namespace", "foo").length === 2);
 
 assert(document.body.getElementsByTagNameNS("namespace", "foo").length === 2);
+
+assert(ns2.namespaceURI === "namespace", ns2.namespaceURI);
+assert(ns2.prefix === "ns", ns2.prefix);

@@ -104,3 +104,33 @@ assert(document.getElementById('HELLO') === div);
 
 assert(document.getElementsByClassName('CLASS').length === 2, document.getElementsByClassName('CLASS').length);
 
+assert(!document.getElementById('DOES NOT EXIST'));
+
+// Apparently we're allowed to have more than one element with the same id...
+var duplicateId = document.createElement('span');
+duplicateId.setAttribute('id', 'HELLO');
+div.appendChild(duplicateId);
+// But we only get the first one when we ask for it.
+assert(document.getElementById('HELLO') === div);
+
+assert(document.getElementsByTagName('*').length);
+
+assertThrows(function() {
+    element.innerHTML;
+});
+
+assertThrows(function() {
+    document.createElementNS("asdf", "invalid:q:name");
+});
+
+var nselt = document.createElementNS("foo", "bar")
+document.body.appendChild(nselt);
+
+assert(document.getElementsByTagNameNS("*", "*").length);
+assert(document.getElementsByTagNameNS("*", "div").length === 1,
+    document.getElementsByTagNameNS("*", "div").length);
+assert(document.getElementsByTagNameNS("foo", "*").length === 1,
+    document.getElementsByTagNameNS("foo", "*").length);
+
+assert(document.getElementsByClassName("").length === 0,
+    document.getElementsByClassName("").length);

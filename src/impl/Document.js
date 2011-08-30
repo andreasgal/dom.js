@@ -309,20 +309,18 @@ defineLazyProperty(impl, "Document", function() {
                 if (this.doctype && oldChild.index < this.doctype.index)
                     HierarchyRequestError();
 
-                this.documentElement = child;
                 if (oldChild === this.doctype) this.doctype = null;
             }
             else if (child.nodeType === DOCUMENT_TYPE_NODE) {
                 // If we already have a doctype and we're not replacing it
                 if (this.doctype && oldChild !== this.doctype)
                     HierarchyRequestError();
-                // If we have a docuemnt element and the old child
+                // If we have a document element and the old child
                 // comes after it
                 if (this.documentElement &&
                     oldChild.index > this.documentElement.index)
                     HierarchyRequestError();
 
-                this.doctype = child;
                 if (oldChild === this.documentElement)
                     this.documentElement = null;
             }
@@ -388,7 +386,11 @@ defineLazyProperty(impl, "Document", function() {
 
         getElementsByClassName: constant(function getElementsByClassName(names){
             names = names.trim();  
-            if (names === "") return []; // Empty node list
+            if (names === "") {
+                let result = []; // Empty node list
+                result._idlName = "NodeList";
+                return result;
+            }
             names = names.split(/\s+/);  // Split on spaces
             return new impl.FilteredElementList(this, 
                                            new classNamesElementFilter(names));
