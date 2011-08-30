@@ -228,21 +228,6 @@ defineLazyProperty(impl, "Element", function() {
             return true;
         }),
 
-        toObject: constant(function toObject() {
-            let obj= {
-                type: ELEMENT_NODE,
-                name: this.localName,
-                ns: this.namespaceURI,
-                prefix: this.prefix
-            };
-
-            // Hmmm...  Should I do this recursively and include children?
-            // XXX: define a separate library for serializing and parsing
-            // trees of nodes.  Don't use JSON or HTML: they are too hard
-            // to parse
-        }),
-
-
         // This is the "locate a namespace prefix" algorithm from the
         // DOMCore specification.  It is used by Node.lookupPrefix()
         locateNamespacePrefix: constant(function locateNamespacePrefix(ns) {

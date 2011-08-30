@@ -22,16 +22,7 @@ defineLazyProperty(impl, "DocumentType", function() {
             return this.name === n.name &&
                 this.publicId === n.publicId &&
                 this.systemId === n.systemId;
-        }),
-        toObject: constant(function toObject() {
-            return {
-                type: DOCUMENT_TYPE_NODE,
-                name: this.name,
-                publicId: this.publicId,
-                systemId: this.sytemId
-            };
-        }),
-
+        })
     });
 
     return DocumentType;
