@@ -24,9 +24,6 @@ defineLazyProperty(impl, "Comment", function() {
         clone: constant(function clone() {
             return new impl.Comment(this.ownerDocument, this._data);
         }),
-        toObject: constant(function toObject() {
-            return { type: COMMENT_NODE, data: this._data };
-        }),
     });
     
     return Comment;

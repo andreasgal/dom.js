@@ -29,13 +29,6 @@ defineLazyProperty(impl, "ProcessingInstruction", function() {
         isEqual: constant(function isEqual(n) {
             return this.target === n.target && this._data === n._data;
         }),
-        toObject: constant(function toObject() {
-            return {
-                type: PROCESSING_INSTRUCTION_NODE,
-                target: this.target,
-                data: this._data
-            };
-        }),
 
     });
 

@@ -47,10 +47,6 @@ defineLazyProperty(impl, "Text", function() {
         clone: constant(function clone() {
             return new impl.Text(this.ownerDocument, this._data);
         }),
-
-        toObject: constant(function toObject() {
-            return { type: TEXT_NODE, data: this._data };
-        }),
      
     });
 
