@@ -1,3 +1,15 @@
+// TODO:
+// Work on the Attr.value setter: have it look at the attribute declaration
+// (pass this in to the Attr() constructor) and invoke the appropriate 
+// conversion and hook functions on setting.
+// 
+// Do I need a delete hook? (for boolean attributes?)
+// 
+// Create a different getter/setter pair on Attr that returns the
+//   value directly without conversion for use by idl attributes.
+// 
+
+
 /*
  * Attributes in the DOM are tricky:
  * 
@@ -181,12 +193,7 @@ defineLazyProperty(impl, "Attributes", function() {
             // email pending on www-dom about it.
             var attr = this.byQName[qname];
             if (!attr) {
-                // If the attr doesn't exist, create it and insert it.
-                attr = new impl.Attr(this.element, qname);
-                this.byQName[qname] = attr;
-                this.byNSAndLName["|" + qname] = attr;
-                this.keys = O.keys(this.byNSAndLName);
-                this.length = this.keys.length;
+                attr = this._newAttr(qname);
             }
             else {
                 if (isArray(attr)) attr = attr[0];
@@ -196,10 +203,6 @@ defineLazyProperty(impl, "Attributes", function() {
             // The Attr.value setter method handles mutation events, etc.
             attr.value = value;
         }),
-        
-        // XXX: setAttributeRaw() here?
-        // Would be a lot of duplication to copy the whole method and 
-        // just change the last line.  Maybe add a "raw" flag as a 3rd argument?
         
 
         setAttributeNS: constant(function setAttributeNS(ns, qname, value) {
@@ -229,7 +232,10 @@ defineLazyProperty(impl, "Attributes", function() {
             var key = (ns||"") + "|" + lname;
             var attr = this.byNSAndLName[key];
             if (!attr) {
-                var attr = new impl.Attr(this.element, lname, prefix, ns);
+                var decl = prefix
+                    ? null
+                    : this.element._attributeDeclarations[lname];
+                var attr = new impl.Attr(this.element, decl, lname, prefix, ns);
                 this.byNSAndLName[key] = attr;
                 this.keys = O.keys(this.byNSAndLName);
                 this.length = this.keys.length;
@@ -284,6 +290,11 @@ defineLazyProperty(impl, "Attributes", function() {
             this.keys = O.keys(this.byNSAndLName);
             this.length = this.keys.length;
 
+            // Onchange handler for the attribute
+            if (attr.declaration && attr.declaration.onchange) 
+                attr.declaration.onchange(this.element, this.localName,
+                                          this.idlvalue, null);
+
             // Mutation event
             if (this.element.rooted)
                 this.element.ownerDocument.mutateRemoveAttr(attr);
@@ -302,15 +313,18 @@ defineLazyProperty(impl, "Attributes", function() {
             // But be careful because there may be more than one match.
             this._removeQName(attr);
 
+            // Onchange handler for the attribute
+            if (attr.declaration && attr.declaration.onchange) 
+                attr.declaration.onchange(this.element, this.localName,
+                                          this.idlvalue, null);
             // Mutation event
             if (this.element.rooted)
                 this.element.ownerDocument.mutateRemoveAttr(attr);
         }),
 
-
         // This "raw" version of getAttribute is used by the getter functions
         // of reflected idl attributes. 
-        // This is the fast path for reading reflected attributes.
+        // This is the fast path for reading the idl value of reflected attrs.
         get: constant(function get(qname) {
             // We assume that qname is already lowercased, so we don't 
             // do it here.
@@ -322,7 +336,29 @@ defineLazyProperty(impl, "Attributes", function() {
             // setAttributeNS doesn't allow a non-null namespace with a 
             // null prefix.
 
-            return attr.data;   // The raw value
+            return attr.idlvalue;   // The raw value
+        }),
+
+        // The raw version of setAttribute for reflected idl attributes.
+        // Assumes the value is in already converted form, so skips 
+        // the conversion step that setAttribute does.
+        set: constant(function set(qname, value) {
+            var attr = this.byQName[qname];  
+            if (!attr) attr = this._newAttr(qname);
+            attr.idlvalue = value;
+        }),
+
+        // Create a new Attr object, insert it, and return it.
+        // Used by setAttribute() and by set()
+        _newAttr: constant(function _newAttr(qname) {
+            var attr = new impl.Attr(this.element,
+                                     this.element._attributeDeclarations[qname],
+                                     qname);
+            this.byQName[qname] = attr;
+            this.byNSAndLName["|" + qname] = attr;
+            this.keys = O.keys(this.byNSAndLName);
+            this.length = this.keys.length;
+            return attr;
         }),
 
         // Add a qname->Attr mapping to the byQName object, taking into 
@@ -369,18 +405,12 @@ defineLazyProperty(impl, "Attributes", function() {
     return Attributes;
 });
 
-// XXX: Attributes.js now calls the Attr() constructor with no value.
-// Values are always set through the value attribute (or, when
-// implemented rawValue to do no conversion) so that mutation events
-// can be sent and other processing be done in the same way for newly
-// created attributes as existing ones.
-
 defineLazyProperty(impl, "Attr", function() {
-
-    function Attr(elt, lname, prefix, namespace) {
+    function Attr(elt, decl, lname, prefix, namespace) {
         // Always remember what element we're associated with.
         // We need this to property handle mutations
         this.ownerElement = elt;
+        this.declaration = decl;
 
         // localName and namespace are constant for any attr object.
         // But value may change.  And so can prefix, and so, therefore can name.
@@ -396,16 +426,44 @@ defineLazyProperty(impl, "Attr", function() {
                 ? this.prefix + ":" + this.localName
                 : this.localName;
         }),
-        value: attribute(function() { return this.data; },
-                         function(v) { 
-                             if (this.data === v) return;
-                             let oldval = this.data;
-                             this.data = v;
-                             if (this.ownerElement.rooted)
-                                 this.ownerElement.ownerDocument.mutateAttr(
-                                     this,
-                                     oldval);
+        // Query and set the attribute value, with conversions if necessary
+        value: attribute(function() {
+                             var convert = this.declaration &&
+                                 this.declaration.idlToContent;
+                             return convert ? convert(this.data) : this.data;
+                         },
+                         function(v) {
+                             var convert = this.declaration &&
+                                 this.declaration.contentToIDL;
+                             if (convert) 
+                                 v = convert(v);
+                             // Invoke the setter below to actually set it
+                             this.idlvalue = v;
                          }),
+        idlvalue: attribute(function() { return this.data; },
+                            function(v) { 
+                                if (this.data === v) return;
+                                let oldval = this.data;
+                                this.data = v;
+
+                                // Run the onchange hook for the attribute
+                                // if there is one.
+                                if (this.declaration &&
+                                    this.declaration.onchange)
+                                    this.declaration.onchange(this.ownerElement,
+                                                              this.localName,
+                                                              oldval, v);
+
+                                // XXX
+                                // We're passing the converted idl value in the
+                                // mutation event.  If the renderer needs the 
+                                // content value of the attribute, we'll have to
+                                // modify this code.
+                                if (this.ownerElement.rooted)
+                                    this.ownerElement.ownerDocument.mutateAttr(
+                                        this,
+                                        oldval);
+                            }),
     });
 
     return Attr;

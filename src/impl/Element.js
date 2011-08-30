@@ -41,6 +41,30 @@ defineLazyProperty(impl, "Element", function() {
         nodeValue: attribute(fnull, fnoop),
         textContent: attribute(textContentGetter, textContentSetter),
 
+        _attributeDeclarations: constant({
+            "id": {
+                onchange: function(element, lname, oldval, newval) {
+                    if (element.rooted) {
+                        if (oldval) {
+                            element.ownerDocument.delId(oldval, element);
+                        }
+                        if (newval) {
+                            element.ownerDocument.addId(newval, element);
+                        }
+                    }
+                }
+            }
+        }),
+
+
+        // XXX
+        // Should I try to generate these attributes automatically from
+        // the _attributeDeclarations object?
+        id: attribute(function() { return this.attributes.get("id"); },
+                      function(v) { this.attributes.set("id", v); }),
+        className: attribute(function() { return this.attributes.get("class");},
+                             function(v) { this.attributes.set("class", v); }),
+
         getAttribute: constant(function getAttribute(qname) {
             return this.attributes.getAttribute(qname);
         }),

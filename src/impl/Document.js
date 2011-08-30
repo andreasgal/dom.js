@@ -488,11 +488,13 @@ defineLazyProperty(impl, "Document", function() {
             // Manage id->element mapping for getElementsById()
             // XXX: this special case id handling should not go here, 
             // but in the attribute declaration for the id attribute
+            /*
             if (attr.localName === "id" && attr.namespaceURI === null) {
                 if (oldval) delId(oldval, attr.ownerElement);
                 addId(attr.value, attr.ownerElement);
             }
-            
+            */
+          
             if (this.mutationHandler) {
                 this.mutationHandler({
                     type: MUTATE_ATTR,
@@ -569,6 +571,42 @@ defineLazyProperty(impl, "Document", function() {
                 });
             }
         }),
+
+
+        // Add a mapping from  id to n for n.ownerDocument
+        addId: constant(function addId(id, n) {
+            let val = this.byId[id];
+            if (!val) {
+                this.byId[id] = n;
+            }
+            else {
+                warn("Duplicate element id " + id);
+                if (!isArray(val)) {
+                    val = [val];
+                    this.byId[id] = val;
+                }
+                val.push(n);
+                sort(val, documentOrder);
+            }
+        }),
+
+        // Delete the mapping from id to n for n.ownerDocument
+        delId: constant(function delId(id, n) {
+            let val = this.byId[id];
+            assert(val);
+            
+            if (isArray(val)) {
+                let idx = A.indexOf(val, n);
+                splice(val, idx, 1);
+                
+                if (val.length == 1) { // convert back to a single node
+                    this.byId[id] = val[0];
+                }
+            }
+            else {
+                delete this.byId[id];
+            }
+        }),
     });
 
     function root(n) {
@@ -576,7 +614,7 @@ defineLazyProperty(impl, "Document", function() {
         // Manage id to element mapping 
         if (n.nodeType === ELEMENT_NODE) {
             let id = n.getAttribute("id");
-            if (id) addId(id, n);
+            if (id) n.ownerDocument.addId(id, n);
         }
     }
 
@@ -584,7 +622,7 @@ defineLazyProperty(impl, "Document", function() {
         // Manage id to element mapping 
         if (n.nodeType === ELEMENT_NODE) {
             let id = n.getAttribute("id");
-            if (id) delId(id, n);
+            if (id) n.ownerDocument.delId(id, n);
         }
         delete n._nid;
     }
@@ -592,40 +630,6 @@ defineLazyProperty(impl, "Document", function() {
     let recursivelyRoot = recursive(root),
         recursivelyUproot = recursive(uproot);
 
-    // Add a mapping from  id to n for n.ownerDocument
-    function addId(id, n) {
-        let doc = n.ownerDocument, map = doc.byId, val = map[id];
-        if (!val) {
-            map[id] = n;
-        }
-        else {
-            warn("Duplicate element id " + id);
-            if (!isArray(val)) {
-                val = [val];
-                map[id] = val;
-            }
-            val.push(n);
-            sort(val, documentOrder);
-        }
-    }
-
-    // Delete the mapping from id to n for n.ownerDocument
-    function delId(id, n) {
-        let doc = n.ownerDocument, map = doc.byId, val = map[id];
-        assert(val);
-
-        if (isArray(val)) {
-            let idx = A.indexOf(val, n);
-            splice(val, idx, 1);
-
-            if (val.length == 1) { // convert back to a single node
-                map[id] = val[0];
-            }
-        }
-        else {
-            delete map[id];
-        }
-    }
 
     function recursivelySetOwner(node, owner) {
         node.ownerDocument = owner;
