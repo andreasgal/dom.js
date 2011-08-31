@@ -236,7 +236,7 @@ defineLazyProperty(impl, "Node", function() {
                 return null;
             default: 
                 e = this.parentElement;
-                return e ? e.locateNamespacePrefix(ns) : null;
+                return e ? e.locateNamespace(prefix) : null;
             }
         }),
 
