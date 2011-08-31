@@ -97,6 +97,9 @@ assertThrows(function() {
 });
 
 var foreign = doc.createElement("foo");
+var foreign2 = doc.createElement("bar");
+var foreign3 = doc.createElement("bar");
+var foreign4 = doc.createElement("bar");
 doc.documentElement.appendChild(foreign);
 assert(foreign.parentNode);
 document.adoptNode(foreign);
@@ -106,6 +109,22 @@ assert(foreign.lastChild === null);
 assert(foreign.previousSibling === null);
 assert(foreign.nextSibling === null);
 assert(foreign.lastChild === null);
+assertThrows(function() { foreign.removeChild(foreign2); });
+assertThrows(function() { doc.documentElement.removeChild(foreign, foreign2); });
+assertThrows(function() { foreign3.insertBefore(foreign, foreign2); });
+foreign.appendChild(foreign2);
+foreign2.appendChild(foreign3);
+foreign2.appendChild(foreign4);
+assertThrows(function() { foreign2.insertBefore(foreign, foreign3); });
+assertThrows(function() { foreign2.insertBefore(doc, foreign3); });
+assertThrows(function() { foreign2.appendChild(foreign); });
+assertThrows(function() { foreign2.appendChild(doc); });
+assertThrows(function() { foreign2.replaceChild(foreign3, foreign); });
+assertThrows(function() { foreign2.replaceChild(foreign, foreign4); });
+
+doc.documentElement.insertBefore(foreign, null);
+assert(foreign.parentNode === doc.documentElement);
+var foreign2 = doc.createElement("bar");
 
 notYetImplemented(function() { document.images; });
 notYetImplemented(function() { document.embeds; });
