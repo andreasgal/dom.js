@@ -71,7 +71,7 @@
  *
  * In order to make this work, Element and each of its subtypes must declare
  * the set of reflected attributes that they define.  So each element type
- * should have an _attributeDeclarations property on its prototype. This
+ * should have an _attrDecls property on its prototype. This
  * property refers to an object that maps attribute names to attribute
  * declaration objects that  describe "reflected" attributes and the special
  * handling they require.
@@ -99,6 +99,23 @@
  *   boolean: true if this is a boolean attribute and undefined
  *      otherwise.  boolean attributes have special behavior: setting
  *      their IDL value to false is like calling removeAttribute() on them.
+ * 
+ *   legalValues: an set of legal values for enumerated attributes that
+ *      the html spec says are "limited to only known values". HTMLElement.dir
+ *      is an example.  If you specify this attribute, appropriate 
+ *      idlToContent and contentToIDL conversion functions will be created,
+ *      so don't specify both this and those conversion functions. The
+ *      value of this property should be an object that maps lowercase
+ *      versions of all legal values to the canonical value that they
+ *      should convert to.  Note that attributes that set this
+ *      property will probably always also have to set storeAsContent
+ *
+ *   storeAsContent: set this to true to indicate that the content
+ *      value of the attribute is what should be stored in the Attr
+ *      object. The default is to store the idl version of the value.
+ *      But some attributes (like HTMLElement.dir) need to retain the
+ *      exact content value and cannot regenerate it from the idl value.
+ * 
  * 
  * XXX: For enumerated attributes (such as dir) is it useful to declare
  *   the complete set of legal values here?
@@ -227,7 +244,7 @@ defineLazyProperty(impl, "Attributes", function() {
             if (!attr) {
                 var decl = prefix
                     ? null
-                    : this.element._attributeDeclarations[lname];
+                    : this.element._attrDecls[lname];
                 var attr = new impl.Attr(this.element, decl, lname, prefix, ns);
                 this.byNSAndLName[key] = attr;
                 this.keys = O.keys(this.byNSAndLName);
@@ -345,7 +362,7 @@ defineLazyProperty(impl, "Attributes", function() {
         // Used by setAttribute() and by set()
         _newAttr: constant(function _newAttr(qname) {
             var attr = new impl.Attr(this.element,
-                                     this.element._attributeDeclarations[qname],
+                                     this.element._attrDecls[qname],
                                      qname);
             this.byQName[qname] = attr;
             this.byNSAndLName["|" + qname] = attr;
@@ -420,44 +437,126 @@ defineLazyProperty(impl, "Attr", function() {
                 : this.localName;
         }),
         // Query and set the attribute value, with conversions if necessary
-        value: attribute(function() {
-                             var convert = this.declaration &&
-                                 this.declaration.idlToContent;
-                             return convert ? convert(this.data) : this.data;
-                         },
-                         function(v) {
-                             var convert = this.declaration &&
-                                 this.declaration.contentToIDL;
-                             if (convert) 
-                                 v = convert(v);
-                             // Invoke the setter below to actually set it
-                             this.idlvalue = v;
-                         }),
-        idlvalue: attribute(function() { return this.data; },
-                            function(v) { 
-                                if (this.data === v) return;
-                                let oldval = this.data;
-                                this.data = v;
+        value: attribute(
+            function() {
+                if (this.declaration &&
+                    !this.declaration.storeAsContent &&
+                    this.declaration.idlToContent)
+                    return this.declaration.idlToContent(this.data);
+                else
+                    return this.data;
+            },
+            function(v) {
+                if (this.declaration &&
+                    !this.declaration.storeAsContent &&
+                    this.declaration.contentToIDL)
+                    this.set(this.declaration.contentToIDL(v));
+                else
+                    this.set(v);
+            }
+        ), 
 
-                                // Run the onchange hook for the attribute
-                                // if there is one.
-                                if (this.declaration &&
-                                    this.declaration.onchange)
-                                    this.declaration.onchange(this.ownerElement,
-                                                              this.localName,
-                                                              oldval, v);
+        idlvalue: attribute(
+            function() {
+                // assert(this.declaration)
+                if (this.declaration.storeAsContent &&
+                    this.declaration.contentToIDL) 
+                    return this.declaration.contentToIDL(this.data);
+                else
+                    return this.data;
+            },
+            function(v) { 
+                if (this.declaration.storeAsContent &&
+                    this.declaration.idlToContent)
+                    this.set(this.declaration.idlToContent(v))
+                else
+                    this.set(v);
+            }
+        ),
 
-                                // XXX
-                                // We're passing the converted idl value in the
-                                // mutation event.  If the renderer needs the 
-                                // content value of the attribute, we'll have to
-                                // modify this code.
-                                if (this.ownerElement.rooted)
-                                    this.ownerElement.ownerDocument.mutateAttr(
-                                        this,
-                                        oldval);
-                            }),
+        // This is a utility function called by both the value and idlvalue
+        // setters
+        set: constant(function set(v) {
+            if (this.data === v) return;
+            let oldval = this.data;
+            this.data = v;
+            
+            // Run the onchange hook for the attribute
+            // if there is one.
+            if (this.declaration &&
+                this.declaration.onchange)
+                this.declaration.onchange(this.ownerElement,
+                                          this.localName,
+                                          oldval, v);
+            
+            // XXX
+            // We're passing the converted idl value in the
+            // mutation event.  If the renderer needs the 
+            // content value of the attribute, we'll have to
+            // modify this code.
+            if (this.ownerElement.rooted)
+                this.ownerElement.ownerDocument.mutateAttr(
+                    this,
+                    oldval);
+        }),
     });
 
     return Attr;
 });
+
+// Many reflected attributes do not need to specify anything in their
+// attribute declaration object.  So we can just reuse this object for them all
+const SimpleAttributeDeclaration = {};
+
+// This is a utility function for setting up reflected attributes.
+// Pass an element impl class like impl.HTMLElement as the first
+// argument.  Pass the content attribute name as the second
+// argument. And pass an attribute declaration object as the third.
+// The method adds the attribute declaration to the class c's
+// _attrDecls object.  And it sets up getter and setter methods for
+// the reflected attribute on the element class's prototype
+// If the declaration includes a legalValues property, then this method
+// adds appopriate conversion functions to it.
+function reflectAttribute(c, name, declaration) {
+    var p = c.prototype;
+    if (!declaration) declaration = SimpleAttributeDeclaration;
+    
+    // If p does not already have its own _attrDecls then create one
+    // for it, inheriting from the inherited _attrDecls. At the top
+    // (for the impl.Element class) the _attrDecls object will be
+    // created with a null prototype.
+    if (!hasOwnProperty(p, "_attrDecls")) {
+        p._attrDecls =
+            Object.create(p._attrDecls || null);
+    }
+
+    // I don't think we should ever override a reflected attribute of
+    // a superclass.
+    assert(!(name in p._attrDecls), "Redeclared attribute " + name);
+
+    // See if we need to fix up the declaration object at all.
+    if (declaration.legalValues) {
+        // Don't specify both conversions and legal values
+        assert(!declaration.contentToIDL && !declaration.idlToContent);
+        
+        // Note that we only have to convert in one direction.
+        // Any value set on the idl attribute will become the value of
+        // the content attribute.  But content attributes get filtered
+        // so that only canonical legal ones are reflected
+        // XXX: if an attribute declares an invalid value default or a 
+        // missing value default, we may need to use them here...
+        declaration.contentToIDL = function(v) {
+            return declaration.legalValues[v.toLowerCase()] || "";
+        }
+    }
+
+
+    // Add the attribute declaration to the _attrDecls object
+    p._attrDecls[name] = declaration;
+
+    // Now create the accessor property for the reflected attribute
+    O.defineProperty(p, declaration.idlname || name, {
+        get: function() { return this.attributes.get(name); },           
+        set: function(v) { this.attributes.set(name, v) }
+    });
+}

@@ -41,30 +41,6 @@ defineLazyProperty(impl, "Element", function() {
         nodeValue: attribute(fnull, fnoop),
         textContent: attribute(textContentGetter, textContentSetter),
 
-        _attributeDeclarations: constant({
-            "id": {
-                onchange: function(element, lname, oldval, newval) {
-                    if (element.rooted) {
-                        if (oldval) {
-                            element.ownerDocument.delId(oldval, element);
-                        }
-                        if (newval) {
-                            element.ownerDocument.addId(newval, element);
-                        }
-                    }
-                }
-            }
-        }),
-
-
-        // XXX
-        // Should I try to generate these attributes automatically from
-        // the _attributeDeclarations object?
-        id: attribute(function() { return this.attributes.get("id"); },
-                      function(v) { this.attributes.set("id", v); }),
-        className: attribute(function() { return this.attributes.get("class");},
-                             function(v) { this.attributes.set("class", v); }),
-
         getAttribute: constant(function getAttribute(qname) {
             return this.attributes.getAttribute(qname);
         }),
@@ -262,6 +238,28 @@ defineLazyProperty(impl, "Element", function() {
             return parent ? parent.locateNamespace(prefix) : null;
         }),
 
+    });
+
+    // Define getters and setters for an "id" property that reflects
+    // the content attribute "id". Call the onchange function whenever
+    // this attribute changes in anyway.
+    reflectAttribute(Element, "id", {
+        onchange: function(element, lname, oldval, newval) {
+            if (element.rooted) {
+                if (oldval) {
+                    element.ownerDocument.delId(oldval, element);
+                }
+                if (newval) {
+                    element.ownerDocument.addId(newval, element);
+                }
+            }
+        }
+    });
+
+    // Define getters and setters for a "className" property that reflects
+    // the content attribute "class".
+    reflectAttribute(Element, "class", {
+        idlname: "className"
     });
 
     // The children property of an Element will be an instance of this class.

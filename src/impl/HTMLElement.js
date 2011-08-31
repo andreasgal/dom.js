@@ -7,6 +7,14 @@ defineLazyProperty(impl, "HTMLElement", function() {
         _idlName: constant("HTMLElement"),
     });
 
+    reflectAttribute(HTMLElement, "title");
+    reflectAttribute(HTMLElement, "lang");
+    reflectAttribute(HTMLElement, "dir", {
+        legalValues: {ltr: "ltr", rtl: "rtl", auto:"auto"},
+        storeAsContent: true,
+    });
+
+
     return HTMLElement;
 });
 
