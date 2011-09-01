@@ -7,13 +7,15 @@ defineLazyProperty(impl, "HTMLElement", function() {
         _idlName: constant("HTMLElement"),
     });
 
-    reflectAttribute(HTMLElement, "title");
-    reflectAttribute(HTMLElement, "lang");
-    reflectAttribute(HTMLElement, "dir", {
-        legalValues: {ltr: "ltr", rtl: "rtl", auto:"auto"},
+    impl.Element.reflectStringAttribute(HTMLElement, "title");
+    impl.Element.reflectStringAttribute(HTMLElement, "lang");
+    impl.Element.reflectEnumeratedAttribute(HTMLElement, "dir", {
+        ltr: "ltr",
+        rtl: "rtl",
+        auto:"auto"
     });
 
-    reflectAttribute(HTMLElement, "accesskey");
+    impl.Element.reflectStringAttribute(HTMLElement, "accesskey");
 
     // hidden: reflected boolean attribute
     // tabIndex: reflected long attribute, with default value

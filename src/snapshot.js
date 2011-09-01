@@ -20,6 +20,7 @@
 // For now, we just snapshot everything that seems like it might be
 // important. Later, we might come back and optimize this to just take
 // copies of the stuff we actually use.
+const undefined = void 0;
 
 const
     shallow_frozen_copy = function(o) {

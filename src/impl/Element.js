@@ -222,7 +222,83 @@ defineLazyProperty(impl, "Element", function() {
         // Attribute handling methods and utilities
         //
         
-        // The attributes property is added as a lazy property below.
+        /*
+         * Attributes in the DOM are tricky:
+         * 
+         * - there are the 8 basic get/set/has/removeAttribute{NS} methods
+         * 
+         * - but many HTML attributes are also "reflected" through IDL
+         *   attributes which means that they can be queried and set through
+         *   regular properties of the element.  There is just one attribute
+         *   value, but two ways to get and set it.
+         * 
+         * - Different HTML element types have different sets of reflected
+             attributes.
+         *
+         * - attributes can also be queried and set through the .attributes
+         *   property of an element.  This property behaves like an array of
+         *   Attr objects.  The value property of each Attr is writeable, so
+         *   this is a third way to read and write attributes.
+         * 
+         * - for efficiency, we really want to store attributes in some kind
+         *   of name->attr map.  But the attributes[] array is an array, not a
+         *   map, which is kind of unnatural.
+         *
+         * - When using namespaces and prefixes, and mixing the NS methods
+         *   with the non-NS methods, it is apparently actually possible for
+         *   an attributes[] array to have more than one attribute with the
+         *   same qualified name.  And certain methods must operate on only
+         *   the first attribute with such a name.  So for these methods, an
+         *   inefficient array-like data structure would be easier to
+         *   implement.
+         * 
+         * - The attributes[] array is live, not a snapshot, so changes to the
+         *   attributes must be immediately visible through existing arrays.
+         * 
+         * - When attributes are queried and set through IDL properties
+         *   (instead of the get/setAttributes() method or the attributes[]
+         *   array) they may be subject to type conversions, URL
+         *   normalization, etc., so some extra processing is required in that
+         *   case.
+         * 
+         * - But access through IDL properties is probably the most common
+         *   case, so we'd like that to be as fast as possible.
+         * 
+         * - We can't just store attribute values in their parsed idl form,
+         *   because setAttribute() has to return whatever string is passed to
+         *   getAttribute even if it is not a legal, parseable value. So
+         *   attribute values must be stored in unparsed string form.
+         * 
+         * - We need to be able to send change notifications or mutation
+         *   events of some sort to the renderer whenever an attribute value
+         *   changes, regardless of the way in which it changes.
+         * 
+         * - Some attributes, such as id and class affect other parts of the
+         *   DOM API, like getElementById and getElementsByClassName and so
+         *   for efficiency, we need to specially track changes to these
+         *   special attributes.
+         * 
+         * - Some attributes like class have different names (className) when
+         *   reflected.
+         * 
+         * - Attributes whose names begin with the string "data-" are treated
+             specially.
+         * 
+         * - Reflected attributes that have a boolean type in IDL have special
+         *   behavior: setting them to false (in IDL) is the same as removing
+         *   them with removeAttribute()
+         * 
+         * - numeric attributes (like HTMLElement.tabIndex) can have default
+         *   values that must be returned by the idl getter even if the
+         *   content attribute does not exist. (The default tabIndex value
+         *   actually varies based on the type of the element, so that is a
+         *   tricky one).
+         * 
+         * See
+         * http://www.whatwg.org/specs/web-apps/current-work/multipage/urls.html#reflect
+         * for rules on how attributes are reflected.
+         *
+         */
 
         getAttribute: constant(function getAttribute(qname) {
             if (this.isHTML) qname = toLowerCase(qname);
@@ -260,7 +336,7 @@ defineLazyProperty(impl, "Element", function() {
             // email pending on www-dom about it.
             var attr = this._attrsByQName[qname];
             if (!attr) {
-                attr = this._newAttr(qname);
+                attr = this._newattr(qname);
             }
             else {
                 if (isArray(attr)) attr = attr[0];
@@ -299,10 +375,7 @@ defineLazyProperty(impl, "Element", function() {
 
             var attr = this._attrsByLName[key];
             if (!attr) {
-                var decl = prefix
-                    ? null
-                    : this._attrDecls[lname];
-                var attr = new impl.Attr(this, decl, lname, prefix, ns);
+                var attr = new Attr(this, lname, prefix, ns);
                 this._attrsByLName[key] = attr;
                 this._attrKeys = O.keys(this._attrsByLName);
 
@@ -356,8 +429,8 @@ defineLazyProperty(impl, "Element", function() {
             this._attrKeys = O.keys(this._attrsByLName);
 
             // Onchange handler for the attribute
-            if (attr.declaration && attr.declaration.onchange) 
-                attr.declaration.onchange(this, attr.localName, attr.value, null);
+            if (attr.onchange)
+                attr.onchange(this, attr.localName, attr.value, null);
 
             // Mutation event
             if (this.rooted) this.ownerDocument.mutateRemoveAttr(attr);
@@ -376,42 +449,36 @@ defineLazyProperty(impl, "Element", function() {
             this._removeQName(attr);
 
             // Onchange handler for the attribute
-            if (attr.declaration && attr.declaration.onchange) 
-                attr.declaration.onchange(this, attr.localName, attr.value, null);
+            if (attr.onchange) 
+                attr.onchange(this, attr.localName, attr.value, null);
             // Mutation event
             if (this.rooted) this.ownerDocument.mutateRemoveAttr(attr);
         }),
 
         // This "raw" version of getAttribute is used by the getter functions
-        // of reflected idl attributes. 
-        // This is the fast path for reading the idl value of reflected attrs.
-        get: constant(function get(qname) {
-            // We assume that qname is already lowercased, so we don't 
-            // do it here.
-            var attr = this._attrsByQName[qname];  
-            if (!attr) return "";  // Non-existant attributes reflect as ""
-
-            // We don't check whether attr is an array.  A qname with no
+        // of reflected attributes. It skips some error checking and
+        // namespace steps
+        _getattr: constant(function _getattr(qname) {
+            // Assume that qname is already lowercased, so don't do it here.
+            // Also don't check whether attr is an array: a qname with no
             // prefix will never have two matching Attr objects (because
             // setAttributeNS doesn't allow a non-null namespace with a 
             // null prefix.
-
-            return attr.idlvalue;   // The raw value
+            var attr = this._attrsByQName[qname];  
+            return attr ? attr.value : null;
         }),
 
         // The raw version of setAttribute for reflected idl attributes.
-        // Assumes the value is in already converted form, so skips 
-        // the conversion step that setAttribute does.
-        set: constant(function set(qname, value) {
+        _setattr: constant(function _setattr(qname, value) {
             var attr = this._attrsByQName[qname];  
-            if (!attr) attr = this._newAttr(qname);
-            attr.idlvalue = value;
+            if (!attr) attr = this._newattr(qname);
+            attr.value = value;
         }),
 
         // Create a new Attr object, insert it, and return it.
         // Used by setAttribute() and by set()
-        _newAttr: constant(function _newAttr(qname) {
-            var attr = new impl.Attr(this, this._attrDecls[qname], qname);
+        _newattr: constant(function _newattr(qname) {
+            var attr = new Attr(this, qname);
             this._attrsByQName[qname] = attr;
             this._attrsByLName["|" + qname] = attr;
             this._attrKeys = O.keys(this._attrsByLName);
@@ -464,32 +531,136 @@ defineLazyProperty(impl, "Element", function() {
         _attr: constant(function(n) {
             return this._attrsByLName[this._attrKeys[n]];
         }),
-
-
-
     });
+
+    // A utility function used by those below
+    function defineAttribute(c, idlname, getter, setter) {
+        // I don't think we should ever override an existing attribute
+        assert(!(idlname in c.prototype), "Redeclared attribute " + idlname);
+        O.defineProperty(c.prototype, idlname, { get: getter, set: setter });
+    }
+
+
+    // This is a utility function for setting up reflected attributes.
+    // Pass an element impl class like impl.HTMLElement as the first
+    // argument.  Pass the content attribute name as the second argument.
+    // And pass the idl attribute name as the third, if it is different.
+    Element.reflectStringAttribute = function(c, name, idlname) {
+        defineAttribute(c, idlname || name, 
+                        function() { return this._getattr(name) || ""; },
+                        function(v) { this._setattr(name, v); });
+    };
+
+    // Define an idl attribute that reflects an enumerated content
+    // attribute.  This is for attributes that the HTML spec describes as
+    // "limited to only known values".  legalvals should be an array that
+    // maps the lowercased versions of allowed enumerated values to the
+    // canonical value that it should convert to. Usually the name and
+    // value of most properties in the object will be the same.
+    Element.reflectEnumeratedAttribute = function(c, name, legalvals,
+                                                  defaultval, idlname)
+    {
+        defineAttribute(c, idlname || name, 
+                        function() {
+                            var v = this._getattr(name);
+                            v = legalvals[v.toLowerCase()];
+                            if (v !== undefined) return v;
+                            if (defaultval !== undefined) return defaultval;
+                            return "";
+                        },
+                        function(v) { this._setattr(name, v); });
+    };
+
+    // This is a utility function for setting up change handler functions
+    // for attributes like 'id' that require special handling when they change.
+    Element.registerAttributeChangeHandler = function(c, name, handler) {
+        var p = c.prototype;
+        
+        // If p does not already have its own _attributeChangeHandlers
+        // then create one for it, inheriting from the inherited
+        // _attributeChangeHandlers. At the top (for the impl.Element class) the
+        // _attributeChangeHandlers object will be created with a null prototype.
+        if (!hasOwnProperty(p, "_attributeChangeHandlers")) {
+            p._attributeChangeHandlers =
+                Object.create(p._attributeChangeHandlers || null);
+        }
+
+        // There can only be one
+        assert(!(name in p._attributeChangeHandlers));
+
+        p._attributeChangeHandlers[name] = handler;
+    };
+
+
+
+    // Register special handling for the id attribute
+    Element.registerAttributeChangeHandler(Element, "id",
+               function(element, lname, oldval, newval) {
+                   if (element.rooted) {
+                       if (oldval) {
+                           element.ownerDocument.delId(oldval, element);
+                       }
+                       if (newval) {
+                           element.ownerDocument.addId(newval, element);
+                       }
+                   }
+               });
 
     // Define getters and setters for an "id" property that reflects
-    // the content attribute "id". Call the onchange function whenever
-    // this attribute changes in anyway.
-    reflectAttribute(Element, "id", {
-        onchange: function(element, lname, oldval, newval) {
-            if (element.rooted) {
-                if (oldval) {
-                    element.ownerDocument.delId(oldval, element);
-                }
-                if (newval) {
-                    element.ownerDocument.addId(newval, element);
-                }
-            }
-        }
-    });
+    // the content attribute "id".
+    Element.reflectStringAttribute(Element, "id");
 
     // Define getters and setters for a "className" property that reflects
     // the content attribute "class".
-    reflectAttribute(Element, "class", {
-        idlname: "className"
-    });
+    Element.reflectStringAttribute(Element, "class", "className");
+
+
+    // The Attr class represents a single attribute.  The values in 
+    // _attrsByQName and _attrsByLName are instances of this class.
+    function Attr(elt, lname, prefix, namespace) {
+        // Always remember what element we're associated with.
+        // We need this to property handle mutations
+        this.ownerElement = elt;
+
+        if (!namespace && !prefix && lname in elt._attributeChangeHandlers)
+            this.onchange = elt._attributeChangeHandlers[lname];
+
+        // localName and namespace are constant for any attr object.
+        // But value may change.  And so can prefix, and so, therefore can name.
+        this.localName = lname;
+        this.prefix = prefix || null;
+        this.namespaceURI = namespace || null;
+    }
+
+    Attr.prototype = {
+        _idlName: "Attr",
+        get name() {
+            return this.prefix
+                ? this.prefix + ":" + this.localName
+                : this.localName;
+        },
+
+        get value() {
+            return this.data;
+        },
+
+        set value(v) {
+            if (this.data === v) return;
+            let oldval = this.data;
+            this.data = v;
+            
+            // Run the onchange hook for the attribute
+            // if there is one.
+            if (this.onchange)
+                this.onchange(this.ownerElement,this.localName, oldval, v);
+            
+            // Generate a mutation event if the element is rooted
+            if (this.ownerElement.rooted)
+                this.ownerElement.ownerDocument.mutateAttr(
+                    this,
+                    oldval);
+        }
+    };
 
 
     // The attributes property of an Element will be an instance of this class.
@@ -566,133 +737,5 @@ defineLazyProperty(impl, "Element", function() {
         }
     };
 
-
     return Element;
 });
-
-defineLazyProperty(impl, "Attr", function() {
-    function Attr(elt, decl, lname, prefix, namespace) {
-        // Always remember what element we're associated with.
-        // We need this to property handle mutations
-        this.ownerElement = elt;
-
-        // If the attribute requires special onchange behavior (even
-        // if it is not a reflected attribute) this declaration object
-        // specifies the onchange hook to call.
-        this.declaration = decl;
-
-        // localName and namespace are constant for any attr object.
-        // But value may change.  And so can prefix, and so, therefore can name.
-        this.localName = lname;
-        this.prefix = prefix || null;
-        this.namespaceURI = namespace || null;
-    }
-
-    Attr.prototype = O.create(Object.prototype, {
-        _idlName: constant("Attr"),
-        name: attribute(function() {
-            return this.prefix
-                ? this.prefix + ":" + this.localName
-                : this.localName;
-        }),
-        // Query and set the content attribute value
-        value: attribute(
-            function() {
-                return this.data;
-            },
-            function(v) {
-                if (this.data === v) return;
-                let oldval = this.data;
-                this.data = v;
-                
-                // Run the onchange hook for the attribute
-                // if there is one.
-                if (this.declaration &&
-                    this.declaration.onchange)
-                    this.declaration.onchange(this.ownerElement,
-                                              this.localName,
-                                              oldval, v);
-                
-                // Generate a mutation event if the element is rooted
-                if (this.ownerElement.rooted)
-                    this.ownerElement.ownerDocument.mutateAttr(
-                        this,
-                        oldval);
-            }
-        ), 
-    });
-
-    return Attr;
-});
-
-// Many reflected attributes do not need to specify anything in their
-// attribute declaration object.  So we can just reuse this object for them all
-const SimpleAttributeDeclaration = {};
-
-// This is a utility function for setting up reflected attributes.
-// Pass an element impl class like impl.HTMLElement as the first
-// argument.  Pass the content attribute name as the second
-// argument. And pass an attribute declaration object as the third.
-// The method adds the attribute declaration to the class c's
-// _attrDecls object.  And it sets up getter and setter methods for
-// the reflected attribute on the element class's prototype
-// If the declaration includes a legalValues property, then this method
-// adds appopriate conversion functions to it.
-function reflectAttribute(c, name, declaration) {
-    var p = c.prototype;
-    if (!declaration) declaration = SimpleAttributeDeclaration;
-    
-    // If p does not already have its own _attrDecls then create one
-    // for it, inheriting from the inherited _attrDecls. At the top
-    // (for the impl.Element class) the _attrDecls object will be
-    // created with a null prototype.
-    if (!hasOwnProperty(p, "_attrDecls")) {
-        p._attrDecls =
-            Object.create(p._attrDecls || null);
-    }
-
-    // I don't think we should ever override a reflected attribute of
-    // a superclass.
-    assert(!(name in p._attrDecls), "Redeclared attribute " + name);
-
-    // See if we need to fix up the declaration object at all.
-    if (declaration.legalValues) {
-        // Don't specify both conversions and legal values
-        assert(!declaration.contentToIDL && !declaration.idlToContent);
-        
-        // Note that we only have to convert in one direction.
-        // Any value set on the idl attribute will become the value of
-        // the content attribute.  But content attributes get filtered
-        // so that only canonical legal ones are reflected
-        // XXX: if an attribute declares an invalid value default or a 
-        // missing value default, we may need to use them here...
-        declaration.contentToIDL = function(v) {
-            return declaration.legalValues[v.toLowerCase()] || "";
-        }
-    }
-
-
-    // Add the attribute declaration to the _attrDecls object
-    p._attrDecls[name] = declaration;
-
-    var getter, setter;
-    if (declaration.contentToIDL) 
-        getter = function() {
-            return declaration.contentToIDL(this.getAttribute(name));
-        };
-    else
-        getter = function() { return this.getAttribute(name) || ""; }
-
-    if (declaration.idlToContent) 
-        setter = function(v) {
-            this.setAttribute(name, declaration.idlToContent(v));
-        }
-    else 
-        setter = function(v) { this.setAttribute(name, v); }
-
-    // Now create the accessor property for the reflected attribute
-    O.defineProperty(p, declaration.idlname || name, {
-        get: getter,
-        set: setter
-    });
-}
