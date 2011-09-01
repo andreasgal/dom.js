@@ -558,18 +558,94 @@ defineLazyProperty(impl, "Element", function() {
     // canonical value that it should convert to. Usually the name and
     // value of most properties in the object will be the same.
     Element.reflectEnumeratedAttribute = function(c, name, legalvals,
-                                                  defaultval, idlname)
+                                                  defval, idlname)
     {
         defineAttribute(c, idlname || name, 
                         function() {
                             var v = this._getattr(name);
                             v = legalvals[v.toLowerCase()];
                             if (v !== undefined) return v;
-                            if (defaultval !== undefined) return defaultval;
+                            if (defval !== undefined) return defval;
                             return "";
                         },
                         function(v) { this._setattr(name, v); });
     };
+
+    Element.reflectBooleanAttribute = function(c, name, idlname) {
+        defineAttribute(c, idlname || name, 
+                        function() {
+                            return this.hasAttribute(name);
+                        },
+                        function(v) {
+                            if (v)
+                                this._setattr(name, "");
+                            else
+                                this.removeAttribute(name);
+                        });
+    };
+
+    // See http://www.whatwg.org/specs/web-apps/current-work/#reflect
+    // 
+    // defval is the default value. If it is a function, then that function
+    // will be invoked as a method of the element to obtain the default.
+    // If no default is specified for a given attribute, then the default
+    // depends on the type of the attribute, but since this function handles
+    // 4 integer cases, you must specify the default value in each call
+    // 
+    // min and max define a valid range for getting the attribute.
+    // 
+    // setmin defines a minimum value when setting.  If the value is less
+    // than that, then throw INDEX_SIZE_ERR.
+    //
+    // Conveniently, JavaScript's parseInt function appears to be
+    // compatible with HTML's "rules for parsing integers"
+    Element.reflectIntegerAttribute = function(c, name, idlname, defval,
+                                               min, max, setmin)
+    {
+        var getter, setter;
+
+        if (min || max || typeof defval === "function") 
+            getter = function() {
+                var v = this._getattr(name);
+                var n = parseInt(v, 10);
+                
+                if (isNaN(n) ||
+                    (min !== undefined && n < min) ||
+                    (max !== undefined && n > max)) {
+                    switch(typeof defval) {
+                    case 'function': return defval.call(this);
+                    case 'number': return defval;
+                    default: assert(false);
+                    }
+                }
+                
+                return n;
+            };
+        else
+            getter = function() {
+                var v = this._getattr(name);
+                // Pleasantly, JavaScript's parseInt function
+                // is compatible with HTML's "rules for parsing
+                // integers"
+                var n = parseInt(v, 10);
+                
+                if (isNaN(n)) return defval;
+            }
+
+        if (setmin) 
+            setter = function(v) {
+                if (v < setmin) IndexSizeError(name + " set to " + v);
+                this._setattr(name, String(v));
+            };
+        else 
+            setter = function(v) {
+                this._setattr(name, String(v));
+            };
+
+
+        defineAttribute(c, idlname || name, getter, setter);
+    };
+
 
     // This is a utility function for setting up change handler functions
     // for attributes like 'id' that require special handling when they change.
@@ -578,8 +654,9 @@ defineLazyProperty(impl, "Element", function() {
         
         // If p does not already have its own _attributeChangeHandlers
         // then create one for it, inheriting from the inherited
-        // _attributeChangeHandlers. At the top (for the impl.Element class) the
-        // _attributeChangeHandlers object will be created with a null prototype.
+        // _attributeChangeHandlers. At the top (for the impl.Element
+        // class) the _attributeChangeHandlers object will be created
+        // with a null prototype.
         if (!hasOwnProperty(p, "_attributeChangeHandlers")) {
             p._attributeChangeHandlers =
                 Object.create(p._attributeChangeHandlers || null);

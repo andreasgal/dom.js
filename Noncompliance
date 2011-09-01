@@ -16,3 +16,9 @@ an indexed deleter (like NodeList) should be non-configurable.
 
 - HTML says that document.body returns the first <body> or <frameset>
   element. dom.js does not handle framesets, at least not for now.
+
+- The default value of the tabIndex attribute depends on whether an
+  element is focusable or not.  But the definition of "focusable" is
+  complex and requires knowing whether the element is renderable or
+  not.  For now, I've just done a simple test based on tagname and
+  contenteditable.  Firefox seems to do something similar.

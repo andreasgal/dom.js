@@ -15,10 +15,28 @@ defineLazyProperty(impl, "HTMLElement", function() {
         auto:"auto"
     });
 
-    impl.Element.reflectStringAttribute(HTMLElement, "accesskey");
+    impl.Element.reflectStringAttribute(HTMLElement, "accesskey", "accessKey");
+    impl.Element.reflectBooleanAttribute(HTMLElement, "hidden");
 
-    // hidden: reflected boolean attribute
-    // tabIndex: reflected long attribute, with default value
+    // XXX: the default value for tabIndex should be 0 if the element is
+    // focusable and -1 if it is not.  But the full definition of focusable
+    // is actually hard to compute, so for now, I'll follow Firefox and
+    // just base the default value on the type of the element. 
+    var focusableElements = {
+        "a":true, "link":true, "button":true, "input":true,
+        "select":true, "textarea":true, "command":true
+    };
+    impl.Element.reflectIntegerAttribute(HTMLElement, "tabindex", "tabIndex",
+                         // compute a default tabIndex value
+                         function() {
+                             if (this.tagName in focusableElements ||
+                                 this.contentEditable)
+                                 return 0;
+                             else
+                                 return -1;
+                         });
+                                         
+
     // style: the spec doesn't call this a reflected attribute.
     //   may want to handle it manually.
 
