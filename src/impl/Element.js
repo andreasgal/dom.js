@@ -12,9 +12,13 @@ defineLazyProperty(impl, "Element", function() {
         if (this.isHTML)
             this.tagName = toUpperCase(this.tagName);
 
-        this.attributes = new impl.Attributes(this);
         this.childNodes = [];
         this.childNodes._idlName = "NodeList";
+
+        // These properties maintain the set of attributes
+        this._attrsByQName = Object.create(null);  // The qname->Attr map
+        this._attrsByLName = Object.create(null);  // The ns|lname->Attr map
+        this._attrKeys = [];                       // attr index -> ns|lname
     }
 
     let recursiveGetText = recursive(function(n,a) {
@@ -41,44 +45,20 @@ defineLazyProperty(impl, "Element", function() {
         nodeValue: attribute(fnull, fnoop),
         textContent: attribute(textContentGetter, textContentSetter),
 
-        getAttribute: constant(function getAttribute(qname) {
-            return this.attributes.getAttribute(qname);
-        }),
-
-        hasAttribute: constant(function hasAttribute(qname) {
-            return this.attributes.hasAttribute(qname);
-        }),
-
-        setAttribute: constant(function setAttribute(qname, value) {
-            return this.attributes.setAttribute(qname, value);
-        }),
-
-        removeAttribute: constant(function removeAttribute(qname) {
-            return this.attributes.removeAttribute(qname);
-        }),
-
-        getAttributeNS: constant(function getAttributeNS(ns, lname) {
-            return this.attributes.getAttributeNS(ns, lname);
-        }),
-
-        hasAttributeNS: constant(function hasAttributeNS(ns, lname) {
-            return this.attributes.hasAttributeNS(ns, lname);
-        }),
-
-        setAttributeNS: constant(function setAttributeNS(ns, qname, value) {
-            return this.attributes.setAttributeNS(ns, qname, value);
-        }),
-
-        removeAttributeNS: constant(function removeAttributeNS(ns, lname) {
-            return this.attributes.removeAttributeNS(ns, lname);
-        }),
-
         children: attribute(function() {
             if (!this._children) {
                 this._children = new ChildrenCollection(this);
             }
             return this._children;
         }),
+
+        attributes: attribute(function() {
+            if (!this._attributes) {
+                this._attributes = new AttributesArray(this);
+            }
+            return this._attributes;
+        }),
+
 
         firstElementChild: attribute(function() {
             let kids = this.childNodes;
@@ -176,8 +156,8 @@ defineLazyProperty(impl, "Element", function() {
             else
                 e = this.ownerDocument.createElement(this.localName);
 
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let a = this.attributes.item(i);
+            for(let i = 0, n = this._numattrs; i < n; i++) {
+                let a = this._attr(i);
                 e.setAttributeNS(a.namespaceURI, a.name, a.value);
             }
 
@@ -188,13 +168,13 @@ defineLazyProperty(impl, "Element", function() {
             if (this.localName !== that.localName ||
                 this.namespaceURI !== that.namespaceURI ||
                 this.prefix !== that.prefix ||
-                this.attributes.length !== that.attributes.length)
+                this._numattrs !== that._numattrs)
                 return false;
 
             // Compare the sets of attributes, ignoring order
             // and ignoring attribute prefixes.
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let a = this.attributes.item(i);
+            for(let i = 0, n = this._numattrs; i < n; i++) {
+                let a = this._attr(i);
                 if (!that.hasAttributeNS(a.namespaceURI, a.localName))
                     return false;
                 if (that.getAttributeNS(a.namespaceURI,a.localName) !== a.value)
@@ -210,8 +190,8 @@ defineLazyProperty(impl, "Element", function() {
             if (this.namespaceURI === ns && this.prefix !== null) 
                 return this.prefix;
 
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let a = this.attributes.item(i);
+            for(let i = 0, n = this._numattrs; i < n; i++) {
+                let a = this._attr(i);
                 if (a.prefix === "xmlns" && a.value === ns)
                     return a.localName;
             }
@@ -226,8 +206,8 @@ defineLazyProperty(impl, "Element", function() {
             if (this.prefix === prefix && this.namespaceURI !== null)
                 return this.namespaceURI;
 
-            for(let i = 0, n = this.attributes.length; i < n; i++) {
-                let a = this.attributes.item(i);
+            for(let i = 0, n = this._numattrs; i < n; i++) {
+                let a = this._attr(i);
                 if ((a.prefix === "xmlns" && a.localName === prefix) ||
                     (a.prefix === null && a.localName === "xmlns")) {
                     return a.value || null;
@@ -237,6 +217,255 @@ defineLazyProperty(impl, "Element", function() {
             let parent = this.parentElement;
             return parent ? parent.locateNamespace(prefix) : null;
         }),
+
+        // 
+        // Attribute handling methods and utilities
+        //
+        
+        // The attributes property is added as a lazy property below.
+
+        getAttribute: constant(function getAttribute(qname) {
+            if (this.isHTML) qname = toLowerCase(qname);
+            var attr = this._attrsByQName[qname];
+            if (!attr) return null;
+
+            if (isArray(attr))  // If there is more than one
+                attr = attr[0];   // use the first
+
+            return attr.value;
+        }),
+
+        getAttributeNS: constant(function getAttributeNS(ns, lname) {
+            var attr = this._attrsByLName[ns + "|" + lname];
+            return attr ? attr.value : null;
+        }),
+        
+        hasAttribute: constant(function hasAttribute(qname) {
+            if (this.isHTML) qname = toLowerCase(qname);
+            return qname in this._attrsByQName;
+        }),
+
+        hasAttributeNS: constant(function hasAttributeNS(ns, lname) {
+            var key = ns + "|" + lname;
+            return key in this._attrsByLName;
+        }),
+
+        setAttribute: constant(function setAttribute(qname, value) {
+            if (!isValidName(qname)) InvalidCharacterError();
+            if (this.isHTML) qname = toLowerCase(qname);
+            if (substring(qname, 0, 5) === "xmlns") NamespaceError();
+
+            // XXX: the spec says that this next search should be done 
+            // on the local name, but I think that is an error.
+            // email pending on www-dom about it.
+            var attr = this._attrsByQName[qname];
+            if (!attr) {
+                attr = this._newAttr(qname);
+            }
+            else {
+                if (isArray(attr)) attr = attr[0];
+            }
+
+            // Now set the attribute value on the new or existing Attr object.
+            // The Attr.value setter method handles mutation events, etc.
+            attr.value = value;
+        }),
+        
+
+        setAttributeNS: constant(function setAttributeNS(ns, qname, value) {
+            if (!isValidName(qname)) InvalidCharacterError();
+            if (!isValidQName(qname)) NamespaceError();
+
+            let pos = S.indexOf(qname, ":"), prefix, lname;
+            if (pos === -1) {
+                prefix = null;
+                lname = qname;
+            }
+            else {
+                prefix = substring(qname, 0, pos);
+                lname = substring(qname, pos+1);
+            }
+
+            var key = ns + "|" + lname;
+            if (ns === "") ns = null;
+
+            if ((prefix !== null && ns === null) ||
+                (prefix === "xml" && ns !== XML_NAMESPACE) ||
+                ((qname === "xmlns" || prefix === "xmlns") &&
+                 (ns !== XMLNS_NAMESPACE)) ||
+                (ns === XMLNS_NAMESPACE && 
+                 !(qname === "xmlns" || prefix === "xmlns")))
+                NamespaceError();
+
+            var attr = this._attrsByLName[key];
+            if (!attr) {
+                var decl = prefix
+                    ? null
+                    : this._attrDecls[lname];
+                var attr = new impl.Attr(this, decl, lname, prefix, ns);
+                this._attrsByLName[key] = attr;
+                this._attrKeys = O.keys(this._attrsByLName);
+
+                // We also have to make the attr searchable by qname.
+                // But we have to be careful because there may already
+                // be an attr with this qname.
+                this._addQName(attr);
+            }
+            else {
+                // Calling setAttributeNS() can change the prefix of an 
+                // existing attribute!
+                if (attr.prefix !== prefix) {
+                    // Unbind the old qname
+                    this._removeQName(attr);
+                    // Update the prefix
+                    attr.prefix = prefix;
+                    // Bind the new qname
+                    this._addQName(attr);
+                }
+            }
+            attr.value = value; // Automatically sends mutation event
+        }),
+
+        removeAttribute: constant(function removeAttribute(qname) {
+            if (this.isHTML) qname = toLowerCase(qname);
+
+            var attr = this._attrsByQName[qname];
+            if (!attr) return;
+
+            // If there is more than one match for this qname
+            // so don't delete the qname mapping, just remove the first
+            // element from it.
+            if (isArray(attr)) {
+                if (attr.length > 2) {
+                    attr = A.shift(attr);  // remove it from the array
+                }
+                else {
+                    this._attrsByQName[qname] = attr[1];
+                    attr = attr[0];
+                }
+            }
+            else {
+                // only a single match, so remove the qname mapping
+                delete this._attrsByQName[qname];
+            }
+
+            // Now attr is the removed attribute.  Figure out its
+            // ns+lname key and remove it from the other mapping as well.
+            var key = (attr.namespaceURI || "") + "|" + attr.localName;
+            delete this._attrsByLName[key];
+            this._attrKeys = O.keys(this._attrsByLName);
+
+            // Onchange handler for the attribute
+            if (attr.declaration && attr.declaration.onchange) 
+                attr.declaration.onchange(this, attr.localName, attr.value, null);
+
+            // Mutation event
+            if (this.rooted) this.ownerDocument.mutateRemoveAttr(attr);
+        }),
+
+        removeAttributeNS: constant(function removeAttributeNS(ns, lname) {
+            var key = (ns || "") + "|" + lname;
+            var attr = this._attrsByLName[key];
+            if (!attr) return;
+
+            delete this._attrsByLName[key];
+            this._attrKeys = O.keys(this._attrsByLName);
+
+            // Now find the same Attr object in the qname mapping and remove it
+            // But be careful because there may be more than one match.
+            this._removeQName(attr);
+
+            // Onchange handler for the attribute
+            if (attr.declaration && attr.declaration.onchange) 
+                attr.declaration.onchange(this, attr.localName, attr.value, null);
+            // Mutation event
+            if (this.rooted) this.ownerDocument.mutateRemoveAttr(attr);
+        }),
+
+        // This "raw" version of getAttribute is used by the getter functions
+        // of reflected idl attributes. 
+        // This is the fast path for reading the idl value of reflected attrs.
+        get: constant(function get(qname) {
+            // We assume that qname is already lowercased, so we don't 
+            // do it here.
+            var attr = this._attrsByQName[qname];  
+            if (!attr) return "";  // Non-existant attributes reflect as ""
+
+            // We don't check whether attr is an array.  A qname with no
+            // prefix will never have two matching Attr objects (because
+            // setAttributeNS doesn't allow a non-null namespace with a 
+            // null prefix.
+
+            return attr.idlvalue;   // The raw value
+        }),
+
+        // The raw version of setAttribute for reflected idl attributes.
+        // Assumes the value is in already converted form, so skips 
+        // the conversion step that setAttribute does.
+        set: constant(function set(qname, value) {
+            var attr = this._attrsByQName[qname];  
+            if (!attr) attr = this._newAttr(qname);
+            attr.idlvalue = value;
+        }),
+
+        // Create a new Attr object, insert it, and return it.
+        // Used by setAttribute() and by set()
+        _newAttr: constant(function _newAttr(qname) {
+            var attr = new impl.Attr(this, this._attrDecls[qname], qname);
+            this._attrsByQName[qname] = attr;
+            this._attrsByLName["|" + qname] = attr;
+            this._attrKeys = O.keys(this._attrsByLName);
+            return attr;
+        }),
+
+        // Add a qname->Attr mapping to the _attrsByQName object, taking into 
+        // account that there may be more than one attr object with the 
+        // same qname
+        _addQName: constant(function(attr) {
+            var qname = attr.name;
+            var existing = this._attrsByQName[qname];
+            if (!existing) {
+                this._attrsByQName[qname] = attr;
+            }
+            else if (isArray(existing)) {
+                push(existing, attr);
+            }
+            else {
+                this._attrsByQName[qname] = [existing, attr];
+            }
+        }),
+
+        // Remove a qname->Attr mapping to the _attrsByQName object, taking into 
+        // account that there may be more than one attr object with the 
+        // same qname
+        _removeQName: constant(function(attr) {
+            var qname = attr.name;
+            var target = this._attrsByQName[qname];
+
+            if (isArray(target)) {
+                var idx = A.indexOf(target, attr);
+                assert(idx !== -1); // It must be here somewhere
+                if (target.length === 2) {
+                    this._attrsByQName[qname] = target[1-idx];
+                }
+                else {
+                    splice(target, idx, 1)
+                }
+            }
+            else {
+                assert(target === attr);  // If only one, it must match
+                delete this._attrsByQName[qname];
+            }
+        }),
+
+        // Return the number of attributes
+        _numattrs: attribute(function() { return this._attrKeys.length; }),
+        // Return the nth Attr object
+        _attr: constant(function(n) {
+            return this._attrsByLName[this._attrKeys[n]];
+        }),
+
+
 
     });
 
@@ -261,6 +490,16 @@ defineLazyProperty(impl, "Element", function() {
     reflectAttribute(Element, "class", {
         idlname: "className"
     });
+
+
+    // The attributes property of an Element will be an instance of this class.
+    // This class is really just a dummy, though. The AttrArrayProxy that
+    // defines the public API just uses the Element object itself.  But in
+    // order to get wrapped properly, we need to return an object with the
+    // right _idlName property
+    function AttributesArray(elt) { this.element = elt; }
+    AttributesArray.prototype = { _idlName: "AttrArray" };
+
 
     // The children property of an Element will be an instance of this class.
     // It defines length, item() and namedItem() and will be wrapped by an
@@ -330,3 +569,130 @@ defineLazyProperty(impl, "Element", function() {
 
     return Element;
 });
+
+defineLazyProperty(impl, "Attr", function() {
+    function Attr(elt, decl, lname, prefix, namespace) {
+        // Always remember what element we're associated with.
+        // We need this to property handle mutations
+        this.ownerElement = elt;
+
+        // If the attribute requires special onchange behavior (even
+        // if it is not a reflected attribute) this declaration object
+        // specifies the onchange hook to call.
+        this.declaration = decl;
+
+        // localName and namespace are constant for any attr object.
+        // But value may change.  And so can prefix, and so, therefore can name.
+        this.localName = lname;
+        this.prefix = prefix || null;
+        this.namespaceURI = namespace || null;
+    }
+
+    Attr.prototype = O.create(Object.prototype, {
+        _idlName: constant("Attr"),
+        name: attribute(function() {
+            return this.prefix
+                ? this.prefix + ":" + this.localName
+                : this.localName;
+        }),
+        // Query and set the content attribute value
+        value: attribute(
+            function() {
+                return this.data;
+            },
+            function(v) {
+                if (this.data === v) return;
+                let oldval = this.data;
+                this.data = v;
+                
+                // Run the onchange hook for the attribute
+                // if there is one.
+                if (this.declaration &&
+                    this.declaration.onchange)
+                    this.declaration.onchange(this.ownerElement,
+                                              this.localName,
+                                              oldval, v);
+                
+                // Generate a mutation event if the element is rooted
+                if (this.ownerElement.rooted)
+                    this.ownerElement.ownerDocument.mutateAttr(
+                        this,
+                        oldval);
+            }
+        ), 
+    });
+
+    return Attr;
+});
+
+// Many reflected attributes do not need to specify anything in their
+// attribute declaration object.  So we can just reuse this object for them all
+const SimpleAttributeDeclaration = {};
+
+// This is a utility function for setting up reflected attributes.
+// Pass an element impl class like impl.HTMLElement as the first
+// argument.  Pass the content attribute name as the second
+// argument. And pass an attribute declaration object as the third.
+// The method adds the attribute declaration to the class c's
+// _attrDecls object.  And it sets up getter and setter methods for
+// the reflected attribute on the element class's prototype
+// If the declaration includes a legalValues property, then this method
+// adds appopriate conversion functions to it.
+function reflectAttribute(c, name, declaration) {
+    var p = c.prototype;
+    if (!declaration) declaration = SimpleAttributeDeclaration;
+    
+    // If p does not already have its own _attrDecls then create one
+    // for it, inheriting from the inherited _attrDecls. At the top
+    // (for the impl.Element class) the _attrDecls object will be
+    // created with a null prototype.
+    if (!hasOwnProperty(p, "_attrDecls")) {
+        p._attrDecls =
+            Object.create(p._attrDecls || null);
+    }
+
+    // I don't think we should ever override a reflected attribute of
+    // a superclass.
+    assert(!(name in p._attrDecls), "Redeclared attribute " + name);
+
+    // See if we need to fix up the declaration object at all.
+    if (declaration.legalValues) {
+        // Don't specify both conversions and legal values
+        assert(!declaration.contentToIDL && !declaration.idlToContent);
+        
+        // Note that we only have to convert in one direction.
+        // Any value set on the idl attribute will become the value of
+        // the content attribute.  But content attributes get filtered
+        // so that only canonical legal ones are reflected
+        // XXX: if an attribute declares an invalid value default or a 
+        // missing value default, we may need to use them here...
+        declaration.contentToIDL = function(v) {
+            return declaration.legalValues[v.toLowerCase()] || "";
+        }
+    }
+
+
+    // Add the attribute declaration to the _attrDecls object
+    p._attrDecls[name] = declaration;
+
+    var getter, setter;
+    if (declaration.contentToIDL) 
+        getter = function() {
+            return declaration.contentToIDL(this.getAttribute(name));
+        };
+    else
+        getter = function() { return this.getAttribute(name) || ""; }
+
+    if (declaration.idlToContent) 
+        setter = function(v) {
+            this.setAttribute(name, declaration.idlToContent(v));
+        }
+    else 
+        setter = function(v) { this.setAttribute(name, v); }
+
+    // Now create the accessor property for the reflected attribute
+    O.defineProperty(p, declaration.idlname || name, {
+        get: getter,
+        set: setter
+    });
+}

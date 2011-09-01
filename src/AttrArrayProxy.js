@@ -6,9 +6,11 @@
 
 // A factory function for AttrArray proxy objects
 function AttrArrayProxy(attributes) {
-    // This function expects an Attributes object.
+    // This function expects an AttributesArray object (see impl/Element.js)
+    // Note, though that that object just has an element property that points
+    // back to the Element object.  This proxy is based on the element object.
     let handler = O.create(AttrArrayProxy.handler);
-    handler.attributes = attributes;
+    handler.element = attributes.element;
     handler.localprops = O.create(null);
     return Proxy.create(handler, Array.prototype);
 }
@@ -24,15 +26,15 @@ AttrArrayProxy.handler = {
     getOwnPropertyDescriptor: function getOwnPropertyDescriptor(name) {
         if (name === "length") {
             return {
-                value: this.attributes.length,
+                value: this.element._numattrs,
                 writable: false,
                 enumerable: false,
                 configurable: true
             };
         }
         if (this.isArrayIndex(name)) {
-            if (name < this.attributes.length) {
-                let v = this.attributes.item(name);
+            if (name < this.element._numattrs) {
+                let v = this.element._attr(name);
                 if (v) {
                     return { 
                         value: wrap(v, idl.Attr),
@@ -56,7 +58,7 @@ AttrArrayProxy.handler = {
     },
     getOwnPropertyNames: function getOwnPropertyNames() {
         let r = ["length"];
-        for (let i = 0, n = this.attributes.length; i < n; i++)
+        for (let i = 0, n = this.element._numattrs; i < n; i++)
             push(r, String(i));
         return concat(r, O.getOwnPropertyNames(this.localprops));
     },
@@ -82,7 +84,7 @@ AttrArrayProxy.handler = {
             // Otherwise, if no item, then the index was out of bounds and
             // we return true to indicate that the deletion was "successful"
             let idx = toULong(name);
-            return idx >= this.attributes.length;
+            return idx >= this.element._numattrs;
         }
         return delete this.localprops[name];
     },
@@ -102,7 +104,7 @@ AttrArrayProxy.handler = {
     // https://bugzilla.mozilla.org/show_bug.cgi?id=665198
     enumerate: function() {
         let r = [];
-        for (let i = 0, n = this.attributes.length; i < n; i++)
+        for (let i = 0, n = this.element._numattrs; i < n; i++)
             push(r, String(i));
         for(let name in this.localprops) push(r, name);
         for(let name in Array.prototype) push(r, name);

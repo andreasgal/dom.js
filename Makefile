@@ -19,7 +19,6 @@ FILES= \
 	src/impl/Comment.js \
 	src/impl/ProcessingInstruction.js \
 	src/impl/Element.js \
-	src/impl/Attributes.js \
 	src/impl/MutationConstants.js \
 	src/impl/domstr.js \
 	src/impl/Document.js \

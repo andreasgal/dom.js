@@ -11,7 +11,6 @@ defineLazyProperty(impl, "HTMLElement", function() {
     reflectAttribute(HTMLElement, "lang");
     reflectAttribute(HTMLElement, "dir", {
         legalValues: {ltr: "ltr", rtl: "rtl", auto:"auto"},
-        storeAsContent: true,
     });
 
     reflectAttribute(HTMLElement, "accesskey");
