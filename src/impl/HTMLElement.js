@@ -14,6 +14,29 @@ defineLazyProperty(impl, "HTMLElement", function() {
         storeAsContent: true,
     });
 
+    reflectAttribute(HTMLElement, "accesskey");
+
+    // hidden: reflected boolean attribute
+    // tabIndex: reflected long attribute, with default value
+    // style: the spec doesn't call this a reflected attribute.
+    //   may want to handle it manually.
+
+    // contentEditable: enumerated, not clear if it is actually
+    // reflected or requires custom getter/setter. Not listed as
+    // "limited to known values".  Raises syntax_err on bad setting,
+    // so I think this is custom.
+
+    // contextmenu: content is element id, idl type is an element
+    // draggable: boolean, but not a reflected attribute
+    // dropzone: reflected SettableTokenList, experimental, so don't
+    //   implement it right away.
+
+    // data-* attributes: need special handling in setAttribute?
+    // Or maybe that isn't necessary. Can I just scan the attribute list
+    // when building the dataset?  Liveness and caching issues?
+
+    // microdata attributes: many are simple reflected attributes, but
+    // I'm not going to implement this now.
 
     return HTMLElement;
 });
