@@ -557,15 +557,22 @@ defineLazyProperty(impl, "Element", function() {
     // maps the lowercased versions of allowed enumerated values to the
     // canonical value that it should convert to. Usually the name and
     // value of most properties in the object will be the same.
-    Element.reflectEnumeratedAttribute = function(c, name, legalvals,
-                                                  defval, idlname)
+    Element.reflectEnumeratedAttribute = function(c, name, idlname, legalvals,
+                                                  missing_default, 
+                                                  invalid_default)
     {
         defineAttribute(c, idlname || name, 
                         function() {
                             var v = this._getattr(name);
+                            if (v === null) return missing_default || "";
+
                             v = legalvals[v.toLowerCase()];
-                            if (v !== undefined) return v;
-                            if (defval !== undefined) return defval;
+                            if (v !== undefined)
+                                return v;
+                            if (invalid_default !== undefined)
+                                return invalid_default;
+                            if (missing_default !== undefined)
+                                return missing_default;
                             return "";
                         },
                         function(v) { this._setattr(name, v); });
@@ -599,12 +606,12 @@ defineLazyProperty(impl, "Element", function() {
     //
     // Conveniently, JavaScript's parseInt function appears to be
     // compatible with HTML's "rules for parsing integers"
-    Element.reflectIntegerAttribute = function(c, name, idlname, defval,
+    Element.reflectIntegerAttribute = function(c, name, defval, idlname, 
                                                min, max, setmin)
     {
         var getter, setter;
 
-        if (min || max || typeof defval === "function") 
+        if (min || max || typeof defval === "function") {
             getter = function() {
                 var v = this._getattr(name);
                 var n = parseInt(v, 10);
@@ -621,16 +628,17 @@ defineLazyProperty(impl, "Element", function() {
                 
                 return n;
             };
-        else
+        }
+        else {
             getter = function() {
                 var v = this._getattr(name);
                 // Pleasantly, JavaScript's parseInt function
                 // is compatible with HTML's "rules for parsing
                 // integers"
                 var n = parseInt(v, 10);
-                
-                if (isNaN(n)) return defval;
+                return isNaN(n) ? defval : n;
             }
+        }
 
         if (setmin) 
             setter = function(v) {

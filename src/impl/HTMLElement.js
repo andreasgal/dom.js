@@ -9,7 +9,7 @@ defineLazyProperty(impl, "HTMLElement", function() {
 
     impl.Element.reflectStringAttribute(HTMLElement, "title");
     impl.Element.reflectStringAttribute(HTMLElement, "lang");
-    impl.Element.reflectEnumeratedAttribute(HTMLElement, "dir", {
+    impl.Element.reflectEnumeratedAttribute(HTMLElement, "dir", null, {
         ltr: "ltr",
         rtl: "rtl",
         auto:"auto"
@@ -23,10 +23,10 @@ defineLazyProperty(impl, "HTMLElement", function() {
     // is actually hard to compute, so for now, I'll follow Firefox and
     // just base the default value on the type of the element. 
     var focusableElements = {
-        "a":true, "link":true, "button":true, "input":true,
-        "select":true, "textarea":true, "command":true
+        "A":true, "LINK":true, "BUTTON":true, "INPUT":true,
+        "SELECT":true, "TEXTAREA":true, "COMMAND":true
     };
-    impl.Element.reflectIntegerAttribute(HTMLElement, "tabindex", "tabIndex",
+    impl.Element.reflectIntegerAttribute(HTMLElement, "tabindex", 
                          // compute a default tabIndex value
                          function() {
                              if (this.tagName in focusableElements ||
@@ -34,7 +34,8 @@ defineLazyProperty(impl, "HTMLElement", function() {
                                  return 0;
                              else
                                  return -1;
-                         });
+                         }, 
+                                         "tabIndex");
                                          
 
     // style: the spec doesn't call this a reflected attribute.
@@ -69,6 +70,16 @@ defineLazyProperty(impl, "HTMLAnchorElement", function() {
         _idlName: constant("HTMLAnchorElement"),
     });
 
+    // XXX impl.Element.reflectURLAttribute(HTMLAnchorElement, "href");
+    // XXX impl.Element.reflectURLAttribute(HTMLAnchorElement, "ping");
+    impl.Element.reflectStringAttribute(HTMLAnchorElement, "download");
+    impl.Element.reflectStringAttribute(HTMLAnchorElement, "target");
+    impl.Element.reflectStringAttribute(HTMLAnchorElement, "rel");
+    impl.Element.reflectStringAttribute(HTMLAnchorElement, "media");
+    impl.Element.reflectStringAttribute(HTMLAnchorElement, "hreflang");
+    impl.Element.reflectStringAttribute(HTMLAnchorElement, "type");
+    // XXX: also reflect relList
+
     return HTMLAnchorElement;
 });
 
@@ -80,6 +91,19 @@ defineLazyProperty(impl, "HTMLAreaElement", function() {
     HTMLAreaElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLAreaElement"),
     });
+
+    // XXX impl.Element.reflectURLAttribute(HTMLAreaElement, "href");
+    // XXX impl.Element.reflectURLAttribute(HTMLAreaElement, "ping");
+    impl.Element.reflectStringAttribute(HTMLAreaElement, "alt");
+    impl.Element.reflectStringAttribute(HTMLAreaElement, "target");
+    impl.Element.reflectStringAttribute(HTMLAreaElement, "download");
+    impl.Element.reflectStringAttribute(HTMLAreaElement, "rel");
+    impl.Element.reflectStringAttribute(HTMLAreaElement, "media");
+    impl.Element.reflectStringAttribute(HTMLAreaElement, "hreflang");
+    impl.Element.reflectStringAttribute(HTMLAreaElement, "type");
+    impl.Element.reflectStringAttribute(HTMLAreaElement, "shape");
+    impl.Element.reflectStringAttribute(HTMLAreaElement, "coords");
+    // XXX: also reflect relList
 
     return HTMLAreaElement;
 });
@@ -104,6 +128,8 @@ defineLazyProperty(impl, "HTMLBaseElement", function() {
     HTMLBaseElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLBaseElement"),
     });
+
+    impl.Element.reflectStringAttribute(HTMLBaseElement, "target");
 
     return HTMLBaseElement;
 });
@@ -201,6 +227,11 @@ defineLazyProperty(impl, "HTMLEmbedElement", function() {
         _idlName: constant("HTMLEmbedElement"),
     });
 
+    // XXX impl.Element.reflectURLAttribute(HTMLEmbedElement, "src");
+    impl.Element.reflectStringAttribute(HTMLEmbedElement, "type");
+    impl.Element.reflectStringAttribute(HTMLEmbedElement, "width");
+    impl.Element.reflectStringAttribute(HTMLEmbedElement, "height");
+
     return HTMLEmbedElement;
 });
 
@@ -213,6 +244,8 @@ defineLazyProperty(impl, "HTMLFieldSetElement", function() {
         _idlName: constant("HTMLFieldSetElement"),
     });
 
+    impl.Element.reflectBooleanAttribute(HTMLFieldSetElement, "disabled");
+
     return HTMLFieldSetElement;
 });
 
@@ -224,6 +257,18 @@ defineLazyProperty(impl, "HTMLFormElement", function() {
     HTMLFormElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLFormElement"),
     });
+
+    impl.Element.reflectEnumeratedAttribute(HTMLFormElement, "autocomplete",
+                                            null,
+                                            {
+                                                on: "on",
+                                                off: "off"
+                                            }, "on");
+    impl.Element.reflectStringAttribute(HTMLFormElement, "name");
+    impl.Element.reflectStringAttribute(HTMLFormElement,
+                                        "accept-charset", "acceptCharset");
+
+                                            
 
     return HTMLFormElement;
 });
@@ -285,6 +330,14 @@ defineLazyProperty(impl, "HTMLIFrameElement", function() {
         _idlName: constant("HTMLIFrameElement"),
     });
 
+    // XXX impl.reflectURLAttribute(HTMLIFrameElement, "src");
+    impl.Element.reflectStringAttribute(HTMLIFrameElement, "srcdoc");
+    impl.Element.reflectStringAttribute(HTMLIFrameElement, "name");
+    impl.Element.reflectStringAttribute(HTMLIFrameElement, "width");
+    impl.Element.reflectStringAttribute(HTMLIFrameElement, "height");
+    // XXX: sandbox is a reflected settable token list
+    impl.Element.reflectBooleanAttribute(HTMLIFrameElement, "seamless");
+    
     return HTMLIFrameElement;
 });
 
@@ -297,6 +350,18 @@ defineLazyProperty(impl, "HTMLImageElement", function() {
         _idlName: constant("HTMLImageElement"),
     });
 
+    // XXX impl.Element.reflectURLAttribute(HTMLImageElement, "src");
+    // XXX: I don't know whether to reflect crossorigin as a string or
+    // as an enumerated attribute. Since it is not "limited to only
+    // known values", I think it is just a string
+    impl.Element.reflectStringAttribute(HTMLImageElement, "alt");
+    impl.Element.reflectStringAttribute(HTMLImageElement, "crossorigin",
+                                        "crossOrigin");
+    impl.Element.reflectStringAttribute(HTMLImageElement, "usemap", "useMap");
+    impl.Element.reflectBooleanAttribute(HTMLImageElement, "ismap", "isMap");
+    
+
+
     return HTMLImageElement;
 });
 
@@ -308,6 +373,69 @@ defineLazyProperty(impl, "HTMLInputElement", function() {
     HTMLInputElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLInputElement"),
     });
+
+
+    impl.Element.reflectStringAttribute(HTMLInputElement, "accept");
+    impl.Element.reflectStringAttribute(HTMLInputElement, "alt");
+    impl.Element.reflectStringAttribute(HTMLInputElement, "max");
+    impl.Element.reflectStringAttribute(HTMLInputElement, "min");
+    impl.Element.reflectStringAttribute(HTMLInputElement, "pattern");
+    impl.Element.reflectStringAttribute(HTMLInputElement, "placeholder");
+    impl.Element.reflectStringAttribute(HTMLInputElement, "step");
+    impl.Element.reflectStringAttribute(HTMLInputElement,
+                                        "dirname", "dirName");
+    impl.Element.reflectStringAttribute(HTMLInputElement,
+                                        "value", "defaultValue");
+
+    impl.Element.reflectBooleanAttribute(HTMLInputElement, "multiple");
+    impl.Element.reflectBooleanAttribute(HTMLInputElement, "required");
+    impl.Element.reflectBooleanAttribute(HTMLInputElement,
+                                         "readonly", "readOnly");
+    impl.Element.reflectBooleanAttribute(HTMLInputElement,
+                                        "checked", "defaultChecked");
+
+    impl.Element.reflectIntegerAttribute(HTMLInputElement, "size", 20, null,
+                                         1, null, 1);
+    impl.Element.reflectIntegerAttribute(HTMLInputElement, "maxlength", 0,
+                                         "maxLength", 0, null, 0);
+
+    // impl.Element.reflectURLAttribute(HTMLInputElement, "src");
+
+    impl.Element.reflectEnumeratedAttribute(HTMLInputElement, "autocomplete",
+                                            null,
+                                            {
+                                                on: "on",
+                                                off: "off"
+                                            });
+    
+    impl.Element.reflectEnumeratedAttribute(HTMLInputElement, "type", null, 
+                                            {
+                                                hidden: "hidden",
+                                                text: "text",
+                                                search: "search",
+                                                tel: "tel",
+                                                url: "url",
+                                                email: "email",
+                                                password: "password",
+                                                datetime: "datetime",
+                                                date: "date",
+                                                month: "month",
+                                                week: "week",
+                                                time: "time",
+                                                "datetime-local": "datetime-local",
+                                                number: "number",
+                                                range: "range",
+                                                color: "color",
+                                                checkbox: "checkbox",
+                                                radio: "radio",
+                                                file: "file",
+                                                submit: "submit",
+                                                image: "image",
+                                                reset: "reset",
+                                                button: "button",
+                                            }, "text");
+
+
 
     return HTMLInputElement;
 });
@@ -333,6 +461,8 @@ defineLazyProperty(impl, "HTMLLIElement", function() {
         _idlName: constant("HTMLLIElement"),
     });
 
+    impl.Element.reflectIntegerAttribute(HTMLLIElement, "value", 0);
+
     return HTMLLIElement;
 });
 
@@ -344,6 +474,8 @@ defineLazyProperty(impl, "HTMLLabelElement", function() {
     HTMLLabelElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLLabelElement"),
     });
+
+    impl.Element.reflectStringAttribute(HTMLLabelElement, "for", "htmlFor");
 
     return HTMLLabelElement;
 });
@@ -369,6 +501,15 @@ defineLazyProperty(impl, "HTMLLinkElement", function() {
         _idlName: constant("HTMLLinkElement"),
     });
 
+    // XXX: still have to reflect URL attribute href
+    // and DOMSettableTokenList sizes also DOMTokenList relList
+    impl.Element.reflectStringAttribute(HTMLLinkElement, "rel");
+    impl.Element.reflectStringAttribute(HTMLLinkElement, "media");
+    impl.Element.reflectStringAttribute(HTMLLinkElement, "hreflang");
+    impl.Element.reflectStringAttribute(HTMLLinkElement, "type");
+    
+
+
     return HTMLLinkElement;
 });
 
@@ -380,6 +521,8 @@ defineLazyProperty(impl, "HTMLMapElement", function() {
     HTMLMapElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLMapElement"),
     });
+
+    impl.Element.reflectStringAttribute(HTMLMapElement, "name");
 
     return HTMLMapElement;
 });
@@ -405,6 +548,11 @@ defineLazyProperty(impl, "HTMLMetaElement", function() {
         _idlName: constant("HTMLMetaElement"),
     });
 
+    impl.Element.reflectStringAttribute(HTMLMetaElement, "name");
+    impl.Element.reflectStringAttribute(HTMLMetaElement, "content");
+    impl.Element.reflectStringAttribute(HTMLMetaElement,
+                                        "http-equiv", "httpEquiv");
+
     return HTMLMetaElement;
 });
 
@@ -429,6 +577,9 @@ defineLazyProperty(impl, "HTMLModElement", function() {
         _idlName: constant("HTMLModElement"),
     });
 
+    impl.Element.reflectStringAttribute(HTMLModElement, "cite");
+    impl.Element.reflectStringAttribute(HTMLModElement, "datetime", "dateTime");
+
     return HTMLModElement;
 });
 
@@ -439,7 +590,33 @@ defineLazyProperty(impl, "HTMLOListElement", function() {
 
     HTMLOListElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLOListElement"),
+
+        // Utility function (see the start attribute default value). Returns
+        // the number of <li> children of this element
+        _numitems: attribute(function() {
+            var items = 0;
+            this.childNodes.forEach(function(n) {
+                if (n.nodeType === ELEMENT_NODE && n.tagName === "LI")
+                    items++;
+            });
+            return items;
+        }),
     });
+
+    impl.Element.reflectStringAttribute(HTMLOListElement, "type");
+    impl.Element.reflectBooleanAttribute(HTMLOListElement, "reversed");
+    impl.Element.reflectIntegerAttribute(HTMLOListElement, "start", 
+                                         function() {
+                                             // The default value of the
+                                             // start attribute is 1 unless
+                                             // the list is reversed. Then it
+                                             // is the # of li children
+                                             if (this.reversed)
+                                                 return this._numitems;
+                                             else
+                                                 return 1;
+                                         });
+    
 
     return HTMLOListElement;
 });
@@ -452,6 +629,15 @@ defineLazyProperty(impl, "HTMLObjectElement", function() {
     HTMLObjectElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLObjectElement"),
     });
+
+    // impl.Element.reflectURLAttribute(HTMLObjectElement, "data");
+    impl.Element.reflectStringAttribute(HTMLObjectElement, "type");
+    impl.Element.reflectStringAttribute(HTMLObjectElement, "name");
+    impl.Element.reflectStringAttribute(HTMLObjectElement, "usemap", "useMap");
+    impl.Element.reflectBooleanAttribute(HTMLObjectElement,
+                                         "typemustmatch", "typeMustMatch");
+    impl.Element.reflectStringAttribute(HTMLObjectElement, "width");
+    impl.Element.reflectStringAttribute(HTMLObjectElement, "height");
 
     return HTMLObjectElement;
 });
@@ -549,6 +735,8 @@ defineLazyProperty(impl, "HTMLQuoteElement", function() {
         _idlName: constant("HTMLQuoteElement"),
     });
 
+    impl.Element.reflectStringAttribute(HTMLQuoteElement, "cite");
+
     return HTMLQuoteElement;
 });
 
@@ -560,6 +748,12 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
     HTMLScriptElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLScriptElement"),
     });
+
+    // XXX impl.Element.reflectURLAttribute(HTMLScriptElement, "src");
+    impl.Element.reflectStringAttribute(HTMLScriptElement, "type");
+    impl.Element.reflectStringAttribute(HTMLScriptElement, "charset");
+    impl.Element.reflectBooleanAttribute(HTMLScriptElement, "defer");
+    // XXX async sometimes reflects the async property, but its complicated
 
     return HTMLScriptElement;
 });
@@ -585,6 +779,10 @@ defineLazyProperty(impl, "HTMLSourceElement", function() {
         _idlName: constant("HTMLSourceElement"),
     });
 
+    // impl.Element.reflectURLAttribute(HTMLSourceElement, "src");
+    impl.Element.reflectStringAttribute(HTMLSourceElement, "type");
+    impl.Element.reflectStringAttribute(HTMLSourceElement, "media");
+
     return HTMLSourceElement;
 });
 
@@ -608,6 +806,10 @@ defineLazyProperty(impl, "HTMLStyleElement", function() {
     HTMLStyleElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLStyleElement"),
     });
+
+    impl.Element.reflectStringAttribute(HTMLStyleElement, "media");
+    impl.Element.reflectStringAttribute(HTMLStyleElement, "type");
+    impl.Element.reflectBooleanAttribute(HTMLStyleElement, "scoped");
 
     return HTMLStyleElement;
 });
@@ -633,6 +835,13 @@ defineLazyProperty(impl, "HTMLTableCellElement", function() {
         _idlName: constant("HTMLTableCellElement"),
     });
 
+    impl.Element.reflectIntegerAttribute(HTMLTableCellElement, "colspan", 1,
+                                         "colSpan", 1, null, 1);
+    impl.Element.reflectIntegerAttribute(HTMLTableCellElement, "rowspan", 1,
+                                         "rowSpan");
+    //XXX Also reflect settable token list headers
+
+
     return HTMLTableCellElement;
 });
 
@@ -645,6 +854,10 @@ defineLazyProperty(impl, "HTMLTableColElement", function() {
         _idlName: constant("HTMLTableColElement"),
     });
 
+    impl.Element.reflectIntegerAttribute(HTMLTableElement, "span", 1, null,
+                                         1, null, 1);
+    
+
     return HTMLTableColElement;
 });
 
@@ -656,6 +869,8 @@ defineLazyProperty(impl, "HTMLTableElement", function() {
     HTMLTableElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLTableElement"),
     });
+
+    impl.Element.reflectStringAttribute(HTMLTableElement, "border");
 
     return HTMLTableElement;
 });
@@ -705,6 +920,9 @@ defineLazyProperty(impl, "HTMLTimeElement", function() {
         _idlName: constant("HTMLTimeElement"),
     });
 
+    impl.Element.reflectStringAttribute(HTMLTimeElement, "datetime","dateTime");
+    impl.Element.reflectBooleanAttribute(HTMLTimeElement, "pubdate", "pubDate");
+
     return HTMLTimeElement;
 });
 
@@ -728,6 +946,21 @@ defineLazyProperty(impl, "HTMLTrackElement", function() {
     HTMLTrackElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLTrackElement"),
     });
+
+    // impl.Element.reflectURLAttribute(HTMLTrackElement, "src");
+    impl.Element.reflectStringAttribute(HTMLTrackElement, "srclang");
+    impl.Element.reflectStringAttribute(HTMLTrackElement, "label");
+    impl.Element.reflectBooleanAttribute(HTMLTrackElement, "default");
+    impl.Element.reflectEnumeratedAttribute(HTMLTrackElement, "kind", null,
+                                            {
+                                                subtitles: "subtitles",
+                                                captions: "captions",
+                                                descriptions: "descriptions",
+                                                chapters: "chapters",
+                                                metadata: "metadata"
+                                            }, 
+                                            "subtitles");
+
 
     return HTMLTrackElement;
 });
@@ -756,6 +989,39 @@ defineLazyProperty(impl, "HTMLUnknownElement", function() {
     return HTMLUnknownElement;
 });
 
+defineLazyProperty(impl, "HTMLMediaElement", function() {
+    function HTMLMediaElement(doc, localName, prefix) {
+        impl.HTMLElement.call(this, doc, localName, prefix);
+    }
+
+    HTMLMediaElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLMediaElement"),
+    });
+
+    // impl.Element.reflectURLAttribute(HTMLMediaElement, "src");
+    impl.Element.reflectStringAttribute(HTMLMediaElement,
+                                        "crossorigin", "crossOrigin");
+    impl.Element.reflectEnumeratedAttribute(HTMLMediaElement, "preload", null,
+                                            {
+                                                none: "none",
+                                                metadata: "metadata",
+                                                auto: "auto",
+                                                "": "auto"
+                                            },
+                                            "metadata" // user-agent defined
+                                           );
+
+    impl.Element.reflectBooleanAttribute(HTMLMediaElement, "loop");
+    impl.Element.reflectBooleanAttribute(HTMLMediaElement, "autoplay");
+    impl.Element.reflectStringAttribute(HTMLMediaElement,
+                                        "mediagroup", "mediaGroup");
+    impl.Element.reflectBooleanAttribute(HTMLMediaElement, "controls");
+    impl.Element.reflectBooleanAttribute(HTMLMediaElement,
+                                         "muted", "defaultMuted");
+
+    return HTMLMediaElement;
+});
+
 defineLazyProperty(impl, "HTMLAudioElement", function() {
     function HTMLAudioElement(doc, localName, prefix) {
         impl.HTMLMediaElement.call(this, doc, localName, prefix);
@@ -777,6 +1043,10 @@ defineLazyProperty(impl, "HTMLVideoElement", function() {
         _idlName: constant("HTMLVideoElement"),
     });
 
+    // impl.Element.reflectURLAttribute(HTMLVideoElement,"poster");
+    impl.Element.reflectIntegerAttribute(HTMLVideoElement, "width", 0, null,0);
+    impl.Element.reflectIntegerAttribute(HTMLVideoElement, "height", 0, null,0);
+
     return HTMLVideoElement;
 });
 
@@ -794,12 +1064,21 @@ defineLazyProperty(impl, "HTMLTableDataCellElement", function() {
 
 defineLazyProperty(impl, "HTMLTableHeaderCellElement", function() {
     function HTMLTableHeaderCellElement(doc, localName, prefix) {
-        impl.HTMLTableHeaderCellElement.call(this, doc, localName, prefix);
+        impl.HTMLTableCellElement.call(this, doc, localName, prefix);
     }
 
     HTMLTableHeaderCellElement.prototype = O.create(impl.HTMLTableCellElement.prototype, {
         _idlName: constant("HTMLTableHeaderCellElement"),
     });
+
+    impl.Element.reflectEnumeratedAttribute(HTMLTableHeaderCellElement,
+                                            "scope", null, {
+                                                row: "row",
+                                                col: "col",
+                                                rowgroup: "rowgroup",
+                                                colgroup: "colgroup",
+                                            },
+                                            "");
 
     return HTMLTableHeaderCellElement;
 });
