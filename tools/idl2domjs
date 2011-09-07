@@ -445,7 +445,7 @@ function convert(a, v) {
     else if (t.idlType === "long")
         c = "toLong";
     else if (t.idlType === "double")
-        c = "Number";
+        c = "toDouble";
     else if (t.idlType === "boolean")
         c = "Boolean";
     else if (t.idlType === "object") 

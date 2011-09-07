@@ -37,6 +37,8 @@ defineLazyProperty(impl, "HTMLElement", function() {
                          }, 
                                          "tabIndex");
                                          
+    // XXX: reflect contextmenu as contextMenu, with element type
+
 
     // style: the spec doesn't call this a reflected attribute.
     //   may want to handle it manually.
@@ -155,6 +157,34 @@ defineLazyProperty(impl, "HTMLButtonElement", function() {
         _idlName: constant("HTMLButtonElement"),
     });
 
+    impl.Element.reflectStringAttribute(HTMLButtonElement, "name");
+    impl.Element.reflectBooleanAttribute(HTMLButtonElement, "disabled");
+    impl.Element.reflectBooleanAttribute(HTMLButtonElement, "autofocus");
+
+    impl.Element.reflectStringAttribute(HTMLButtonElement, "value");
+    impl.Element.reflectEnumeratedAttribute(HTMLButtonElement, "type", null, {
+        submit: "submit", 
+        reset: "reset",
+        button: "button",
+    }, "submit");
+
+    impl.Element.reflectStringAttribute(HTMLButtonElement,
+                                        "formtarget", "formTarget");
+    impl.Element.reflectBooleanAttribute(HTMLButtonElement,
+                                         "formnovalidate", "formNoValidate");
+    impl.Element.reflectEnumeratedAttribute(HTMLButtonElement,
+                                            "formmethod", "formMethod", {
+                                                get: "get",
+                                                post: "post"
+                                            }, "get");
+    impl.Element.reflectEnumeratedAttribute(HTMLButtonElement,
+                                            "formenctype", "formEnctype", {
+        "application/x-www-form-urlencoded":"application/x-www-form-urlencoded",
+        "multipart/form-data":"multipart/form-data",
+        "text/plain": "text/plain"
+    }, "application/x-www-form-urlencoded");
+
+
     return HTMLButtonElement;
 });
 
@@ -166,6 +196,18 @@ defineLazyProperty(impl, "HTMLCommandElement", function() {
     HTMLCommandElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLCommandElement"),
     });
+
+    impl.Element.reflectEnumeratedAttribute(HTMLCommandElement, "type", null,
+                                            {
+                                                command: "command",
+                                                checkbox: "checkbox",
+                                                radio: "radio"
+                                            }, "command");
+    impl.Element.reflectStringAttribute(HTMLCommandElement, "label");
+    impl.Element.reflectBooleanAttribute(HTMLCommandElement, "disabled");
+    impl.Element.reflectBooleanAttribute(HTMLCommandElement, "checked");
+    impl.Element.reflectStringAttribute(HTMLCommandElement, "radiogroup");
+    // XXX: also reflect URL attribute icon
 
     return HTMLCommandElement;
 });
@@ -202,6 +244,8 @@ defineLazyProperty(impl, "HTMLDetailsElement", function() {
     HTMLDetailsElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLDetailsElement"),
     });
+
+    impl.Element.reflectBooleanAttribute(HTMLDetailsElement, "open");
 
     return HTMLDetailsElement;
 });
@@ -245,6 +289,7 @@ defineLazyProperty(impl, "HTMLFieldSetElement", function() {
     });
 
     impl.Element.reflectBooleanAttribute(HTMLFieldSetElement, "disabled");
+    impl.Element.reflectStringAttribute(HTMLFieldSetElement, "name");
 
     return HTMLFieldSetElement;
 });
@@ -268,7 +313,26 @@ defineLazyProperty(impl, "HTMLFormElement", function() {
     impl.Element.reflectStringAttribute(HTMLFormElement,
                                         "accept-charset", "acceptCharset");
 
-                                            
+    impl.Element.reflectStringAttribute(HTMLFormElement, "target");
+    impl.Element.reflectBooleanAttribute(HTMLFormElement,
+                                         "novalidate", "noValidate");
+    impl.Element.reflectEnumeratedAttribute(HTMLFormElement, "method", null, {
+        get: "get",
+        post: "post"
+    }, "get");
+
+    // Both enctype and encoding reflect the enctype content attribute
+    impl.Element.reflectEnumeratedAttribute(HTMLFormElement, "enctype", null, {
+        "application/x-www-form-urlencoded":"application/x-www-form-urlencoded",
+        "multipart/form-data":"multipart/form-data",
+        "text/plain": "text/plain"
+    }, "application/x-www-form-urlencoded");
+    impl.Element.reflectEnumeratedAttribute(HTMLFormElement,
+                                            "enctype", "encoding", {
+        "application/x-www-form-urlencoded":"application/x-www-form-urlencoded",
+        "multipart/form-data":"multipart/form-data",
+        "text/plain": "text/plain"
+    }, "application/x-www-form-urlencoded");
 
     return HTMLFormElement;
 });
@@ -375,6 +439,10 @@ defineLazyProperty(impl, "HTMLInputElement", function() {
     });
 
 
+    impl.Element.reflectStringAttribute(HTMLInputElement, "name");
+    impl.Element.reflectBooleanAttribute(HTMLInputElement, "disabled");
+    impl.Element.reflectBooleanAttribute(HTMLInputElement, "autofocus");
+
     impl.Element.reflectStringAttribute(HTMLInputElement, "accept");
     impl.Element.reflectStringAttribute(HTMLInputElement, "alt");
     impl.Element.reflectStringAttribute(HTMLInputElement, "max");
@@ -396,7 +464,7 @@ defineLazyProperty(impl, "HTMLInputElement", function() {
 
     impl.Element.reflectIntegerAttribute(HTMLInputElement, "size", 20, null,
                                          1, null, 1);
-    impl.Element.reflectIntegerAttribute(HTMLInputElement, "maxlength", 0,
+    impl.Element.reflectIntegerAttribute(HTMLInputElement, "maxlength", -1,
                                          "maxLength", 0, null, 0);
 
     // impl.Element.reflectURLAttribute(HTMLInputElement, "src");
@@ -436,6 +504,21 @@ defineLazyProperty(impl, "HTMLInputElement", function() {
                                             }, "text");
 
 
+    impl.Element.reflectStringAttribute(HTMLInputElement,
+                                        "formtarget", "formTarget");
+    impl.Element.reflectBooleanAttribute(HTMLInputElement,
+                                         "formnovalidate", "formNoValidate");
+    impl.Element.reflectEnumeratedAttribute(HTMLInputElement,
+                                            "formmethod", "formMethod", {
+                                                get: "get",
+                                                post: "post"
+                                            }, "get");
+    impl.Element.reflectEnumeratedAttribute(HTMLInputElement,
+                                            "formenctype", "formEnctype", {
+        "application/x-www-form-urlencoded":"application/x-www-form-urlencoded",
+        "multipart/form-data":"multipart/form-data",
+        "text/plain": "text/plain"
+    }, "application/x-www-form-urlencoded");
 
     return HTMLInputElement;
 });
@@ -448,6 +531,14 @@ defineLazyProperty(impl, "HTMLKeygenElement", function() {
     HTMLKeygenElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLKeygenElement"),
     });
+
+    impl.Element.reflectStringAttribute(HTMLKeygenElement, "name");
+    impl.Element.reflectBooleanAttribute(HTMLKeygenElement, "disabled");
+    impl.Element.reflectBooleanAttribute(HTMLKeygenElement, "autofocus");
+
+    impl.Element.reflectStringAttribute(HTMLKeygenElement, "challenge");
+    impl.Element.reflectEnumeratedAttribute(HTMLKeygenElement, "keytype", null,
+                                            { rsa: "rsa" }, "rsa");
 
     return HTMLKeygenElement;
 });
@@ -535,6 +626,9 @@ defineLazyProperty(impl, "HTMLMenuElement", function() {
     HTMLMenuElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLMenuElement"),
     });
+
+    impl.Element.reflectStringAttribute(HTMLMenuElement, "type");
+    impl.Element.reflectStringAttribute(HTMLMenuElement, "label");
 
     return HTMLMenuElement;
 });
@@ -650,6 +744,9 @@ defineLazyProperty(impl, "HTMLOptGroupElement", function() {
     HTMLOptGroupElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLOptGroupElement"),
     });
+    
+    impl.Element.reflectBooleanAttribute(HTMLOptGroupElement, "disabled");
+    impl.Element.reflectStringAttribute(HTMLOptGroupElement, "label");
 
     return HTMLOptGroupElement;
 });
@@ -663,6 +760,11 @@ defineLazyProperty(impl, "HTMLOptionElement", function() {
         _idlName: constant("HTMLOptionElement"),
     });
 
+    impl.Element.reflectBooleanAttribute(HTMLOptionElement, "disabled");
+    impl.Element.reflectBooleanAttribute(HTMLOptionElement,
+                                         "selected", "defaultSelected");
+    impl.Element.reflectStringAttribute(HTMLOptionElement, "label");
+
     return HTMLOptionElement;
 });
 
@@ -674,6 +776,9 @@ defineLazyProperty(impl, "HTMLOutputElement", function() {
     HTMLOutputElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLOutputElement"),
     });
+
+    // XXX Reflect for/htmlFor as a settable token list
+    impl.Element.reflectStringAttribute(HTMLOutputElement, "name");
 
     return HTMLOutputElement;
 });
@@ -723,6 +828,8 @@ defineLazyProperty(impl, "HTMLProgressElement", function() {
         _idlName: constant("HTMLProgressElement"),
     });
 
+    impl.Element.reflectPositiveFloatAttribute(HTMLProgressElement, "max", 1.0);
+
     return HTMLProgressElement;
 });
 
@@ -767,6 +874,14 @@ defineLazyProperty(impl, "HTMLSelectElement", function() {
         _idlName: constant("HTMLSelectElement"),
     });
 
+    impl.Element.reflectStringAttribute(HTMLSelectElement, "name");
+    impl.Element.reflectBooleanAttribute(HTMLSelectElement, "disabled");
+    impl.Element.reflectBooleanAttribute(HTMLSelectElement, "autofocus");
+
+    impl.Element.reflectBooleanAttribute(HTMLSelectElement, "multiple");
+    impl.Element.reflectBooleanAttribute(HTMLSelectElement, "required");
+    impl.Element.reflectIntegerAttribute(HTMLSelectElement, "size", 0);
+    
     return HTMLSelectElement;
 });
 
@@ -854,7 +969,7 @@ defineLazyProperty(impl, "HTMLTableColElement", function() {
         _idlName: constant("HTMLTableColElement"),
     });
 
-    impl.Element.reflectIntegerAttribute(HTMLTableElement, "span", 1, null,
+    impl.Element.reflectIntegerAttribute(HTMLTableColElement, "span", 1, null,
                                          1, null, 1);
     
 
@@ -907,6 +1022,29 @@ defineLazyProperty(impl, "HTMLTextAreaElement", function() {
     HTMLTextAreaElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLTextAreaElement"),
     });
+
+
+    impl.Element.reflectStringAttribute(HTMLTextAreaElement, "name");
+    impl.Element.reflectBooleanAttribute(HTMLTextAreaElement, "disabled");
+    impl.Element.reflectBooleanAttribute(HTMLTextAreaElement, "autofocus");
+
+    impl.Element.reflectStringAttribute(HTMLTextAreaElement, "placeholder");
+    impl.Element.reflectStringAttribute(HTMLTextAreaElement, "wrap");
+    impl.Element.reflectStringAttribute(HTMLTextAreaElement,
+                                        "dirname", "dirName");
+
+    impl.Element.reflectBooleanAttribute(HTMLTextAreaElement, "required");
+    impl.Element.reflectBooleanAttribute(HTMLTextAreaElement,
+                                         "readonly", "readOnly");
+
+    impl.Element.reflectIntegerAttribute(HTMLTextAreaElement, "rows", 2, null,
+                                         1, null, 1);
+    impl.Element.reflectIntegerAttribute(HTMLTextAreaElement, "cols", 20, null,
+                                         1, null, 1);
+    impl.Element.reflectIntegerAttribute(HTMLTextAreaElement,
+                                         "maxlength", -1, "maxLength",
+                                         0, null, 0);
+
 
     return HTMLTextAreaElement;
 });

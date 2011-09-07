@@ -584,10 +584,12 @@ defineLazyProperty(impl, "Element", function() {
                             return this.hasAttribute(name);
                         },
                         function(v) {
-                            if (v)
+                            if (v) {
                                 this._setattr(name, "");
-                            else
+                            }
+                            else {
                                 this.removeAttribute(name);
+                            }
                         });
     };
 
@@ -611,21 +613,22 @@ defineLazyProperty(impl, "Element", function() {
     {
         var getter, setter;
 
-        if (min || max || typeof defval === "function") {
+        if (min != null ||
+            max != null ||
+            typeof defval === "function") {
             getter = function() {
                 var v = this._getattr(name);
                 var n = parseInt(v, 10);
-                
                 if (isNaN(n) ||
-                    (min !== undefined && n < min) ||
-                    (max !== undefined && n > max)) {
+                    (min != null && n < min) ||
+                    (max != null && n > max)) {
                     switch(typeof defval) {
                     case 'function': return defval.call(this);
                     case 'number': return defval;
                     default: assert(false);
                     }
                 }
-                
+            
                 return n;
             };
         }
@@ -640,18 +643,44 @@ defineLazyProperty(impl, "Element", function() {
             }
         }
 
-        if (setmin) 
+        if (setmin != null) {
             setter = function(v) {
                 if (v < setmin) IndexSizeError(name + " set to " + v);
                 this._setattr(name, String(v));
             };
-        else 
+        }
+        else {
             setter = function(v) {
                 this._setattr(name, String(v));
             };
-
+        }
 
         defineAttribute(c, idlname || name, getter, setter);
+    };
+
+    Element.reflectFloatAttribute = function(c, name, defval, idlname) {
+        defineAttribute(c, idlname || name, 
+                        function() {
+                            var s = this._getattr(name), x;
+                            if (s) x = parseFloat();
+                            return (x && isFinite(x)) ? x : defval;
+                        },
+                        function(v) {
+                            this._setattr(name, String(v));
+                        });
+    };
+
+    Element.reflectPositiveFloatAttribute = function(c, name, defval, idlname) {
+        defineAttribute(c, idlname || name, 
+                        function() {
+                            var s = this._getattr(name), x;
+                            if (s) x = parseFloat(s);
+                            return (x && isFinite(x) && x > 0) ? x : defval;
+                        },
+                        function(v) {
+                            if (v < 0) return; // Ignore negative values
+                            this._setattr(name, String(v));
+                        });
     };
 
 

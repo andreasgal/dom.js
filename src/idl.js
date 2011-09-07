@@ -16,6 +16,18 @@ function toLong(x) {
     return x & 0xFFFFFFFF; // This should do ToInt32
 }
 
+// Convert the value x to a number, and raise an exception if
+// it is NaN or infinite. This is not actually part of WebIDL:
+// HTML mandates this check "except where otherwise specified".
+// I'll probably want to change the idl type of attributes or 
+// arguments for which NaN and infinite values are allowed, if 
+// there are any
+function toDouble(x) {
+    var v = Number(x)
+    if (!isFinite(v)) NotSupportedError(x + " is not a finite float.");
+    return v;
+}
+
 function undef2null(x) { return x === undefined ? null : x; }
 
 // Convert x to a string as with the String() conversion function.
