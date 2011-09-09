@@ -395,8 +395,9 @@ function outputAttribute(a, prefix) {
            arrayTypes[a.idlType.idlType + "Array"] = true;
         }       
     }       
-    else 
+    else {
         out("%s    return unwrap(this).%s;", prefix, a.name);
+    }
     out("%s},", prefix);
 
     if (!a.readonly) {
@@ -480,9 +481,11 @@ function isDictionaryType(t) {
 function isInterfaceType(t) {
     // WebIDL primitive types are all lower case or DOMString
     // We'll just assume that anything else is an interface type
+    // Unless we know it is a callback type, like Function
     if (t === "void")  // Annoyingly, void is just a string 
         return false;  
     return (t.idlType !== "DOMString" &&
             t.idlType !== "DOMTimeStamp" &&
+            !(t.idlType in callbackTypes) &&
             t.idlType !== t.idlType.toLowerCase())
 }

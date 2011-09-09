@@ -1,8 +1,8 @@
 defineLazyProperty(impl, "EventTarget", function() {
     function EventTarget() {}
 
-    EventTarget.prototype = O.create(Object.prototype, {
-        _idlName: constant("EventTarget"),
+    EventTarget.prototype = {
+        _idlName: "EventTarget",
 
         // XXX
         // See WebIDL §4.8 for details on object event handlers
@@ -18,11 +18,9 @@ defineLazyProperty(impl, "EventTarget", function() {
         // And update the counter when nodes are added and removed from the
         // tree as well.  Then, in dispatch event, the capturing phase can 
         // abort if it sees any node with a zero count.  
-        addEventListener: constant(function addEventListener(type,
-                                                             listener,
-                                                             capture) {
-            
+        addEventListener: function addEventListener(type, listener, capture) {
             if (!listener) return;
+            if (capture === undefined) capture = false;
             if (!this._listeners) this._listeners = {};
             if (!(type in this._listeners)) this._listeners[type] = {};
             let list = this._listeners[type];
@@ -38,11 +36,12 @@ defineLazyProperty(impl, "EventTarget", function() {
             let obj = { listener: listener, capture: capture };
             if (typeof listener === "function") obj.f = listener;
             push(list, obj);
-        }),
+        },
 
-        removeEventListener: constant(function removeEventListener(type,
-                                                                   listener,
-                                                                   capture) {
+        removeEventListener: function removeEventListener(type,
+                                                          listener,
+                                                          capture) {
+            if (capture === undefined) capture = false;
             if (this._listeners) {
                 let list = this._listeners[type];
                 if (list) {
@@ -58,17 +57,39 @@ defineLazyProperty(impl, "EventTarget", function() {
                     }
                 }
             }
-        }),
+        },
 
+        // 
         // See DOMCore §4.4
-        dispatchEvent: constant(function dispatchEvents(event) {
+        // XXX: I'll probably need another version of this method for 
+        // internal use, one that does not set isTrusted to false.
+        // 
+        dispatchEvent: function dispatchEvent(event) {
 
             function invoke(target, event) {
                 let type = event.type, phase = event.eventPhase;
                 event.currentTarget = target;
 
-                if (!target._listeners) return;
-                let list = target._listeners[type];
+                // If there was an individual handler defined, invoke it first
+                if (phase !== CAPTURING_PHASE &&
+                    target._handlers && target._handlers[type])
+                {
+                    let handler = target._handlers[type];
+                    if (typeof handler === "function") {
+                        handler.call(wrap(event.currentTarget), wrap(event));
+                    }
+                    else {
+                        let f = handler.handleEvent;
+                        if (typeof f !== "function")
+                            throw TypeError("handleEvent property of " +
+                                            "event handler object is" +
+                                            "not a function.");
+                        f.call(handler, wrap(event));
+                    }
+                }
+
+                // Now invoke list list of listeners for this target and type
+                let list = target._listeners && target._listeners[type];
                 if (!list) return;
 
                 for(var i = 0, n = list.length; i < n; i++) {
@@ -137,8 +158,35 @@ defineLazyProperty(impl, "EventTarget", function() {
             event.currentTarget = null;
 
             return !event.defaultPrevented;
-        }),
-    });
+        },
+
+        //
+        // An event handler is like an event listener, but it registered
+        // by setting an IDL or content attribute like onload or onclick.
+        // There can only be one of these at a time for any event type.
+        // This is an internal method for the attribute accessors and
+        // content attribute handlers that need to register events handlers.
+        // The type argument is the same as in addEventListener().
+        // The handler argument is the same as listeners in addEventListener:
+        // it can be a function or an object. Pass null to remove any existing
+        // handler.  Handlers are always invoked before any listeners of 
+        // the same type.  They are not invoked during the capturing phase
+        // of event dispatch.
+        // 
+        _setEventHandler: function _setEventHandler(type, handler) {
+            if (!this._handlers) this._handlers = {};
+
+            if (handler)
+                this._handlers[type] = handler;
+            else
+                delete this._handlers[type];
+        },
+
+        _getEventHandler: function _getEventHandler(type) {
+            return (this._handlers && this._handlers[type]) || null;
+        }
+
+    };
 
     return EventTarget;
 });

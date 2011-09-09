@@ -700,7 +700,10 @@ defineLazyProperty(impl, "Element", function() {
         }
 
         // There can only be one
-        assert(!(name in p._attributeChangeHandlers));
+        // XXX: I've commented out this assertion.  Actually, HTMLBodyElement
+        // wants to override the attribute change handlers for certain
+        // event handler attributes it inherits from HTMLElement...
+        // assert(!(name in p._attributeChangeHandlers));
 
         p._attributeChangeHandlers[name] = handler;
     };

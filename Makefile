@@ -40,8 +40,7 @@ TEST_PAT='' #override from command line to limit the tests
 DOM_TEST_DIR=tests/cmdline
 
 
-
-dom.js: LICENSE ${FILES}
+dom.js: LICENSE ${FILES} src/loose.js
 # Output preamble
 	@rm -f $@;
 	@echo '// This file was automatically generated; DO NOT EDIT.' >> $@
@@ -49,8 +48,19 @@ dom.js: LICENSE ${FILES}
 	@cat LICENSE >> $@
 	@echo '************************************************************************/' >> $@
 
-# Output function wrapper
-	@echo '(function closure(global) {' >> $@
+# Output the main function wrapper that holds everything
+	@echo '(function(global) {' >> $@
+
+# Output src/loose.js for any code that requires non-strict mode
+	@echo '/************************************************************************' >> $@
+	@echo ' * src/loose.js' >> $@
+	@echo ' ************************************************************************/' >> $@
+	@echo >> $@
+	@echo '//@line 1 "src/loose.js"' >> $@
+	@cat src/loose.js >> $@
+
+# Output another function wrapper for the bulk of the code in strict mode	
+	@echo '(function(global) {' >> $@
 	@echo '"use strict";' >> $@
 
 # Append each of the module files
@@ -72,8 +82,10 @@ dom.js: LICENSE ${FILES}
 		cat $$f >> $@ ;\
 	done
 
+# Close the inner function wrapper
+	@echo '}(global));' >> $@
 
-# Close the function wrapper
+# Close the outer function wrapper
 	@echo '}(this));' >> $@
 
 # Output code that monkey patches everything to test that we don't use it

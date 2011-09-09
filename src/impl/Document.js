@@ -613,6 +613,35 @@ defineLazyProperty(impl, "Document", function() {
         }),
     });
 
+    var eventHandlerTypes = [
+        "abort", "canplay", "canplaythrough", "change", "click", "contextmenu",
+        "cuechange", "dblclick", "drag", "dragend", "dragenter", "dragleave",
+        "dragover", "dragstart", "drop", "durationchange", "emptied", "ended",
+        "input", "invalid", "keydown", "keypress", "keyup", "loadeddata",
+        "loadedmetadata", "loadstart", "mousedown", "mousemove", "mouseout",
+        "mouseover", "mouseup", "mousewheel", "pause", "play", "playing",
+        "progress", "ratechange", "readystatechange", "reset", "seeked",
+        "seeking", "select", "show", "stalled", "submit", "suspend",
+        "timeupdate", "volumechange", "waiting",
+
+        "blur", "error", "focus", "load", "scroll"
+    ];
+
+    // Add event handler idl attribute getters and setters to Document
+    eventHandlerTypes.forEach(function(type) {
+        // Define the event handler registration IDL attribute for this type
+        Object.defineProperty(Document.prototype, "on" + type, {
+            get: function() {
+                return this._getEventHandler(type);
+            },
+            set: function(v) {
+                this._setEventHandler(type, v);
+            }
+        });
+    });
+
+
+
     function root(n) {
         n._nid = n.ownerDocument._nextnid++;
         // Manage id to element mapping 

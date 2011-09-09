@@ -76,3 +76,194 @@ var defaultcustom = new CustomEvent("bar");
 assert(defaultcustom.type === "bar", defaultcustom.type);
 assert(defaultcustom.bubbles === false);
 assert(defaultcustom.cancelable === false);
+
+// 
+// Now test that idl and content attributes like "onclick" work correctly
+// to register event handlers, that they are invoked before listeners
+// registered with addEventListener, and that handlers registered with
+// content attributes are invoked with the correct scope chain.
+// 
+// Also test that all of the event types work.
+// 
+
+// Does an idl attribute event handler work?
+(function() {
+    var elt = document.createElement("div");
+    var evt = document.createEvent("Event");
+    evt.initEvent("click", true, true);
+    
+    var pass = false;
+    elt.onclick = function() { pass = true; }
+    elt.dispatchEvent(evt);
+    assert(pass === true);
+}());
+
+// Does a content event handler work?
+(function(global) {
+    var elt = document.createElement("div");
+    var evt = document.createEvent("Event");
+    evt.initEvent("click", true, true);
+    
+    global.pass = false;
+    elt.setAttribute("onclick", "pass = true;");
+    elt.dispatchEvent(evt);
+    assert(global.pass === true);
+}(this));
+
+// Are handlers invoked before listeners?
+(function() {
+    var elt = document.createElement("div");
+    var evt = document.createEvent("Event");
+    evt.initEvent("click", true, true);
+    
+    var s = "";
+    elt.addEventListener("click", function() { s += "foo"; });
+    elt.onclick = function() { s += "bar" };
+    elt.dispatchEvent(evt);
+    assert(s === "barfoo");
+}());
+
+// Does the scope chain get set appropriately for content attribute handlers?
+// XXX: can't test the form element on the scope chain yet, since HTMLElement
+// does not yet support the form property
+(function(global) {
+    var elt = document.createElement("div");
+    var evt = document.createEvent("Event");
+    evt.initEvent("click", true, true);
+    
+    global.x = "globalx";
+    document.y = "docy";
+    elt.z = "eltz";
+    global.result = "";
+    elt.setAttribute("onclick", "result = x + y + z;");
+    elt.dispatchEvent(evt);
+
+    assert(global.result === "globalxdocyeltz");
+}(this));
+
+// Do idl and content handlers respond as expected when the other is set?
+(function() {
+    var elt = document.createElement("div");
+
+    function f() {};
+    function g() {};
+
+    elt.onclick = f;
+    assert(elt.onclick === f);
+    elt.setAttribute("onclick", "foo()");
+    assert(elt.getAttribute("onclick") === "foo()");
+    assert(elt.onclick !== f);
+    elt.onclick = g;
+    assert(elt.onclick === g);
+    // Surprising, but setting the idl attribute does not change the
+    // value of the content attribute.  This is the correct behavior.
+    assert(elt.getAttribute("onclick") === "foo()");
+}());
+
+var global = this;
+
+// Now test that all of these event handler attributes work
+["abort",
+ "canplay",
+ "canplaythrough",
+ "change",
+ "click",
+ "contextmenu",
+ "cuechange",
+ "dblclick",
+ "drag",
+ "dragend",
+ "dragenter",
+ "dragleave",
+ "dragover",
+ "dragstart",
+ "drop",
+ "durationchange",
+ "emptied",
+ "ended",
+ "input",
+ "invalid",
+ "keydown",
+ "keypress",
+ "keyup",
+ "loadeddata",
+ "loadedmetadata",
+ "loadstart",
+ "mousedown",
+ "mousemove",
+ "mouseout",
+ "mouseover",
+ "mouseup",
+ "mousewheel",
+ "pause",
+ "play",
+ "playing",
+ "progress",
+ "ratechange",
+ "reset",
+ "seeked",
+ "seeking",
+ "select",
+ "show",
+ "stalled",
+ "submit",
+ "suspend",
+ "timeupdate",
+ "volumechange",
+ "waiting",
+ "blur",
+ "error",
+ "focus",
+ "load",
+ "scroll"
+].forEach(function(type) {
+    var elt = document.createElement("div");
+    var evt = document.createEvent("Event");
+    evt.initEvent(type, true, true);
+    
+    var pass = false;
+    elt["on" + type] = function() { pass = true; }
+    elt.dispatchEvent(evt);
+    assert(pass === true);
+
+    global.pass = false;
+    elt.setAttribute("on" + type, "pass = true;");
+    elt.dispatchEvent(evt);
+    assert(global.pass === true);
+});
+
+// In addition, make sure that the following ones work for <body> tags
+[
+    "afterprint",
+    "beforeprint",
+    "beforeunload",
+    "blur",
+    "error",
+    "focus",
+    "hashchange",
+    "load",
+    "message",
+    "offline",
+    "online",
+    "pagehide",
+    "pageshow",
+    "popstate",
+    "resize",
+    "scroll",
+    "storage",
+    "unload",
+].forEach(function(type) {
+    var elt = document.body
+    var evt = document.createEvent("Event");
+    evt.initEvent(type, true, true);
+    
+    var pass = false;
+    elt["on" + type] = function() { pass = true; }
+    elt.dispatchEvent(evt);
+    assert(pass === true);
+
+    global.pass = false;
+    elt.setAttribute("on" + type, "pass = true;");
+    elt.dispatchEvent(evt);
+    assert(global.pass === true);
+});

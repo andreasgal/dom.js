@@ -60,6 +60,48 @@ defineLazyProperty(impl, "HTMLElement", function() {
     // microdata attributes: many are simple reflected attributes, but
     // I'm not going to implement this now.
 
+    
+    var eventHandlerTypes = [
+        "abort", "canplay", "canplaythrough", "change", "click", "contextmenu",
+        "cuechange", "dblclick", "drag", "dragend", "dragenter", "dragleave",
+        "dragover", "dragstart", "drop", "durationchange", "emptied", "ended",
+        "input", "invalid", "keydown", "keypress", "keyup", "loadeddata",
+        "loadedmetadata", "loadstart", "mousedown", "mousemove", "mouseout",
+        "mouseover", "mouseup", "mousewheel", "pause", "play", "playing",
+        "progress", "ratechange", "readystatechange", "reset", "seeked",
+        "seeking", "select", "show", "stalled", "submit", "suspend",
+        "timeupdate", "volumechange", "waiting",
+
+        // These last 5 event types will be overriden by HTMLBodyElement
+        "blur", "error", "focus", "load", "scroll"
+    ];
+
+    eventHandlerTypes.forEach(function(type) {
+        // Define the event handler registration IDL attribute for this type
+        Object.defineProperty(HTMLElement.prototype, "on" + type, {
+            get: function() {
+                return this._getEventHandler(type);
+            },
+            set: function(v) {
+                this._setEventHandler(type, v);
+            },
+        });
+
+        function EventHandlerChangeHandler(elt, name, oldval, newval) {
+            var doc = elt.ownerDocument ? wrap(elt.ownerDocument) : {};
+            var form = elt.form ? wrap(elt.form) : {};
+            var element = wrap(elt);
+
+            // EventHandlerBuilder uses with, so it is in src/loose.js
+            elt[name] = new EventHandlerBuilder(newval,
+                                                doc, form, element).build();
+        }
+
+        // Define special behavior for the content attribute as well
+        impl.Element.registerAttributeChangeHandler(HTMLElement, "on" + type,
+                                                    EventHandlerChangeHandler);
+    });
+
     return HTMLElement;
 });
 
@@ -144,6 +186,51 @@ defineLazyProperty(impl, "HTMLBodyElement", function() {
     HTMLBodyElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLBodyElement"),
     });
+
+
+    // Certain event handler attributes on a <body> tag actually set 
+    // handlers for the window rather than just that element.  Define 
+    // getters and setters for those here.  Note that some of these override
+    // properties on HTMLElement.prototype.  
+    // XXX: If I add support for <frameset>, these have to go there, too
+    // XXX
+    // When the Window object is implemented, these attribute will have
+    // to work with the same-named attributes on the Window.
+
+    var eventHandlerTypes = [
+        "afterprint", "beforeprint", "beforeunload", "blur", "error",
+        "focus","hashchange", "load", "message", "offline", "online",
+        "pagehide", "pageshow","popstate","resize","scroll","storage","unload",
+    ];
+
+    eventHandlerTypes.forEach(function(type) {
+        // Define the event handler registration IDL attribute for this type
+        Object.defineProperty(HTMLBodyElement.prototype, "on" + type, {
+            get: function() {
+                // XXX: read these from the Window object instead?
+                return this._getEventHandler(type);
+            },
+            set: function(v) {
+                // XXX: write to the Window object instead?
+                this._setEventHandler(type, v);
+            },
+        });
+
+        function EventHandlerChangeHandler(elt, name, oldval, newval) {
+            var doc = elt.ownerDocument ? wrap(elt.ownerDocument) : {};
+            var form = elt.form ? wrap(elt.form) : {};
+            var element = wrap(elt);
+
+            // EventHandlerBuilder uses with, so it is in src/loose.js
+            elt[name] = new EventHandlerBuilder(newval,
+                                                doc, form, element).build();
+        }
+
+        // Define special behavior for the content attribute as well
+        impl.Element.registerAttributeChangeHandler(HTMLBodyElement,"on" + type,
+                                                    EventHandlerChangeHandler);
+    });
+
 
     return HTMLBodyElement;
 });
