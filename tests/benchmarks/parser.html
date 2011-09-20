@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style type="text/css">
+iframe { width: 100% }
+input[type=text] { width: 94% }
+input[type=button] { width: 5% }
+
+.selected { border: 1px solid black; padding: 1em; background-color: #efefef}
+        </style>
+        <!--<script src="http://livedom.validator.nu/nu.validator.htmlparser.HtmlParser.nocache"></script>-->
+        <script src="parser.js"></script>
+        <title>html parser</title>
+    </head>
+    <body>
+        <span id="native"><a href="parser.html">Native</a></span>
+        <span id="domjs"><a href="parser.html?domjs">domjs</a></span>
+        <form onsubmit="submitted(this); return false">
+            <input type="text" name="url" value="parse.html"></input>
+            <input type="submit" value="go"></input>
+        </form>
+        <iframe onload="loaded(this)" id="theiframe" src="parse.html"></iframe>
+        <h1><span id="mode"></span> Parse times:</h1>
+        <div id="parsetimes">
+        </div>
+
+        <script>
+var originalDocument = document;
+var mode = document.getElementById("mode");
+if (window.location.search === "?domjs") {
+    var script = document.createElement("script");
+    script.setAttribute("src", "../../dom.js");
+    script.setAttribute("type", "application/javascript; version=1.8");
+    document.head.appendChild(script);
+}
+
+function submitted(form) {
+    originalDocument.getElementById('theiframe').src = form.url.value;
+    return false;
+}
+
+var start = null;
+function cb() {
+    try {
+        document.domain;
+    } catch (e) {
+        console.log("DOMJS");
+    }
+    var runtime = originalDocument.createTextNode(new Date().getTime() - start.getTime());
+    var wrapper = originalDocument.createElement('div');
+    wrapper.appendChild(runtime);
+    originalDocument.getElementById("parsetimes").appendChild(wrapper);
+}
+
+function loaded(foo) {    
+    if (window.location.search === "?domjs") {
+        originalDocument.getElementById("domjs").className = "selected";
+    } else {
+        originalDocument.getElementById("native").className = "selected";
+    }
+
+    var doc = "<html>" + foo.contentDocument.documentElement.innerHTML + "</html>";
+    var domjsdoc = document.implementation.createDocument(null, null, null);
+    start = new Date();
+    parseHtmlDocument(doc, domjsdoc, cb, null);
+}
+        </script>
+
+    </body>
+</html>
