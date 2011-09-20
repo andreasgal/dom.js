@@ -1,2 +1,223 @@
-<script src="buildtree.js"></script>
-<script src="eventbenchmark2.js"></script>
+<script>
+var native_document = document;
+
+function report() {
+    var s = Array.prototype.join.call(arguments, " ");
+    console.log(s);
+    var e = native_document.createElement("pre");
+    e.appendChild(native_document.createTextNode(s));
+    native_document.body.appendChild(e);
+}
+</script>
+<script src="../../dom.js" type="application/javascript; version=1.8"></script>
+<script>
+var domjs_document = document;
+
+// Build a DOM tree (based on the about:home page) in the specifed document
+// I've commented out href and src attributes so gecko doesn't try to 
+// fetch anything.  And I've changed the <form> element since dom.js doesn't
+// support those yet.
+function buildtree(document) {
+    var e, parent = document.head;
+
+    e = document.createElement("link");
+    e.setAttribute("rel", "icon");
+    e.setAttribute("type", "image/png");
+    e.setAttribute("id", "favicon");
+    parent.appendChild(e);
+
+    e = document.createElement("link");
+    e.setAttribute("rel", "stylesheet");
+    e.setAttribute("type", "text/css");
+    e.setAttribute("media", "all");
+    parent.appendChild(e);
+
+    e = document.createElement("div");
+    e.setAttribute("id", "brandStartSpacer");
+    parent = document.body;
+    parent.appendChild(e);
+
+    e = document.createElement("div");
+    e.setAttribute("id", "brandStart");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("img");
+    e.setAttribute("id", "brandStartLogo");
+    e.setAttribute("alt", "");
+    parent.appendChild(e);
+    parent = parent.parentNode;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "searchContainer");
+    parent.appendChild(e);
+    parent = e;
+
+    // XXX: should be a form element, but dom.js doesn't support them yet
+    e = document.createElement("deformed");
+    e.setAttribute("name", "searchForm");
+    e.setAttribute("id", "searchForm");
+    e.setAttribute("onsubmit", "onSearchSubmit(event)");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "searchLogoContainer");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("img");
+    e.setAttribute("id", "searchEngineLogo");
+    parent.appendChild(e);
+    parent = parent.parentNode;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "searchInputContainer");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("input");
+    e.setAttribute("type", "text");
+    e.setAttribute("name", "q");
+    e.setAttribute("value", "");
+    e.setAttribute("id", "searchText");
+    e.setAttribute("maxlength", "256");
+    parent.appendChild(e);
+    parent = parent.parentNode;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "searchButtons");
+    parent.appendChild(e);
+    parent = e;
+
+
+    e = document.createElement("input");
+    e.setAttribute("id", "searchSubmit");
+    e.setAttribute("type", "submit");
+    e.setAttribute("value", "&abouthome.searchEngineButton.label;");
+    parent.appendChild(e);
+    parent = parent.parentNode.parentNode.parentNode;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "contentContainer");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "snippetContainer");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "defaultSnippets");
+    e.setAttribute("hidden", "true");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("span");
+    e.setAttribute("id", "defaultSnippet1");
+    e.appendChild(document.createTextNode("&abouthome.defaultSnippet1.v1;"));
+    parent.appendChild(e);
+
+    e = document.createElement("span");
+    e.setAttribute("id", "defaultSnippet2");
+    e.appendChild(document.createTextNode("&abouthome.defaultSnippet2.v1;"));
+    parent.appendChild(e);
+    parent = parent.parentNode;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "snippets");
+    parent.appendChild(e);
+    parent = parent.parentNode.parentNode;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "sessionRestoreContainer");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("button");
+    e.setAttribute("id", "restorePreviousSession");
+    e.appendChild(document.createTextNode("&historyRestoreLastSession.label;"));
+    parent.appendChild(e);
+    parent = parent.parentNode;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "bottomSection");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("div");
+    e.setAttribute("id", "aboutMozilla");
+    parent.appendChild(e);
+    parent = e;
+
+    e = document.createElement("a");
+    e.setAttribute("href", "http://www.mozilla.com/about/");
+    e.appendChild(document.createTextNode("&abouthome.aboutMozilla;"));
+    parent.appendChild(e);
+}
+
+// Given a document, add an event hander at the root, and then 
+// traverse the tree and dispatch an event on every element, letting it
+// bubble up to the root, then remove the event handler
+function testevents(document) {
+
+    var events_sent = 0, events_received = 0;
+
+    function handler(e) {
+        events_received++;
+        e.stopPropagation();
+    }
+
+    document.addEventListener("test", handler, false);
+    dispatch(document);
+    document.removeEventListener("test", handler, false);
+
+    function dispatch(node) {
+        var event = document.createEvent("Event");
+        event.initEvent("test", true, true);
+        
+        node.dispatchEvent(event);
+        events_sent++;
+        if (events_sent != events_received)
+            console.log("Event numbers don't match!");
+
+        var c = node.firstChild;
+        while(c) {
+            if (c.nodeType === Node.ELEMENT_NODE) {
+                dispatch(c);
+            }
+            c = c.nextSibling;
+        }
+    }
+}
+
+function time(document) {
+    var d = document.implementation.createHTMLDocument("test");
+
+    buildtree(d);
+    
+    // Warm up
+    for(var i = 0; i < 1000; i++) testevents(d);
+
+    var start = Date.now();
+    for(var i = 0; i < 10000; i++) testevents(d);
+    var end = Date.now();
+
+    return (end-start)/1000;
+}
+
+
+window.onload = function() {
+    // Wait a second and run the native tests
+    setTimeout(function() {
+        report("Native DOM:", time(native_document), "seconds");
+
+        // Wait a second and run the domjs tests.
+        // Hopefully the wait allow GC, etc. to happen
+        setTimeout(function() {
+            report("dom.js:", time(domjs_document), "seconds");
+        }, 1000);
+    }, 1000);
+}
+</script>
