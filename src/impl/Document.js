@@ -1,6 +1,7 @@
 defineLazyProperty(impl, "Document", function() {
 
     function Document(isHTML) {
+        this.nodeType = DOCUMENT_NODE;
         this.isHTML = isHTML;
         this.implementation = new impl.DOMImplementation();
 
@@ -163,7 +164,7 @@ defineLazyProperty(impl, "Document", function() {
 
     Document.prototype = O.create(impl.Node.prototype, {
         _idlName: constant("Document"),
-        nodeType: constant(DOCUMENT_NODE),
+//        nodeType: constant(DOCUMENT_NODE),
         nodeName: constant("#document"),
         nodeValue: attribute(fnull, fnoop),
 
@@ -660,9 +661,32 @@ defineLazyProperty(impl, "Document", function() {
         delete n._nid;
     }
 
-    let recursivelyRoot = recursive(root),
-        recursivelyUproot = recursive(uproot);
+    function recursivelyRoot(node) {
+        root(node);
+        // XXX:
+        // accessing childNodes on a leaf node creates a new array the
+        // first time, so be careful to write this loop so that it 
+        // doesn't do that. node is polymorphic, so maybe this is hard to
+        // optimize?  Try switching on nodeType?
+/*
+        if (node.hasChildNodes()) {
+            let kids = node.childNodes;
+            for(let i = 0, n = kids.length;  i < n; i++) 
+                recursivelyRoot(kids[i]);
+        }
+*/
+        if (node.nodeType === ELEMENT_NODE) {
+            let kids = node.childNodes;
+            for(let i = 0, n = kids.length;  i < n; i++) 
+                recursivelyRoot(kids[i]);
+        }
+    }
 
+    function recursivelyUproot(node) {
+        uproot(node);
+        for(let i = 0, n = node.childNodes.length;  i < n; i++) 
+            recursivelyUproot(node.childNodes[i]);
+    }
 
     function recursivelySetOwner(node, owner) {
         node.ownerDocument = owner;

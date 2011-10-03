@@ -176,7 +176,7 @@ function time(document) {
     
     // Real benchmark
     var start = Date.now();
-    for(var i = 0; i < 10000; i++) buildtree(document);
+    for(var i = 0; i < 5000; i++) buildtree(document);
     var end = Date.now();
     
     return (end-start)/1000;
@@ -184,15 +184,15 @@ function time(document) {
 
 window.onload = function() {
     // Wait a second and run the native tests
-    setTimeout(function() {
-        report("Native DOM:", time(native_document), "seconds");
+//    setTimeout(function() {
+//        report("Native DOM:", time(native_document), "seconds");
 
         // Wait a second and run the domjs tests.
         // Hopefully the wait allow GC, etc. to happen
         setTimeout(function() {
             report("dom.js:", time(domjs_document), "seconds");
         }, 1000);
-    }, 1000);
+//    }, 1000);
 }
 
 </script>

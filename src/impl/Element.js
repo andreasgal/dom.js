@@ -1,5 +1,6 @@
 defineLazyProperty(impl, "Element", function() {
     function Element(doc, localName, namespaceURI, prefix) {
+        this.nodeType = ELEMENT_NODE;
         this.ownerDocument = doc;
         this.localName = localName;
         this.namespaceURI = namespaceURI;
@@ -21,9 +22,15 @@ defineLazyProperty(impl, "Element", function() {
         this._attrKeys = [];                       // attr index -> ns|lname
     }
 
-    let recursiveGetText = recursive(function(n,a) {
-        if (n.nodeType === TEXT_NODE) a.push(n._data);
-    });
+    function recursiveGetText(node, a) {
+        if (node.nodeType === TEXT_NODE) {
+            a.push(node._data);
+        }
+        else {
+            for(let i = 0, n = node.childNodes.length;  i < n; i++) 
+                recursiveGetText(node.childNodes[i], a);
+        }
+    }
 
     function textContentGetter() {
         let strings = [];
@@ -40,7 +47,7 @@ defineLazyProperty(impl, "Element", function() {
 
     Element.prototype = O.create(impl.Node.prototype, {
         _idlName: constant("Element"),
-        nodeType: constant(ELEMENT_NODE),
+//        nodeType: constant(ELEMENT_NODE),
         nodeName: attribute(function() { return this.tagName; }),
         nodeValue: attribute(fnull, fnoop),
         textContent: attribute(textContentGetter, textContentSetter),

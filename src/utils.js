@@ -21,22 +21,6 @@ function warn(msg) {
     }
 }
 
-// Pass in a function that operates on a node.
-// Returns a function that operates recursively on that node and all
-// of its descendants.  It should work for any DOM or DOM-like tree structure.
-// Note, however, that the function f must not add or remove siblings of
-// the element it is called on or the recursion won't work correctly.
-// If you pass an optional second argument to the returned function, that
-// argument will be passed unmodified to each invocation fo f
-function recursive(f) {
-    return function recurse(node, extra) {
-        f(node, extra);
-        for(let i = 0, n = node.childNodes.length;  i < n; i++) 
-            recurse(node.childNodes[i], extra);
-    };
-}
-
-
 // Utility functions that return property descriptors
 function constant(v) { return { value: v }; }
 function attribute(get, set) {

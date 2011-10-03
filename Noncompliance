@@ -22,3 +22,10 @@ an indexed deleter (like NodeList) should be non-configurable.
   complex and requires knowing whether the element is renderable or
   not.  For now, I've just done a simple test based on tagname and
   contenteditable.  Firefox seems to do something similar.
+
+4) WebIDL says that interface objects (like HTMLElement) are data
+properties with [[Writable]] true.  But for lazy initialization, ours
+start off as accessor properties with a getter and a setter. They
+change to data properties the first time they are read, but if queried
+with Object.getOwnPropertyDescriptor() this divergence from the spec
+will be observable.

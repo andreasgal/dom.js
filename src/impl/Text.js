@@ -1,5 +1,6 @@
 defineLazyProperty(impl, "Text", function() {
     function Text(doc, data) {
+        this.nodeType = TEXT_NODE;
         this.ownerDocument = doc;
         this._data = data;
     }
@@ -13,7 +14,7 @@ defineLazyProperty(impl, "Text", function() {
     
     Text.prototype = O.create(impl.CharacterData.prototype, {
         _idlName: constant("Text"),
-        nodeType: constant(TEXT_NODE),
+//        nodeType: constant(TEXT_NODE),
         nodeName: constant("#text"),
         // These three attributes are all the same.
         // The data attribute has a [TreatNullAs=EmptyString] but we'll

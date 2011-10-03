@@ -1,5 +1,6 @@
 defineLazyProperty(impl, "DocumentFragment", function() {
     function DocumentFragment(doc) {
+        this.nodeType = DOCUMENT_FRAGMENT_NODE;
         this.ownerDocument = doc;
         this.childNodes = [];
         this.childNodes._idlName = "NodeList";
@@ -7,7 +8,7 @@ defineLazyProperty(impl, "DocumentFragment", function() {
 
     DocumentFragment.prototype = O.create(impl.Node.prototype, {
         _idlName: constant("DocumentFragment"),
-        nodeType: constant(DOCUMENT_FRAGMENT_NODE),
+//        nodeType: constant(DOCUMENT_FRAGMENT_NODE),
         nodeName: constant("#document-fragment"),
         nodeValue: attribute(fnull, fnoop),
         // Copy the text content getter/setter from Element

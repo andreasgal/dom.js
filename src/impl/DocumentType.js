@@ -2,6 +2,7 @@ defineLazyProperty(impl, "DocumentType", function() {
     function DocumentType(name, publicId, systemId) {
         // Unlike other nodes, doctype nodes always start off unowned
         // until inserted
+        this.nodeType = DOCUMENT_TYPE_NODE;
         this.ownerDocument = null;
         this.name = name;  
         this.publicId = publicId || "";
@@ -10,7 +11,7 @@ defineLazyProperty(impl, "DocumentType", function() {
 
     DocumentType.prototype = O.create(impl.Leaf.prototype, {
         _idlName: constant("DocumentType"),
-        nodeType: constant(DOCUMENT_TYPE_NODE),
+//        nodeType: constant(DOCUMENT_TYPE_NODE),
         nodeName: attribute(function() { return this.name; }),
         nodeValue: attribute(fnull, fnoop),
 
