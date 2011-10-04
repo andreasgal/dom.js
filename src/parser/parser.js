@@ -49,6 +49,7 @@ function HTMLParser(domimpl) {
     var script_nesting_level = 0;
     var parser_pause_flag = false;
     var insertionMode = initial_mode;
+    var currentnode = null;
     var openelts = [];
     var active_formatting_elements = [];
     var head_element_pointer = null;
@@ -56,6 +57,8 @@ function HTMLParser(domimpl) {
     var scripting_enabled = true;  // Constructor argument to set this false?
     var frameset_ok = true;
     var force_quirks = false;
+    var pendingText = [];
+
 
     var push = Array.push;
     var pop = Array.pop;
@@ -92,9 +95,12 @@ function HTMLParser(domimpl) {
 #define beginAttrName() attrnamebuf.length = 0
 #define beginAttrValue() attrvaluebuf.length = 0
 #define beginComment() commentbuf.length = 0
-#define beginDoctype() doctypebuf.length = 0
-#define beginDoctypePublicId() doctypepublicbuf.length = 0
-#define beginDoctypeSystemId() doctypesystembuf.length = 0
+#define beginDoctype() \
+    doctypebuf.length = 0; \
+    doctypepublicbuf = null;\
+    doctypesystembuf = null
+#define beginDoctypePublicId() doctypepublicbuf = []
+#define beginDoctypeSystemId() doctypesystembuf = []
 #define appendChar(buf, char) push(buf, char)
 #define forcequirks() force_quirks = true
 #define cdataAllowed() openelts[openelts.length-1].namespaceURI !== "http://www.w3.org/1999/xhtml"
@@ -122,10 +128,68 @@ function HTMLParser(domimpl) {
 #define emitSelfClosingTag() insertionMode(TAG, buf2str(tagnamebuf), attributes,true)
 #define emitComment() insertionMode(COMMENT, buf2str(commentbuf))
 #define emitCommentString(s) insertionMode(COMMENT, s)
-#define emitDoctype() insertionMOde(DOCTYPE, buf2str(doctypebuf), buf2str(doctypepublicbuf), buf2str(doctypesystembuf))
+#define emitDoctype() \
+    insertionMode(DOCTYPE, \
+                  buf2str(doctypebuf), \
+                  doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined, \
+                  doctypesystembuf ? buf2str(doctypesystembuf) : undefined)
+
+
+// Tree building macros and functions
+#define reprocess(t,a1,a2,a3) insertionMode(t,a1,a2,a3)
+#define pushElement(e) \
+    push(openelts, e); \
+    currentnode = e
+
+    function insertText(t) {
+        push(pendingText, t);
+        if (pendingText.length > 1024) 
+            flushText();
+    }
+
+    // Be sure to call this function before inserting anything
+    // or changing the current node.
+    function flushText() {
+        if (pendingText.length > 0) {
+            var s = buf2str(pendingText);
+            if (currentNode.lastChild.nodeType === Node.TEXT_NODE) {
+                currentNode.lastChild.appendData(s);
+            }
+            else {
+                currentNode.appendChild(doc.createTextNode(s));
+            }
+            pendingText.length = 0;
+        }
+    }
+
+    function createHTMLElt(name, attrs) {
+        var elt = doc.createElement(name);
+        if (attrs) {
+            for(var i = 0, n = attrs.length; i < n; i++) {
+                elt.setAttribute(attrs[i][0], attrs[i][1]);
+            }
+        }
+        // XXX
+        // If the element is a resettable form element,
+        // run its reset algorithm now
+        return elt;
+    }
+    
+    function insertHTMLElt(name, attrs) {
+        flushText();
+        var elt = createHTMLElt(name, attrs);
+        currentNode.appendChild(elt);
+        pushElement(elt);
+
+        // XXX
+        // If this is a form element, set its form attribute property
+
+        return elt;
+    }
 
 #include "parseCharacterReference.js"
 #include "tokenizerStates.js"
+#include "insertionModes.js"
 
     // Add the string s to the scanner.
     // Pass true as the second argument if this is the end of the data.
