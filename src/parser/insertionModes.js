@@ -6,6 +6,23 @@ const conditionallyQuirkyPublicIds = /^-\/\/W3C\/\/DTD HTML 4\.01 Frameset\/\/|^
 
 const limitedQuirkyPublicIds = /^-\/\/W3C\/\/DTD XHTML 1\.0 Frameset\/\/|^-\/\/W3C\/\/DTD XHTML 1\.0 Transitional\/\//i;
 
+
+function parseRawText(name, attrs) {
+    insertHTMLElt(name, attrs);
+    tokenizerState = rawtext_state;
+    originalInsertMode = insertionMode;
+    insertionMode = text;
+}
+
+function parseRCDATA(name, attributes) {
+    insertHTMLElt(name, attrs);
+    tokenizerState = rcdata_state;
+    originalInsertMode = insertionMode;
+    insertionMode = text;
+}
+
+
+
 // 11.2.5.4.1 The "initial" insertion mode
 function initial_mode(t, a1, a2, a3) {
     switch(t) {
@@ -132,7 +149,7 @@ function before_head(t,a1,a2,a3) {
         // fallthrough on any other tags
 
     default:
-        reprocess(TAG, "head", null);  // create a head tag
+        before_head(TAG, "head", null);  // create a head tag
         reprocess(t, a1, a2);          // then try again with this token
         break;
     }
@@ -146,6 +163,410 @@ function in_head(t, a1, a2, a3) {
     case 0x000D:
     case 0x0020:
         insertText(t);
-        
+        break;
+    case COMMENT:
+        insertComment(a1);
+        break;
+    case DOCTYPE:
+        break;
+    case TAG:
+        switch(a1) {
+        case "html":
+            in_body(t, a1, a2, a3);
+            return;
+        case "meta":
+            // XXX: 
+            // May need to change the encoding based on this tag
+            /* fallthrough */
+        case "base":
+        case "basefont":
+        case "bgsound":
+        case "command":
+        case "link":
+            insertHTMLElt(a1, a2);
+            popElement();
+            return;
+        case "title":
+            parseRCDATA(a1, a2);
+            return;
+        case "noscript":
+            if (!scripting_enabled) {
+                insertHTMLElement(a1, a2);
+                insertionMode = in_head_noscript;
+                return;
+            }
+            // Otherwise, if scripting is enabled...
+            /* fallthrough */
+        case "noframes":
+        case "style":
+            parseRawText(a1,a2);
+            return;
+        case "script":
+            var elt = createHTMLElt(a1, a2);
+            elt.parser_inserted = true;
+            elt.force_async = false;
+            if (fragment) elt.already_started = true;
+            flushText();
+            currentnode.appendChild(elt);
+            pushElement(elt);
+
+            tokenizerState = script_data_state;
+            originalInsertionMode = insertionMode;
+            insertionMode = text;
+            return;
+        case "/head":
+            popElement();
+            insertionMode = after_head;
+            return;
+        case "/body":
+        case "/html":
+        case "/br":
+            // Break out of inner switch and fallthrough to the 
+            // default case of the outer switch
+            break; 
+        default: 
+            if (a1 == "head" || a1[0] === "/") {
+                // Ignore it
+                return;
+            }
+            // otherwise fallthrough
+        }
+        /* fallthrough */
+    default:
+        in_head(TAG, "/head", null);   // synthetic </head>
+        reprocess(t, a1, a2, a3);      // Then redo this one
+        break;
+    }
+}
+
+// 13.2.5.4.5 The "in head noscript" insertion mode
+function in_head_noscript(t, a1, a2, a3) {
+    switch(t) {
+    case DOCTYPE:
+        break;
+    case 0x0009: 
+    case 0x000A:
+    case 0x000C:
+    case 0x000D:
+    case 0x0020:
+    case COMMENT:
+        in_head(t, a1);
+        break;
+    case TAG:
+        switch(a1) {
+        case "html":
+            in_body(t, a1, a2);
+            return;
+        case "/noscript":
+            popElement();
+            insertionMode = in_head;
+            return;
+        case "basefont":
+        case "bgsound":
+        case "link":
+        case "meta":
+        case "noframes":
+        case "style":
+            in_head(t, a1, a2);
+            return;
+        case "head":
+        case "noscript":
+            return;
+        case "/br":
+            break;  // fallthrough to the outer default
+        default:
+            if (a1[0] === "/") return; // ignore other end tags
+            break; // otherwise fallthrough to the outer default
+        }
+    default: 
+        in_head_noscript(TAG, "/noscript", null);
+        reprocess(t, a1, a2, a3);
+        break;
+    }
+}
+
+function after_head(t, a1, a2, a3) {
+    switch(t) {
+    case 0x0009: 
+    case 0x000A:
+    case 0x000C:
+    case 0x000D:
+    case 0x0020:
+        insertText(t);
+        break;
+    case COMMENT:
+        insertComment(a1);
+        break;
+    case DOCTYPE:
+        break;
+    case TAG:
+        switch(a1) {
+        case "html":
+            in_body(t, a1, a2);
+            return;
+        case "body":
+            insertHTMLElt(a1, a2);
+            frameset_ok = false;
+            insertionMode = in_body;
+            return;
+        case "frameset":
+            insertHTMLElt(a1, a2);
+            insertionMode = in_frameset;
+            return;
+        case "base":
+        case "basefont":
+        case "bgsound":
+        case "link":
+        case "meta":
+        case "noframes":
+        case "script":
+        case "style":
+        case "title":
+            pushElement(head_element_pointer);
+            in_head(TAG, a1, a2);
+            popElement();
+            return;
+        case "head":
+            return;
+        case "/body":
+        case "/html":
+        case "/br":
+            break; // and fallthrough
+        default:
+            if (a1[0] === '/') return;  // ignore any other end tag
+            break;  // Otherwise fallthrough
+            
+        }
+        // fallthrough
+    default:
+        after_head(TAG, "body", null);
+        frameset_ok = true;
+        reprocess(t, a1, a2, a3);
+        break;
+    }
+}
+
+// 13.2.5.4.7 The "in body" insertion mode
+function in_body(t,a1,a2,a3) {
+    if (t === 0) return;
+    if (t > 0) { // A character token
+        switch(t) {
+        default: 
+            frameset_ok = false;
+            /* fallthrough */
+        case 0x0009: 
+        case 0x000A:
+        case 0x000C:
+        case 0x000D:
+        case 0x0020:
+            reconstructActiveFormattingElements();
+            insertText(t);
+            break;
+        }
+        return;
+    }
+
+    switch(t) {
+    case DOCTYPE:
+        break;
+    case COMMENT:
+        insertComment(a1);
+        break;
+    case EOF:
+        stopParsing();
+        break;
+    case TAG:
+        switch(a1) {
+        case "html":
+            transferAttributes(a2, openelts[0]);
+            return;
+        case "base":
+        case "basefont":
+        case "bgsound":
+        case "command":
+        case "link":
+        case "meta":
+        case "noframes":
+        case "script":
+        case "style":
+        case "title":
+            in_head(TAG, a1, a2);
+            return;
+        case "body":
+            var body = openelts[1];
+            if (!body || body.tagName !== "BODY") return;
+            frameset_ok = false;
+            transferAttributes(a2, body);
+            return;
+        case "frameset":
+            if (!framset_ok) return;
+            var body = openelts[1];
+            if (!body || body.tagName !== "BODY") return;
+            if (body.parentNode) body.parentNode.removeChild(body);
+            while(currentnode.tagName !== "HTML") popElement();
+            insertHTMLElt(a1, a2);
+            insertionMode = in_frameset;
+            return;
+
+        case "/body":
+            if (!inscope("body")) return;
+            insertionMode = after_body;
+            return;
+        case "/html":
+            if (!inscope("body")) return;
+            insertionMode = after_body;
+            reprocess(t, a1, a2);
+
+        case "address":
+        case "article":
+        case "aside":
+        case "blockquote":
+        case "center":
+        case "details":
+        case "dir":
+        case "div":
+        case "dl":
+        case "fieldset":
+        case "figcaption":
+        case "figure":
+        case "footer":
+        case "header":
+        case "hgroup":
+        case "menu":
+        case "nav":
+        case "ol":
+        case "p":
+        case "section":
+        case "summary":
+        case "ul":
+            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            insertHTMLElt(a1, a2);
+            return;
+
+        case "h1":
+        case "h2":
+        case "h3":
+        case "h4":
+        case "h5":
+        case "h6":
+            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            var s = currentnode.tagName;
+            if (s[0] === "H" && s.length === 2) {
+                var d = s.charCodeAt(1) - 48;
+                if (d >= 1 && d <= 6) 
+                    popElement();
+            }
+            insertHTMLElt(a1, a2);
+            return;
+            
+        case "pre":
+        case "listing":
+            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            insertHTMLElt(a1, a2);
+            // XXX need to ignore the next token if it is a linefeed.
+            // How can I do this?  Can't check the array of input chars
+            // since it could be empty right now.
+            ignoreLinefeed();
+            frameset_ok = false;
+            return;
+
+        case "form":
+            if (form_element_pointer) return;
+            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            form_element_pointer = insertHTMLElt(a1, a2);
+
+        case "li":
+            frameset_ok = false;
+            for(var i = openelts.length-1; i >= 0; i--) {
+                var node = openelts[i];
+                var tagname = node.tagName;
+                if (tagname === "LI") {
+                    in_body(TAG, "/li", null);
+                    break;
+                }
+                if (isSpecial(node) && tagname !== "ADDRESS" &&
+                    tagname !== "DIV" && tagname !== "P") 
+                    break;
+            }
+            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            insertHTMLElt(a1, a2);
+            return;
+
+        case "dd":
+        case "dt":
+            frameset_ok = false;
+            for(var i = openelts.length-1; i >= 0; i--) {
+                var node = openelts[i];
+                var tagname = node.tagName;
+                if (tagname === "DD" || tagname === "DT") {
+                    in_body(TAG, "/" + tagname.toLowerCase(), null);
+                    break;
+                }
+                if (isSpecial(node) && tagname !== "ADDRESS" &&
+                    tagname !== "DIV" && tagname !== "P") 
+                    break;
+            }
+            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            insertHTMLElt(a1, a2);
+            return;
+            
+        case "plaintext":
+            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            insertHTMLElt(a1, a2);
+            tokenizerState = plaintext_state;
+            return;
+            
+            
+            
+
+        }
+
+
+        /* fallthrough */
+    default:
+        break;
+    }
+}
+
+
+function (t,a1,a2,a3) {
+    switch(t) {
+    case 0x0009: 
+    case 0x000A:
+    case 0x000C:
+    case 0x000D:
+    case 0x0020:
+        break;
+    case DOCTYPE:
+        break;
+    case COMMENT:
+        break;
+    case TAG:
+        switch(a1) {
+        }
+        /* fallthrough */
+    default:
+        break;
+    }
+}
+
+function (t,a1,a2,a3) {
+    switch(t) {
+    case 0x0009: 
+    case 0x000A:
+    case 0x000C:
+    case 0x000D:
+    case 0x0020:
+        break;
+    case DOCTYPE:
+        break;
+    case COMMENT:
+        break;
+    case TAG:
+        switch(a1) {
+        }
+        /* fallthrough */
+    default:
+        break;
     }
 }

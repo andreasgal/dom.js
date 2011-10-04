@@ -46,9 +46,12 @@ function HTMLParser(domimpl) {
     var attributes = [];
 
     // Tree builder state
+    // XXX: is there a better way to indicate this?
+    var fragment = false; // Are we parsing a fragment?
     var script_nesting_level = 0;
     var parser_pause_flag = false;
     var insertionMode = initial_mode;
+    var originalInsertionMode = null;
     var currentnode = null;
     var openelts = [];
     var active_formatting_elements = [];
@@ -140,6 +143,12 @@ function HTMLParser(domimpl) {
 #define pushElement(e) \
     push(openelts, e); \
     currentnode = e
+#define popElement() \
+    pop(openelts); \
+    currentnode = openelts[openelts.length-1]
+#define insertComment(data) \
+    flushText(); \
+    currentnode.appendChild(doc.createComment(data))
 
     function insertText(t) {
         push(pendingText, t);
