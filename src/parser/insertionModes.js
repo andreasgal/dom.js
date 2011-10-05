@@ -7,6 +7,222 @@ const conditionallyQuirkyPublicIds = /^-\/\/W3C\/\/DTD HTML 4\.01 Frameset\/\/|^
 const limitedQuirkyPublicIds = /^-\/\/W3C\/\/DTD XHTML 1\.0 Frameset\/\/|^-\/\/W3C\/\/DTD XHTML 1\.0 Transitional\/\//i;
 
 
+// The set of special elements
+var specialSet = {
+    HTML_NAMESPACE: {
+        "address":true,
+        "applet":true,
+        "area":true,
+        "article":true,
+        "aside":true,
+        "base":true,
+        "basefont":true,
+        "bgsound":true,
+        "blockquote":true,
+        "body":true,
+        "br":true,
+        "button":true,
+        "caption":true,
+        "center":true,
+        "col":true,
+        "colgroup":true,
+        "command":true,
+        "dd":true,
+        "details":true,
+        "dir":true,
+        "div":true,
+        "dl":true,
+        "dt":true,
+        "embed":true,
+        "fieldset":true,
+        "figcaption":true,
+        "figure":true,
+        "footer":true,
+        "form":true,
+        "frame":true,
+        "frameset":true,
+        "h1":true,
+        "h2":true,
+        "h3":true,
+        "h4":true,
+        "h5":true,
+        "h6":true,
+        "head":true,
+        "header":true,
+        "hgroup":true,
+        "hr":true,
+        "html":true,
+        "iframe":true,
+        "img":true,
+        "input":true,
+        "isindex":true,
+        "li":true,
+        "link":true,
+        "listing":true,
+        "marquee":true,
+        "menu":true,
+        "meta":true,
+        "nav":true,
+        "noembed":true,
+        "noframes":true,
+        "noscript":true,
+        "object":true,
+        "ol":true,
+        "p":true,
+        "param":true,
+        "plaintext":true,
+        "pre":true,
+        "script":true,
+        "section":true,
+        "select":true,
+        "style":true,
+        "summary":true,
+        "table":true,
+        "tbody":true,
+        "td":true,
+        "textarea":true,
+        "tfoot":true,
+        "th":true,
+        "thead":true,
+        "title":true,
+        "tr":true,
+        "ul":true,
+        "wbr":true,
+        "xmp":true
+    },
+    SVG_NAMESPACE: {
+        "foreignObject": true,
+        "desc": true,
+        "title": true
+    },
+    MATHML_NAMESPACE: {
+        "mi":true,
+        "mo":true,
+        "mn":true,
+        "ms":true,
+        "mtext":true,
+        "annotation-xml":true
+    }
+}
+
+// The set of address, div, and p HTML tags
+var addressdivpSet = {
+    HTML_NAMESPACE: {
+        "address":true, 
+        "div":true,
+        "p":true
+    }
+};
+
+var dddtSet = {
+    HTML_NAMESPACE: {
+        "dd":true, 
+        "dt":true
+    }
+};
+
+var inScopeSet = {
+    HTML_NAMESPACE: {
+        "applet":true,
+        "caption":true,
+        "html":true,
+        "table":true,
+        "td":true,
+        "th":true,
+        "marquee":true,
+        "object":true,
+    },
+    MATHML_NAMESPACE: {
+        "mi":true,
+        "mo":true,
+        "mn":true,
+        "ms":true,
+        "mtext":true,
+        "annotation-xml":true,
+    },
+    SVG_NAMESPACE: {
+        "foreignObject":true,
+        "desc":true,
+        "title":true,
+    }
+};
+
+var inListItemScopeSet = Object.create(inScopeSet);
+inListItemScopeSet.HTML_NAMESPACE = Object.create(inScopeSet.HTML_NAMESPACE);
+inListItemScopeSet.HTML_NAMESPACE.ol = true;
+inListItemScopeSet.HTML_NAMESPACE.ul = true;
+
+var inButtonScopeSet = Object.create(inScopeSet);
+inButtonScopeSet.HTML_NAMESPACE = Object.create(inScopeSet.HTML_NAMESPACE);
+inButtonScopeSet.HTML_NAMESPACE.button = true;
+
+var inTableScopeSet = {
+    HTML_NAMESPACE: {
+        "html":true,
+        "table":true
+    }
+};
+
+// The set of elements for select scope is the everything *except* these
+var invertedSelectScopeSet = {
+    HTML_NAMESPACE: {
+        "optgroup":true,
+        "option":true
+    }
+}
+
+// Determine whether the element is a member of the set.
+// The set is an object that maps namespaces to objects. The objects
+// then map local tagnames to the value true if that tag is part of the set
+function isA(elt, set) {
+    var o = set[elt.namespaceURI];
+    if (o)
+        return elt.localName in o;
+    else
+        return false;
+}
+
+function inSpecificScope(target, set) {
+    for(var i = openelts.length-1; i >= 0; i--) {
+        var elt = openelts[i];
+        var ns = elt.namespaceURI;
+        var localname = elt.localName;
+        if (ns === HTML_NAMESPACE && localname === target) return true;
+        var tags = set[ns];
+        if (tags && localname in tags) return false;
+    }
+    return false;
+}
+
+function inScope(tag) {
+    return inSpecificScope(tag, inScopeSet);
+}
+
+function inButtonScope(tag) {
+    return inSpecificScope(tag, inButtonScopeSet);
+}
+
+function inListItemScope(tag) {
+    return inSpecificScope(tag, inListItemScopeSet);
+}
+
+function inTableScope(tag) {
+    return inSpecificScope(tag, inTableScopeSet);
+}
+
+function inSelectScope(tag) {
+    // Can't implement this one with inSpecificScope, since it involves
+    // a set defined by inverting another set. So implement manually.
+    for(var i = openelts.length-1; i >= 0; i--) {
+        var elt = openelts[i];
+        if (elt.namespaceURI !== HTML_NAMESPACE) return false;
+        var localname = elt.localName;
+        if (localname === target) return true;
+        if (localname !== "optgroup" && localname !== "option") return false;
+    }
+    return false;
+}
+
 function parseRawText(name, attrs) {
     insertHTMLElt(name, attrs);
     tokenizerState = rawtext_state;
@@ -79,40 +295,37 @@ function before_html(t,a1,a2,a3) {
     case 0x0020:
     case DOCTYPE:
         /* ignore the token */
-        break;
+        return;
     case COMMENT:
         doc.appendChild(doc.createComment(a1));
-        break;
+        return;
     case TAG:
-        var name = a1;
-        if (name === "html") {
-            var elt = doc.createElement(name);
+        if (a1 === "html") {
+            var elt = doc.createElement(a1);
             pushElement(elt);
             doc.appendChild(elt);
             // XXX: handle application cache here
             insertionMode = before_head;
-            break;
+            return;
         }
-        else if (name[0] === "/" &&
-                 name !== "/head" && 
-                 name !== "/body" && 
-                 name !== "/html" && 
-                 name !== "/br") {
-            // ignore most end tags
-            break;
+    case ENDTAG:
+        switch(a1) {
+        case "head":
+        case "body":
+        case "br":
+            break;   // fall through on these
+        default:
+            return;  // ignore most end tags
         }
-
-        // For any other start tag, or the 4 end tags above,
-        // fall through to the default case below
-    default:
-        var elt = doc.createElement("html");
-        pushElement(elt);
-        doc.appendChild(elt);
-        // XXX: handle application cache here
-        insertionMode = before_head;
-        reprocess(t,a1,a2,a3);
-        break;
     }
+
+    // Anything that didn't get handled above is handled like this:
+    var elt = doc.createElement("html");
+    pushElement(elt);
+    doc.appendChild(elt);
+    // XXX: handle application cache here
+    insertionMode = before_head;
+    reprocess(t,a1,a2,a3);
 }
 
 // 11.2.5.4.3 The "before head" insertion mode
@@ -125,34 +338,38 @@ function before_head(t,a1,a2,a3) {
     case 0x0020:
     case DOCTYPE:
         /* ignore the token */
-        break;
+        return;
     case COMMENT:
         currentnode.appendChild(doc.createComment(a1));
-        break;
+        return;
     case TAG:
-        var name = a1;
-        if (name === "html") {
+        switch(a1) {
+        case "html":
             in_body(t,a1,a2,a3);
-            break;
-        }
-        else if (name === "head") {
+            return;
+        case "head":
             var elt = insertHTMLElement(name, a2);
             head_element_pointer = elt;
             insertionMode = in_head;
+            return;
+        default:
             break;
         }
-        else if (name[0] === '/' &&
-                 !/^(\/head|\/body|\/html|\/br)|$/.test(name)) {
-            // ignore most end tags
+    case ENDTAG:
+        switch(a1) {
+        case "html":
+        case "head":
+        case "body":
+        case "br":
             break;
+        default: 
+            return; // ignore most end tags
         }
-        // fallthrough on any other tags
-
-    default:
-        before_head(TAG, "head", null);  // create a head tag
-        reprocess(t, a1, a2);          // then try again with this token
-        break;
     }
+
+    // If not handled explicitly above
+    before_head(TAG, "head", null);  // create a head tag
+    reprocess(t, a1, a2);            // then try again with this token
 }
 
 function in_head(t, a1, a2, a3) {
@@ -163,12 +380,12 @@ function in_head(t, a1, a2, a3) {
     case 0x000D:
     case 0x0020:
         insertText(t);
-        break;
+        return;
     case COMMENT:
         insertComment(a1);
-        break;
+        return;
     case DOCTYPE:
-        break;
+        return;
     case TAG:
         switch(a1) {
         case "html":
@@ -214,36 +431,37 @@ function in_head(t, a1, a2, a3) {
             originalInsertionMode = insertionMode;
             insertionMode = text;
             return;
-        case "/head":
+        case "head":
+            return; // ignore it
+        }
+        break;
+    case ENDTAG:
+        switch(a1) {
+        case "head":
             popElement();
             insertionMode = after_head;
             return;
-        case "/body":
-        case "/html":
-        case "/br":
-            // Break out of inner switch and fallthrough to the 
-            // default case of the outer switch
-            break; 
+        case "body":
+        case "html":
+        case "br":
+            break; // handle these at the bottom of the function
         default: 
-            if (a1 == "head" || a1[0] === "/") {
-                // Ignore it
-                return;
-            }
-            // otherwise fallthrough
+            // ignore any other end tag
+            return;
         }
-        /* fallthrough */
-    default:
-        in_head(TAG, "/head", null);   // synthetic </head>
-        reprocess(t, a1, a2, a3);      // Then redo this one
         break;
     }
+
+    // If not handled above
+    in_head(ENDTAG, "head", null); // synthetic </head>
+    reprocess(t, a1, a2, a3);      // Then redo this one
 }
 
 // 13.2.5.4.5 The "in head noscript" insertion mode
 function in_head_noscript(t, a1, a2, a3) {
     switch(t) {
     case DOCTYPE:
-        break;
+        return;
     case 0x0009: 
     case 0x000A:
     case 0x000C:
@@ -251,15 +469,11 @@ function in_head_noscript(t, a1, a2, a3) {
     case 0x0020:
     case COMMENT:
         in_head(t, a1);
-        break;
+        return;
     case TAG:
         switch(a1) {
         case "html":
             in_body(t, a1, a2);
-            return;
-        case "/noscript":
-            popElement();
-            insertionMode = in_head;
             return;
         case "basefont":
         case "bgsound":
@@ -272,17 +486,25 @@ function in_head_noscript(t, a1, a2, a3) {
         case "head":
         case "noscript":
             return;
-        case "/br":
+        }
+        break;
+    case ENDTAG:
+        switch(a1) {
+        case "noscript":
+            popElement();
+            insertionMode = in_head;
+            return;
+        case "br":
             break;  // fallthrough to the outer default
         default:
-            if (a1[0] === "/") return; // ignore other end tags
-            break; // otherwise fallthrough to the outer default
+            return; // ignore other end tags
         }
-    default: 
-        in_head_noscript(TAG, "/noscript", null);
-        reprocess(t, a1, a2, a3);
         break;
     }
+
+    // If not handled above
+    in_head_noscript(ENDTAG, "noscript", null);
+    reprocess(t, a1, a2, a3);
 }
 
 function after_head(t, a1, a2, a3) {
@@ -293,12 +515,12 @@ function after_head(t, a1, a2, a3) {
     case 0x000D:
     case 0x0020:
         insertText(t);
-        break;
+        return;
     case COMMENT:
         insertComment(a1);
-        break;
+        return;
     case DOCTYPE:
-        break;
+        return;
     case TAG:
         switch(a1) {
         case "html":
@@ -328,22 +550,23 @@ function after_head(t, a1, a2, a3) {
             return;
         case "head":
             return;
-        case "/body":
-        case "/html":
-        case "/br":
+        }
+        break;
+    case ENDTAG:
+        switch(a1) {
+        case "body":
+        case "html":
+        case "br":
             break; // and fallthrough
         default:
-            if (a1[0] === '/') return;  // ignore any other end tag
-            break;  // Otherwise fallthrough
-            
+            return;  // ignore any other end tag
         }
-        // fallthrough
-    default:
-        after_head(TAG, "body", null);
-        frameset_ok = true;
-        reprocess(t, a1, a2, a3);
         break;
     }
+
+    after_head(TAG, "body", null);
+    frameset_ok = true;
+    reprocess(t, a1, a2, a3);
 }
 
 // 13.2.5.4.7 The "in body" insertion mode
@@ -368,13 +591,13 @@ function in_body(t,a1,a2,a3) {
 
     switch(t) {
     case DOCTYPE:
-        break;
+        return;
     case COMMENT:
         insertComment(a1);
-        break;
+        return;
     case EOF:
         stopParsing();
-        break;
+        return;
     case TAG:
         switch(a1) {
         case "html":
@@ -394,28 +617,19 @@ function in_body(t,a1,a2,a3) {
             return;
         case "body":
             var body = openelts[1];
-            if (!body || body.tagName !== "BODY") return;
+            if (!body || !(body instanceof impl.HTMLBodyElement)) return;
             frameset_ok = false;
             transferAttributes(a2, body);
             return;
         case "frameset":
             if (!framset_ok) return;
             var body = openelts[1];
-            if (!body || body.tagName !== "BODY") return;
+            if (!body || !(body instanceof impl.HTMLBodyElement)) return;
             if (body.parentNode) body.parentNode.removeChild(body);
-            while(currentnode.tagName !== "HTML") popElement();
+            while(!(currentnode instanceof impl.HTMLHtmlElement)) popElement();
             insertHTMLElt(a1, a2);
             insertionMode = in_frameset;
             return;
-
-        case "/body":
-            if (!inscope("body")) return;
-            insertionMode = after_body;
-            return;
-        case "/html":
-            if (!inscope("body")) return;
-            insertionMode = after_body;
-            reprocess(t, a1, a2);
 
         case "address":
         case "article":
@@ -439,7 +653,7 @@ function in_body(t,a1,a2,a3) {
         case "section":
         case "summary":
         case "ul":
-            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            if (inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             return;
 
@@ -449,19 +663,14 @@ function in_body(t,a1,a2,a3) {
         case "h4":
         case "h5":
         case "h6":
-            if (inButtonScope("p")) in_body(TAG, "/p", null);
-            var s = currentnode.tagName;
-            if (s[0] === "H" && s.length === 2) {
-                var d = s.charCodeAt(1) - 48;
-                if (d >= 1 && d <= 6) 
-                    popElement();
-            }
+            if (inButtonScope("p")) in_body(ENDTAG, "p");
+            if (currentnode instanceof impl.HTMLHeadingElement) popElement();
             insertHTMLElt(a1, a2);
             return;
             
         case "pre":
         case "listing":
-            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            if (inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             // XXX need to ignore the next token if it is a linefeed.
             // How can I do this?  Can't check the array of input chars
@@ -472,23 +681,21 @@ function in_body(t,a1,a2,a3) {
 
         case "form":
             if (form_element_pointer) return;
-            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            if (inButtonScope("p")) in_body(ENDTAG, "p");
             form_element_pointer = insertHTMLElt(a1, a2);
 
         case "li":
             frameset_ok = false;
             for(var i = openelts.length-1; i >= 0; i--) {
                 var node = openelts[i];
-                var tagname = node.tagName;
-                if (tagname === "LI") {
-                    in_body(TAG, "/li", null);
+                if (node instanceof impl.HTMLLIElement) {
+                    in_body(ENDTAG, "li", null);
                     break;
                 }
-                if (isSpecial(node) && tagname !== "ADDRESS" &&
-                    tagname !== "DIV" && tagname !== "P") 
+                if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
                     break;
             }
-            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            if (inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             return;
 
@@ -497,76 +704,53 @@ function in_body(t,a1,a2,a3) {
             frameset_ok = false;
             for(var i = openelts.length-1; i >= 0; i--) {
                 var node = openelts[i];
-                var tagname = node.tagName;
-                if (tagname === "DD" || tagname === "DT") {
-                    in_body(TAG, "/" + tagname.toLowerCase(), null);
+                if (isA(node, dddtSet)) {
+                    in_body(ENDTAG, node.localName(), null);
                     break;
                 }
-                if (isSpecial(node) && tagname !== "ADDRESS" &&
-                    tagname !== "DIV" && tagname !== "P") 
+                if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
                     break;
             }
-            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            if (inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             return;
             
         case "plaintext":
-            if (inButtonScope("p")) in_body(TAG, "/p", null);
+            if (inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             tokenizerState = plaintext_state;
             return;
             
-            
-            
-
+        case "button":
+            if (inScope("button")) {
+                in_body(ENDTAG, "button", null);
+                reprocess(t, a1, a2)
+            }
+            else {
+                reconstructActiveFormattingElements();
+                insertHTMLElt(a1, a2);
+                frameset_ok = false;
+            }
+            return;
         }
+        break;
 
 
-        /* fallthrough */
-    default:
-        break;
-    }
-}
-
-
-function (t,a1,a2,a3) {
-    switch(t) {
-    case 0x0009: 
-    case 0x000A:
-    case 0x000C:
-    case 0x000D:
-    case 0x0020:
-        break;
-    case DOCTYPE:
-        break;
-    case COMMENT:
-        break;
-    case TAG:
+    case ENDTAG:
         switch(a1) {
+        case "body":
+            if (!inScope("body")) return;
+            insertionMode = after_body;
+            return;
+        case "html":
+            if (!inScope("body")) return;
+            insertionMode = after_body;
+            reprocess(t, a1, a2);
+            return;
+
         }
-        /* fallthrough */
-    default:
         break;
     }
 }
 
-function (t,a1,a2,a3) {
-    switch(t) {
-    case 0x0009: 
-    case 0x000A:
-    case 0x000C:
-    case 0x000D:
-    case 0x0020:
-        break;
-    case DOCTYPE:
-        break;
-    case COMMENT:
-        break;
-    case TAG:
-        switch(a1) {
-        }
-        /* fallthrough */
-    default:
-        break;
-    }
-}
+

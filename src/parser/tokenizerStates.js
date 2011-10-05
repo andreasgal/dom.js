@@ -198,7 +198,6 @@ function tag_open_state(c) {
     case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
     case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
     case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-        
         beginTagName();
         appendChar(tagnamebuf, c);
         opentag = true;
@@ -232,7 +231,7 @@ function end_tag_open_state(c) {
     case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
     case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
     case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-        beginTagName();
+        beginEndTagName();
         appendChar(tagnamebuf, c);
         opentag = false;
         switchTo(tag_name_state); 
@@ -313,7 +312,7 @@ function rcdata_end_tag_open_state(c) {
     case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
     case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
     case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-        beginTagName();
+        beginEndTagName();
         appendChar(tagnamebuf, c + 0x0020);
         opentag = false;
         appendChar(tempbuf, c); 
@@ -325,7 +324,7 @@ function rcdata_end_tag_open_state(c) {
     case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
     case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
     case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-        beginTagName();
+        beginEndTagName();
         appendChar(tagnamebuf, c);
         opentag = false;
         appendChar(tempbuf, c); 
@@ -422,7 +421,7 @@ function rawtext_end_tag_open_state(c) {
     case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
     case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
     case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-        beginTagName();
+        beginEndTagName();
         appendChar(tagnamebuf, c + 0x0020);
         opentag = false;
         appendChar(tempbuf, c); 
@@ -434,7 +433,7 @@ function rawtext_end_tag_open_state(c) {
     case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
     case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
     case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-        beginTagName();
+        beginEndTagName();
         appendChar(tagnamebuf, c);
         opentag = false;
         appendChar(tempbuf, c); 
@@ -534,7 +533,7 @@ function script_data_end_tag_open_state(c) {
     case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
     case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
     case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-        beginTagName();
+        beginEndTagName();
         appendChar(tagnamebuf, c + 0x0020);
         opentag = false;
         appendChar(tempbuf, c); 
@@ -546,7 +545,7 @@ function script_data_end_tag_open_state(c) {
     case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
     case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
     case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-        beginTagName();
+        beginEndTagName();
         appendChar(tagnamebuf, c);
         opentag = false;
         appendChar(tempbuf, c); 
@@ -765,7 +764,7 @@ function script_data_escaped_end_tag_open_state(c) {
     case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
     case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
     case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-        beginTagName();
+        beginEndTagName();
         appendChar(tagnamebuf, c + 0x0020);
         appendChar(tempbuf, c); 
         switchTo(script_data_escaped_end_tag_name_state); 
@@ -776,7 +775,7 @@ function script_data_escaped_end_tag_open_state(c) {
     case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
     case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
     case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-        beginTagName();
+        beginEndTagName();
         appendChar(tagnamebuf, c);
         appendChar(tempbuf, c); 
         switchTo(script_data_escaped_end_tag_name_state); 

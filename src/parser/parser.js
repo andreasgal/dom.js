@@ -44,6 +44,7 @@ function HTMLParser(domimpl) {
     var doctypepublicbuf = [];
     var doctypesystembuf = [];
     var attributes = [];
+    var is_end_tag = false;
 
     // Tree builder state
     // XXX: is there a better way to indicate this?
@@ -91,8 +92,13 @@ function HTMLParser(domimpl) {
 #define pushState() push(savedTokenizerStates, tokenizerState)
 #define popState() tokenizerState = pop(savedTokenizerStates)
 #define beginTagName() \
-    tagnamebuf.length = 0 \
-    attributes.length = 0;
+    is_end_tag = false; \
+    tagnamebuf.length = 0; \
+    attributes.length = 0
+#define beginEndTagName() \
+    is_end_tag = true; \
+    tagnamebuf.length = 0; \
+    attributes.length = 0
 
 #define beginTempBuf() tempbuf.length = 0
 #define beginAttrName() attrnamebuf.length = 0
@@ -127,8 +133,13 @@ function HTMLParser(domimpl) {
             insertionMode(s.charCodeAt(i));
     }
 
-#define emitTag() insertionMode(TAG, buf2str(tagnamebuf), attributes)
-#define emitSelfClosingTag() insertionMode(TAG, buf2str(tagnamebuf), attributes,true)
+#define emitTag() \
+    if (is_end_tag) insertionMode(ENDTAG, buf2str(tagnamebuf)); \
+    else insertionMode(TAG, buf2str(tagnamebuf), attributes)
+#define emitSelfClosingTag() \
+    if (is_end_tag) insertionMode(ENDTAG, buf2str(tagnamebuf), null, true); \
+    else insertionMode(TAG, buf2str(tagnamebuf), attributes, true)
+
 #define emitComment() insertionMode(COMMENT, buf2str(commentbuf))
 #define emitCommentString(s) insertionMode(COMMENT, s)
 #define emitDoctype() \
