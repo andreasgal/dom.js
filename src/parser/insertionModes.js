@@ -121,107 +121,29 @@ var dddtSet = {
     }
 };
 
-var inScopeSet = {
-    HTML_NAMESPACE: {
-        "applet":true,
-        "caption":true,
-        "html":true,
-        "table":true,
-        "td":true,
-        "th":true,
-        "marquee":true,
-        "object":true,
-    },
-    MATHML_NAMESPACE: {
-        "mi":true,
-        "mo":true,
-        "mn":true,
-        "ms":true,
-        "mtext":true,
-        "annotation-xml":true,
-    },
-    SVG_NAMESPACE: {
-        "foreignObject":true,
-        "desc":true,
-        "title":true,
-    }
-};
-
-var inListItemScopeSet = Object.create(inScopeSet);
-inListItemScopeSet.HTML_NAMESPACE = Object.create(inScopeSet.HTML_NAMESPACE);
-inListItemScopeSet.HTML_NAMESPACE.ol = true;
-inListItemScopeSet.HTML_NAMESPACE.ul = true;
-
-var inButtonScopeSet = Object.create(inScopeSet);
-inButtonScopeSet.HTML_NAMESPACE = Object.create(inScopeSet.HTML_NAMESPACE);
-inButtonScopeSet.HTML_NAMESPACE.button = true;
-
-var inTableScopeSet = {
-    HTML_NAMESPACE: {
-        "html":true,
-        "table":true
-    }
-};
-
-// The set of elements for select scope is the everything *except* these
-var invertedSelectScopeSet = {
-    HTML_NAMESPACE: {
-        "optgroup":true,
-        "option":true
-    }
-}
 
 // Determine whether the element is a member of the set.
 // The set is an object that maps namespaces to objects. The objects
 // then map local tagnames to the value true if that tag is part of the set
 function isA(elt, set) {
-    var o = set[elt.namespaceURI];
-    if (o)
-        return elt.localName in o;
-    else
-        return false;
+    var tagnames = set[elt.namespaceURI];
+    return tagnames ? elt.localName in tagnames : false;
 }
 
-function inSpecificScope(target, set) {
-    for(var i = openelts.length-1; i >= 0; i--) {
-        var elt = openelts[i];
-        var ns = elt.namespaceURI;
-        var localname = elt.localName;
-        if (ns === HTML_NAMESPACE && localname === target) return true;
-        var tags = set[ns];
-        if (tags && localname in tags) return false;
+
+var impliedEndTagsSet = {
+    HTML_NAMESPACE: {
+        "dd": true,
+        "dt": true,
+        "li": true,
+        "option": true,
+        "optgroup": true,
+        "p": true,
+        "rp": true,
+        "rt": true
     }
-    return false;
-}
+};
 
-function inScope(tag) {
-    return inSpecificScope(tag, inScopeSet);
-}
-
-function inButtonScope(tag) {
-    return inSpecificScope(tag, inButtonScopeSet);
-}
-
-function inListItemScope(tag) {
-    return inSpecificScope(tag, inListItemScopeSet);
-}
-
-function inTableScope(tag) {
-    return inSpecificScope(tag, inTableScopeSet);
-}
-
-function inSelectScope(tag) {
-    // Can't implement this one with inSpecificScope, since it involves
-    // a set defined by inverting another set. So implement manually.
-    for(var i = openelts.length-1; i >= 0; i--) {
-        var elt = openelts[i];
-        if (elt.namespaceURI !== HTML_NAMESPACE) return false;
-        var localname = elt.localName;
-        if (localname === target) return true;
-        if (localname !== "optgroup" && localname !== "option") return false;
-    }
-    return false;
-}
 
 function parseRawText(name, attrs) {
     insertHTMLElt(name, attrs);
@@ -302,7 +224,7 @@ function before_html(t,a1,a2,a3) {
     case TAG:
         if (a1 === "html") {
             var elt = doc.createElement(a1);
-            pushElement(elt);
+            stack.push(elt);
             doc.appendChild(elt);
             // XXX: handle application cache here
             insertionMode = before_head;
@@ -321,7 +243,7 @@ function before_html(t,a1,a2,a3) {
 
     // Anything that didn't get handled above is handled like this:
     var elt = doc.createElement("html");
-    pushElement(elt);
+    stack.push(elt);
     doc.appendChild(elt);
     // XXX: handle application cache here
     insertionMode = before_head;
@@ -340,7 +262,7 @@ function before_head(t,a1,a2,a3) {
         /* ignore the token */
         return;
     case COMMENT:
-        currentnode.appendChild(doc.createComment(a1));
+        stack.top.appendChild(doc.createComment(a1));
         return;
     case TAG:
         switch(a1) {
@@ -401,7 +323,7 @@ function in_head(t, a1, a2, a3) {
         case "command":
         case "link":
             insertHTMLElt(a1, a2);
-            popElement();
+            stack.pop();
             return;
         case "title":
             parseRCDATA(a1, a2);
@@ -424,8 +346,8 @@ function in_head(t, a1, a2, a3) {
             elt.force_async = false;
             if (fragment) elt.already_started = true;
             flushText();
-            currentnode.appendChild(elt);
-            pushElement(elt);
+            stack.top.appendChild(elt);
+            stack.push(elt);
 
             tokenizerState = script_data_state;
             originalInsertionMode = insertionMode;
@@ -438,7 +360,7 @@ function in_head(t, a1, a2, a3) {
     case ENDTAG:
         switch(a1) {
         case "head":
-            popElement();
+            stack.pop();
             insertionMode = after_head;
             return;
         case "body":
@@ -491,7 +413,7 @@ function in_head_noscript(t, a1, a2, a3) {
     case ENDTAG:
         switch(a1) {
         case "noscript":
-            popElement();
+            stack.pop();
             insertionMode = in_head;
             return;
         case "br":
@@ -544,9 +466,9 @@ function after_head(t, a1, a2, a3) {
         case "script":
         case "style":
         case "title":
-            pushElement(head_element_pointer);
+            stack.push(head_element_pointer);
             in_head(TAG, a1, a2);
-            popElement();
+            stack.removeElement(head_element_pointer);
             return;
         case "head":
             return;
@@ -582,7 +504,7 @@ function in_body(t,a1,a2,a3) {
         case 0x000C:
         case 0x000D:
         case 0x0020:
-            reconstructActiveFormattingElements();
+            afe.reconstruct();
             insertText(t);
             break;
         }
@@ -601,7 +523,7 @@ function in_body(t,a1,a2,a3) {
     case TAG:
         switch(a1) {
         case "html":
-            transferAttributes(a2, openelts[0]);
+            transferAttributes(a2, stack.elements[0]);
             return;
         case "base":
         case "basefont":
@@ -616,17 +538,17 @@ function in_body(t,a1,a2,a3) {
             in_head(TAG, a1, a2);
             return;
         case "body":
-            var body = openelts[1];
+            var body = stack.elements[1];
             if (!body || !(body instanceof impl.HTMLBodyElement)) return;
             frameset_ok = false;
             transferAttributes(a2, body);
             return;
         case "frameset":
             if (!framset_ok) return;
-            var body = openelts[1];
+            var body = stack.elements[1];
             if (!body || !(body instanceof impl.HTMLBodyElement)) return;
             if (body.parentNode) body.parentNode.removeChild(body);
-            while(!(currentnode instanceof impl.HTMLHtmlElement)) popElement();
+            while(!(stack.top instanceof impl.HTMLHtmlElement)) stack.pop();
             insertHTMLElt(a1, a2);
             insertionMode = in_frameset;
             return;
@@ -653,7 +575,7 @@ function in_body(t,a1,a2,a3) {
         case "section":
         case "summary":
         case "ul":
-            if (inButtonScope("p")) in_body(ENDTAG, "p");
+            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             return;
 
@@ -663,14 +585,14 @@ function in_body(t,a1,a2,a3) {
         case "h4":
         case "h5":
         case "h6":
-            if (inButtonScope("p")) in_body(ENDTAG, "p");
-            if (currentnode instanceof impl.HTMLHeadingElement) popElement();
+            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
+            if (stack.top instanceof impl.HTMLHeadingElement) stack.pop();
             insertHTMLElt(a1, a2);
             return;
             
         case "pre":
         case "listing":
-            if (inButtonScope("p")) in_body(ENDTAG, "p");
+            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             // XXX need to ignore the next token if it is a linefeed.
             // How can I do this?  Can't check the array of input chars
@@ -681,13 +603,14 @@ function in_body(t,a1,a2,a3) {
 
         case "form":
             if (form_element_pointer) return;
-            if (inButtonScope("p")) in_body(ENDTAG, "p");
+            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
             form_element_pointer = insertHTMLElt(a1, a2);
+            return;
 
         case "li":
             frameset_ok = false;
-            for(var i = openelts.length-1; i >= 0; i--) {
-                var node = openelts[i];
+            for(var i = stack.elements.length-1; i >= 0; i--) {
+                var node = stack.elements[i];
                 if (node instanceof impl.HTMLLIElement) {
                     in_body(ENDTAG, "li", null);
                     break;
@@ -695,43 +618,79 @@ function in_body(t,a1,a2,a3) {
                 if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
                     break;
             }
-            if (inButtonScope("p")) in_body(ENDTAG, "p");
+            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             return;
 
         case "dd":
         case "dt":
             frameset_ok = false;
-            for(var i = openelts.length-1; i >= 0; i--) {
-                var node = openelts[i];
+            for(var i = stack.elements.length-1; i >= 0; i--) {
+                var node = stack.elements[i];
                 if (isA(node, dddtSet)) {
-                    in_body(ENDTAG, node.localName(), null);
+                    in_body(ENDTAG, node.localName, null);
                     break;
                 }
                 if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
                     break;
             }
-            if (inButtonScope("p")) in_body(ENDTAG, "p");
+            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             return;
             
         case "plaintext":
-            if (inButtonScope("p")) in_body(ENDTAG, "p");
+            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
             insertHTMLElt(a1, a2);
             tokenizerState = plaintext_state;
             return;
             
         case "button":
-            if (inScope("button")) {
+            if (stack.inScope("button")) {
                 in_body(ENDTAG, "button", null);
                 reprocess(t, a1, a2)
             }
             else {
-                reconstructActiveFormattingElements();
+                afe.reconstruct();
                 insertHTMLElt(a1, a2);
                 frameset_ok = false;
             }
             return;
+
+        case "a":
+            var activeElement = afe.findElementByTag("a");
+            if (activeElement) {
+                in_body(ENDTAG, a1);
+                afe.remove(activeElement);
+                stack.removeElement(activeElement);
+            }
+            /* fallthrough */
+
+        case "b":
+        case "big":
+        case "code":
+        case "em":
+        case "font":
+        case "i":
+        case "s":
+        case "small":
+        case "strike":
+        case "strong":
+        case "tt":
+        case "u":
+            afe.reconstruct();
+            afe.push(insertHTMLElt(a1,a2));
+            return;
+
+        case "nobr":
+            afe.reconstruct();
+
+            if (stack.inScope(a1)) {
+                in_body(ENDTAG, a1);
+                afe.reconstruct();
+            }
+            afe.push(insertHTMLElt(a1,a2));
+            return;
+
         }
         break;
 
@@ -739,18 +698,178 @@ function in_body(t,a1,a2,a3) {
     case ENDTAG:
         switch(a1) {
         case "body":
-            if (!inScope("body")) return;
+            if (!stack.inScope("body")) return;
             insertionMode = after_body;
             return;
         case "html":
-            if (!inScope("body")) return;
+            if (!stack.inScope("body")) return;
             insertionMode = after_body;
             reprocess(t, a1, a2);
             return;
 
+        case "address":
+        case "article":
+        case "aside":
+        case "blockquote":
+        case "button":
+        case "center":
+        case "details":
+        case "dir":
+        case "div":
+        case "dl":
+        case "fieldset":
+        case "figcaption":
+        case "figure":
+        case "footer":
+        case "header":
+        case "hgroup":
+        case "listing":
+        case "menu":
+        case "nav":
+        case "ol":
+        case "pre":
+        case "section":
+        case "summary":
+        case "ul":
+            // Ignore if there is not a matching open tag
+            if (!stack.inScope(a1)) return;
+            stack.generateImpliedEndTags();
+            stack.popTag(a1);
+            return;
+
+        case "form":
+            var openform = form_element_pointer;
+            form_element_pointer = null;
+            if (openform == null || !stack.elementInScope(openform)) return;
+            stack.generateImpliedEndTags();
+            stack.removeElement(openform);
+            return;
+
+        case "p":
+            if (!stack.inButtonScope(a1)) {
+                in_body(TAG, a1, null);
+                reprocess(t, a1, a2, a3);
+            }
+            else {
+                stack.generateImpliedEndTags(a1);
+                stack.popTag(a1);
+            }
+            return;
+
+        case "li":
+            if (!stack.inListItemScope(a1)) return;
+            stack.generateImpliedEndTags(a1);
+            stack.popTag(a1);
+            return;
+
+        case "dd":
+        case "dt":
+            if (!stack.inScope(a1)) return;
+            stack.generateImpliedEndTags(a1);
+            stack.popTag(a1);
+            return;
+
+        case "h1":
+        case "h2":
+        case "h3":
+        case "h4":
+        case "h5":
+        case "h6":
+            if (!stack.elementTypeInScope(impl.HTMLHeadingElement)) return;
+            stack.generateImpliedEndTags();
+            stack.popElementType(impl.HTMLHeadingElement);
+            return;
+            
+        case "a":
+        case "b":
+        case "big":
+        case "code":
+        case "em":
+        case "font":
+        case "i":
+        case "nobr":
+        case "s":
+        case "small":
+        case "strike":
+        case "strong":
+        case "tt":
+        case "u":
+            adoptionAgency(a1);
+            // check return value and either return or break?
         }
         break;
     }
 }
 
 
+function adoptionAgency(tag) {
+    var outer = 0;
+    while(outer < 8) {
+        outer++;
+        var fmtelt = afe.findElementByTag(tag);
+        if (!fmtelt)
+            return false;  // false means handle by the default case
+
+        var index = A.lastIndexOf(stack.elements, fmtelt);
+
+        if (index === -1) {
+            afe.remove(fmtelt);
+            return true;   // true means no more handling required
+        }
+
+        if (!stack.elementInScope(fmtelt)) {
+            return true;
+        }
+
+        var furthestblock = null, furthestblockindex;
+        for(var i = index+1; i < stack.elements.length; i++) {
+            if (isA(stack.elements[i], specialSet)) {
+                furthestblock = stack.elements[i];
+                furthestblockindex = i;
+                break;
+            }
+        }
+
+        if (!furthestblock) {
+            stack.popElement(fmtelt);
+            afe.remove(fmtelt);
+        }
+        else {
+            var ancestor = stack.elements[index-1];
+            // XXX: a numerical bookmark might not be enough...
+            // XXX do I need to insert something into the list?
+            var bookmark = A.lastIndexOf(afe.list, fmtelt);
+            
+            var node = furthestblock;
+            var lastnode = furthestblock;
+            var nodeindex = furthestblockindex;
+            var inner = 0; 
+            while(inner < 3) {
+                inner++;
+                node = stack.elements[--nodeindex];
+                if (!afe.contains(node)) {
+                    stack.removeElement(node);
+                    continue;
+                }
+                if (node === fmtelt) break;
+
+                var newelt = node.cloneNode(false);
+                afe.replace(node, newelt);
+                stack.elements[nodeindex] = newelt;
+                node = newelt;
+
+                if (lastnode === furthestblock) {
+                    // move the aforementioned bookmark to be
+                    // immediately after the new node in the list of
+                    // active formatting elements.
+                    huh() // XXX what do I do here?
+                }
+                
+                node.appendChild(lastnode);
+                lastnode = node;
+            }
+
+            
+        }
+        
+}

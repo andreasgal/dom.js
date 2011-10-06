@@ -47,15 +47,15 @@ function HTMLParser(domimpl) {
     var is_end_tag = false;
 
     // Tree builder state
-    // XXX: is there a better way to indicate this?
     var fragment = false; // Are we parsing a fragment?
     var script_nesting_level = 0;
     var parser_pause_flag = false;
     var insertionMode = initial_mode;
     var originalInsertionMode = null;
-    var currentnode = null;
-    var openelts = [];
-    var active_formatting_elements = [];
+//    var currentnode = null;
+//    var openelts = [];
+    var stack = new ElementStack();
+    var afe = new ActiveFormattingElements();
     var head_element_pointer = null;
     var form_element_pointer = null;
     var scripting_enabled = true;  // Constructor argument to set this false?
@@ -112,7 +112,7 @@ function HTMLParser(domimpl) {
 #define beginDoctypeSystemId() doctypesystembuf = []
 #define appendChar(buf, char) push(buf, char)
 #define forcequirks() force_quirks = true
-#define cdataAllowed() openelts[openelts.length-1].namespaceURI !== "http://www.w3.org/1999/xhtml"
+#define cdataAllowed() stack.top.namespaceURI !== "http://www.w3.org/1999/xhtml"
 
 // Back up one character so the codepoint just passed to the tokenizer
 // gets passed to the tokenizer again. If the scanner was at CRLF
@@ -151,15 +151,17 @@ function HTMLParser(domimpl) {
 
 // Tree building macros and functions
 #define reprocess(t,a1,a2,a3) insertionMode(t,a1,a2,a3)
+/*
 #define pushElement(e) \
     push(openelts, e); \
     currentnode = e
 #define popElement() \
     pop(openelts); \
     currentnode = openelts[openelts.length-1]
+*/
 #define insertComment(data) \
     flushText(); \
-    currentnode.appendChild(doc.createComment(data))
+    stack.top.appendChild(doc.createComment(data))
 
     function insertText(t) {
         push(pendingText, t);
@@ -172,11 +174,11 @@ function HTMLParser(domimpl) {
     function flushText() {
         if (pendingText.length > 0) {
             var s = buf2str(pendingText);
-            if (currentNode.lastChild.nodeType === Node.TEXT_NODE) {
-                currentNode.lastChild.appendData(s);
+            if (stack.top.lastChild.nodeType === Node.TEXT_NODE) {
+                stack.top.lastChild.appendData(s);
             }
             else {
-                currentNode.appendChild(doc.createTextNode(s));
+                stack.top.appendChild(doc.createTextNode(s));
             }
             pendingText.length = 0;
         }
@@ -198,7 +200,7 @@ function HTMLParser(domimpl) {
     function insertHTMLElt(name, attrs) {
         flushText();
         var elt = createHTMLElt(name, attrs);
-        currentNode.appendChild(elt);
+        stack.top.appendChild(elt);
         pushElement(elt);
 
         // XXX
@@ -210,6 +212,8 @@ function HTMLParser(domimpl) {
 #include "parseCharacterReference.js"
 #include "tokenizerStates.js"
 #include "insertionModes.js"
+#include "activeFormattingElements.js"
+#include "elementStack.js"
 
     // Add the string s to the scanner.
     // Pass true as the second argument if this is the end of the data.
