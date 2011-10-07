@@ -197,10 +197,20 @@ function HTMLParser(domimpl) {
         return elt;
     }
     
-    function insertHTMLElt(name, attrs) {
+    // The in_table insertion mode turns on this flag, and that makes
+    // insertHTMLElement use the foster parenting algorithm for elements
+    // tags inside a table
+    var foster_parent_mode = false;
+
+    function insertHTMLElement(name, attrs) {
         flushText();
         var elt = createHTMLElt(name, attrs);
-        stack.top.appendChild(elt);
+
+        if (foster_parent_mode) 
+            stack.getFosterParent().appendChild(elt);
+        else
+            stack.top.appendChild(elt);
+
         pushElement(elt);
 
         // XXX
@@ -208,6 +218,26 @@ function HTMLParser(domimpl) {
 
         return elt;
     }
+
+
+    function insertForeignElement(name, attrs, ns) {
+        flushText();
+        var elt = doc.createElementNS(name, ns);
+        
+        if (attrs) {
+            for(var i = 0, n = attrs.length; i < n; i++) {
+                var attr = attrs[i];
+                if (attr.length == 2) 
+                    elt.setAttribute(attr[0], attr[1]);
+                else
+                    elt.setAttributeNS(attr[2], attr[0], attr[1]);
+            }
+        }
+
+        stack.top.appendChild(elt);
+        pushElement(elt);
+    }
+
 
 #include "parseCharacterReference.js"
 #include "tokenizerStates.js"

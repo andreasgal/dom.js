@@ -170,7 +170,10 @@ defineLazyProperty(impl, "Document", function() {
 
         // XXX: DOMCore may remove documentURI, so it is NYI for now
         documentURI: attribute(nyi, nyi),
-        compatMode: constant("CSS1Compat"),
+        compatMode: attribute(function() {
+            // The _quirks property is set by the HTML parser
+            return this._quirks ? "BackCompat" : "CSS1Compat";
+        }),
         parentNode: constant(null),
 
         createTextNode: constant(function(data) {
