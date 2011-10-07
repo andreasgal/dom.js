@@ -74,6 +74,16 @@ var ElementStack = (function() {
         return A.lastIndexOf(this.elements, elt) !== -1;
     }
 
+    ElementStack.prototype.getFosterParent() {
+        for(var i = this.elements.length-1; i >= 0; i--) {
+            if (this.elements[i] instanceof HTMLTableElement) {
+                var parent = this.elements[i].parentElement;
+                return parent ? parent: this.elements[i-1];
+            }
+        }
+        return this.elements[0];
+    }
+
     ElementStack.prototype.inSpecificScope = function(tag, set) {
         for(var i = this.elements.length-1; i >= 0; i--) {
             var elt = this.elements[i];

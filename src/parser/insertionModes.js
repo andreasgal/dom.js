@@ -801,26 +801,49 @@ function in_body(t,a1,a2,a3) {
     }
 }
 
+var BOOKMARK = {};
 
 function adoptionAgency(tag) {
+    // Let outer loop counter be zero.
     var outer = 0;
+
+    // Outer loop: If outer loop counter is greater than or equal to eight,
+    // then abort these steps.
     while(outer < 8) {
+        // Increment outer loop counter by one.
         outer++;
+
+        // Let the formatting element be the last element in the list of active
+        // formatting elements that: is between the end of the list and the
+        // last scope marker in the list, if any, or the start of the list
+        // otherwise, and has the same tag name as the token.
         var fmtelt = afe.findElementByTag(tag);
+
+
+        // If there is no such node, then abort these steps and instead act as
+        // described in the "any other end tag" entry below.
         if (!fmtelt)
             return false;  // false means handle by the default case
 
+        // Otherwise, if there is such a node, but that node is not in the
+        // stack of open elements, then this is a parse error; remove the
+        // element from the list, and abort these steps.
         var index = A.lastIndexOf(stack.elements, fmtelt);
-
         if (index === -1) {
             afe.remove(fmtelt);
             return true;   // true means no more handling required
         }
 
+        // Otherwise, if there is such a node, and that node is also in the
+        // stack of open elements, but the element is not in scope, then this
+        // is a parse error; ignore the token, and abort these steps.
         if (!stack.elementInScope(fmtelt)) {
             return true;
         }
 
+        // Let the furthest block be the topmost node in the stack of open
+        // elements that is lower in the stack than the formatting element, and
+        // is an element in the special category. There might not be one.
         var furthestblock = null, furthestblockindex;
         for(var i = index+1; i < stack.elements.length; i++) {
             if (isA(stack.elements[i], specialSet)) {
@@ -830,46 +853,136 @@ function adoptionAgency(tag) {
             }
         }
 
+        // If there is no furthest block, then the UA must skip the subsequent
+        // steps and instead just pop all the nodes from the bottom of the
+        // stack of open elements, from the current node up to and including
+        // the formatting element, and remove the formatting element from the
+        // list of active formatting elements.
         if (!furthestblock) {
             stack.popElement(fmtelt);
             afe.remove(fmtelt);
         }
         else {
+            // Let the common ancestor be the element immediately above the
+            // formatting element in the stack of open elements.
             var ancestor = stack.elements[index-1];
-            // XXX: a numerical bookmark might not be enough...
-            // XXX do I need to insert something into the list?
-            var bookmark = A.lastIndexOf(afe.list, fmtelt);
+
+            // Let a bookmark note the position of the formatting element in
+            // the list of active formatting elements relative to the elements
+            // on either side of it in the list.
+            afe.insertAfter(fmtelt, BOOKMARK);
             
+            // Let node and last node be the furthest block. 
             var node = furthestblock;
             var lastnode = furthestblock;
             var nodeindex = furthestblockindex;
+
+            // Let inner loop counter be zero.
             var inner = 0; 
+
+            // Inner loop: If inner loop counter is greater than or equal to
+            // three, then abort these steps.
             while(inner < 3) {
+                // Increment inner loop counter by one.
                 inner++;
+                // Let node be the element immediately above node in the stack
+                // of open elements, or if node is no longer in the stack of
+                // open elements (e.g. because it got removed by the next
+                // step), the element that was immediately above node in the
+                // stack of open elements before node was removed.
                 node = stack.elements[--nodeindex];
+
+                // If node is not in the list of active formatting elements,
+                // then remove node from the stack of open elements and then go
+                // back to the step labeled inner loop.
                 if (!afe.contains(node)) {
                     stack.removeElement(node);
                     continue;
                 }
+
+                // Otherwise, if node is the formatting element, then go to the
+                // next step in the overall algorithm.
                 if (node === fmtelt) break;
 
+                // Create an element for the token for which the element node
+                // was created, replace the entry for node in the list of
+                // active formatting elements with an entry for the new
+                // element, replace the entry for node in the stack of open
+                // elements with an entry for the new element, and let node be
+                // the new element.
                 var newelt = node.cloneNode(false);
                 afe.replace(node, newelt);
                 stack.elements[nodeindex] = newelt;
                 node = newelt;
 
+                // If last node is the furthest block, then move the
+                // aforementioned bookmark to be immediately after the new node
+                // in the list of active formatting elements.
                 if (lastnode === furthestblock) {
-                    // move the aforementioned bookmark to be
-                    // immediately after the new node in the list of
-                    // active formatting elements.
-                    huh() // XXX what do I do here?
+                    afe.remove(BOOKMARK);
+                    afe.insertAfter(newelt, BOOKMARK);
                 }
                 
+                // Insert last node into node, first removing it from its
+                // previous parent node if any.
                 node.appendChild(lastnode);
+
+                // Let last node be node.
                 lastnode = node;
             }
 
-            
+            // If the common ancestor node is a table, tbody, tfoot, thead, or
+            // tr element, then, foster parent whatever last node ended up
+            // being in the previous step, first removing it from its previous
+            // parent node if any.
+            if (isA(ancestor, tablesectionrowSet)) {
+                var fosterparent = stack.getFosterParent();
+                fosterparent.appendChild(lastnode);
+            }
+            // Otherwise, append whatever last node ended up being in the
+            // previous step to the common ancestor node, first removing it
+            // from its previous parent node if any.
+            else {
+                ancestor.appendChild(lastnode);
+            }
+
+            // Create an element for the token for which the formatting element
+            // was created.
+            var newelt = fmtelt.cloneNode(false);
+
+            // Take all of the child nodes of the furthest block and append
+            // them to the element created in the last step.
+            while(furthestblock.hasChildNodes()) {
+                newelt.appendChild(furthestblock.firstChild);
+            }
+
+            // Append that new element to the furthest block.
+            furthestblock.appendChild(newelt);
+
+            // Remove the formatting element from the list of active formatting
+            // elements, and insert the new element into the list of active
+            // formatting elements at the position of the aforementioned
+            // bookmark.
+            afe.remove(fmtelt);
+            afe.replace(BOOKMARK, newelt);
+
+            // Remove the formatting element from the stack of open elements,
+            // and insert the new element into the stack of open elements
+            // immediately below the position of the furthest block in that
+            // stack.
+            stack.removeElement(fmtelt);
+            var pos = A.lastIndexOf(stack.elements, furthestblock);
+            splice(stack.elements, pos, 0, newelt);
         }
-        
+    }
 }
+
+var tablesectionrowSet = {
+    HTML_NAMESPACE: {
+        "table":true,
+        "thead":true,
+        "tbody":true,
+        "tfoot":true,
+        "tr":true
+    }
+};

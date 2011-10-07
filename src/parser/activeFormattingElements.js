@@ -96,6 +96,11 @@ ActiveFormattingElements.prototype.findElementByTag = function(tag) {
     return null;
 }
 
+ActiveFormattingElements.prototype.contains = function(e) {
+    var idx = A.lastIndexOf(this.list, e);
+    return idx !== -1;
+}
+
 // Find the element e in the list and remove it
 // Used when parsing <a> in_body()
 ActiveFormattingElements.prototype.remove = function(e) {
@@ -103,7 +108,14 @@ ActiveFormattingElements.prototype.remove = function(e) {
     if (idx !== -1) splice(this.list, idx, 1);
 }
 
-ActiveFormattingElements.prototype.contains = function(e) {
-    var idx = A.lastIndexOf(this.list, e);
-    return idx !== -1;
+// Find element a in the list and replace it with element b
+ActiveFormattingElements.prototype.replace = function(a, b) {
+    var idx = A.lastIndexOf(this.list, a);
+    if (idx !== -1) this.list[idx] = b;
+}
+
+// Find a in the list and insert b after it
+ActiveFormattingElements.prototype.insertAfter = function(a,b) {
+    var idx = A.lastIndexOf(this.list, a);
+    if (idx !== -1) splice(this.list, idx, 0, b);
 }
