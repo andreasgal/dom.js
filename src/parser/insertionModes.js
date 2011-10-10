@@ -158,14 +158,14 @@ function parseRawText(name, attrs) {
     insertHTMLElement(name, attrs);
     tokenizerState = rawtext_state;
     originalInsertionMode = insertionMode;
-    insertionMode = text;
+    insertionMode = text_mode;
 }
 
 function parseRCDATA(name, attributes) {
     insertHTMLElement(name, attrs);
     tokenizerState = rcdata_state;
     originalInsertionMode = insertionMode;
-    insertionMode = text;
+    insertionMode = text_mode;
 }
 
 var svgAttrAdjustments = {
@@ -454,24 +454,28 @@ function adoptionAgency(tag) {
     return true;
 }
 
+var nonWS = /[^\x09\x0A\x0C\x0D\x20]/;
+var leadingWS = /^[\x09\x0A\x0C\x0D\x20]+/;
+function trimLeadingWS(s) {
+    // Can I be more efficient than this?
+    return s.replace(leadingWS, "");  
+}
+
 
 // 11.2.5.4.1 The "initial" insertion mode
-function initial_mode(t, a1, a2, a3) {
+function initial_mode(t, value, arg3, arg4) {
     switch(t) {
-    case 0x0009: 
-    case 0x000A:
-    case 0x000C:
-    case 0x000D:
-    case 0x0020:
-        /* ignore the token */
-        break;  
+    case TEXT:
+        value = trimLeadingWS(value); // Ignore spaces
+        if (value.length === 0) return; // Are we done?
+        break;  // Handle anything non-space text below
     case COMMENT:
-        doc.appendChild(doc.createComment(a1));
-        break;
+        doc.appendChild(doc.createComment(value));
+        return;
     case DOCTYPE:
-        var name = a1;
-        var publicid = a2;
-        var systemid = a3;
+        var name = value;
+        var publicid = arg3;
+        var systemid = arg4;
         doc.appendChild(doc.implementation.createDocumentType(name,
                                                               publicid || "",
                                                               systemid || ""));
@@ -489,41 +493,41 @@ function initial_mode(t, a1, a2, a3) {
                  (systemid !== undefined &&
                   conditionallyQuirkyPublicIds.test(publicId)))
             doc._limitedQuirks = true;
-        insertionMode = before_html;
-        break;
-    default:  // tags or non-whitespace text
-        doc._quirks = true;
-        insertionMode = before_html;
-        reprocess(t,a1,a2,a3);
-        break;
+        insertionMode = before_html_mode;
+        return;
     }
+
+    // tags or non-whitespace text
+    doc._quirks = true;
+    insertionMode = before_html_mode;
+    reprocess(t,value,arg3,arg4);
 }
 
 // 11.2.5.4.2 The "before html" insertion mode
-function before_html(t,a1,a2,a3) {
+function before_html_mode(t,value,arg3,arg4) {
     switch(t) {
-    case 0x0009: 
-    case 0x000A:
-    case 0x000C:
-    case 0x000D:
-    case 0x0020:
+    case TEXT:
+        value = trimLeadingWS(value);   // Ignore spaces
+        if (value.length === 0) return; // Are we done?
+        break;  // Handle anything non-space text below
     case DOCTYPE:
         /* ignore the token */
         return;
     case COMMENT:
-        doc.appendChild(doc.createComment(a1));
+        doc.appendChild(doc.createComment(value));
         return;
     case TAG:
-        if (a1 === "html") {
-            var elt = doc.createElement(a1);
+        if (value === "html") {
+            var elt = doc.createElement(value);
             stack.push(elt);
             doc.appendChild(elt);
             // XXX: handle application cache here
-            insertionMode = before_head;
+            insertionMode = before_head_mode;
             return;
         }
+        break;
     case ENDTAG:
-        switch(a1) {
+        switch(value) {
         case "head":
         case "body":
         case "br":
@@ -538,39 +542,38 @@ function before_html(t,a1,a2,a3) {
     stack.push(elt);
     doc.appendChild(elt);
     // XXX: handle application cache here
-    insertionMode = before_head;
-    reprocess(t,a1,a2,a3);
+    insertionMode = before_head_mode;
+    reprocess(t,value,arg3,arg4);
 }
 
 // 11.2.5.4.3 The "before head" insertion mode
-function before_head(t,a1,a2,a3) {
+function before_head_mode(t,value,arg3,arg4) {
     switch(t) {
-    case 0x0009: 
-    case 0x000A:
-    case 0x000C:
-    case 0x000D:
-    case 0x0020:
+    case TEXT:
+        value = trimLeadingWS(value);   // Ignore spaces
+        if (value.length === 0) return; // Are we done?
+        break;  // Handle anything non-space text below
     case DOCTYPE:
         /* ignore the token */
         return;
     case COMMENT:
-        stack.top.appendChild(doc.createComment(a1));
+        stack.top.appendChild(doc.createComment(value));
         return;
     case TAG:
-        switch(a1) {
+        switch(value) {
         case "html":
-            in_body(t,a1,a2,a3);
+            in_body_mode(t,value,arg3,arg4);
             return;
         case "head":
-            var elt = insertHTMLElement(name, a2);
+            var elt = insertHTMLElement(name, arg3);
             head_element_pointer = elt;
-            insertionMode = in_head;
+            insertionMode = in_head_mode;
             return;
         default:
             break;
         }
     case ENDTAG:
-        switch(a1) {
+        switch(value) {
         case "html":
         case "head":
         case "body":
@@ -582,28 +585,29 @@ function before_head(t,a1,a2,a3) {
     }
 
     // If not handled explicitly above
-    before_head(TAG, "head", null);  // create a head tag
-    reprocess(t, a1, a2);            // then try again with this token
+    before_head_mode(TAG, "head", null);  // create a head tag
+    reprocess(t, value, arg3);       // then try again with this token
 }
 
-function in_head(t, a1, a2, a3) {
+function in_head_mode(t, value, arg3, arg4) {
     switch(t) {
-    case 0x0009: 
-    case 0x000A:
-    case 0x000C:
-    case 0x000D:
-    case 0x0020:
-        insertText(t);
-        return;
+    case TEXT:
+        var ws = value.match(leadingWS);
+        if (ws) {
+            insertText(ws[0]);
+            value = value.substring(ws[0].length);
+        }
+        if (value.length === 0) return;
+        break; // Handle non-whitespace below
     case COMMENT:
-        insertComment(a1);
+        insertComment(value);
         return;
     case DOCTYPE:
         return;
     case TAG:
-        switch(a1) {
+        switch(value) {
         case "html":
-            in_body(t, a1, a2, a3);
+            in_body_mode(t, value, arg3, arg4);
             return;
         case "meta":
             // XXX: 
@@ -614,26 +618,26 @@ function in_head(t, a1, a2, a3) {
         case "bgsound":
         case "command":
         case "link":
-            insertHTMLElement(a1, a2);
+            insertHTMLElement(value, arg3);
             stack.pop();
             return;
         case "title":
-            parseRCDATA(a1, a2);
+            parseRCDATA(value, arg3);
             return;
         case "noscript":
             if (!scripting_enabled) {
-                insertHTMLElement(a1, a2);
-                insertionMode = in_head_noscript;
+                insertHTMLElement(value, arg3);
+                insertionMode = in_head_noscript_mode;
                 return;
             }
             // Otherwise, if scripting is enabled...
             /* fallthrough */
         case "noframes":
         case "style":
-            parseRawText(a1,a2);
+            parseRawText(value,arg3);
             return;
         case "script":
-            var elt = createHTMLElt(a1, a2);
+            var elt = createHTMLElt(value, arg3);
             elt.parser_inserted = true;
             elt.force_async = false;
             if (fragment) elt.already_started = true;
@@ -643,17 +647,17 @@ function in_head(t, a1, a2, a3) {
 
             tokenizerState = script_data_state;
             originalInsertionMode = insertionMode;
-            insertionMode = text;
+            insertionMode = text_mode;
             return;
         case "head":
             return; // ignore it
         }
         break;
     case ENDTAG:
-        switch(a1) {
+        switch(value) {
         case "head":
             stack.pop();
-            insertionMode = after_head;
+            insertionMode = after_head_mode;
             return;
         case "body":
         case "html":
@@ -667,27 +671,30 @@ function in_head(t, a1, a2, a3) {
     }
 
     // If not handled above
-    in_head(ENDTAG, "head", null); // synthetic </head>
-    reprocess(t, a1, a2, a3);      // Then redo this one
+    in_head_mode(ENDTAG, "head", null);     // synthetic </head>
+    reprocess(t, value, arg3, arg4);   // Then redo this one
 }
 
 // 13.2.5.4.5 The "in head noscript" insertion mode
-function in_head_noscript(t, a1, a2, a3) {
+function in_head_noscript_mode(t, value, arg3, arg4) {
     switch(t) {
     case DOCTYPE:
         return;
-    case 0x0009: 
-    case 0x000A:
-    case 0x000C:
-    case 0x000D:
-    case 0x0020:
     case COMMENT:
-        in_head(t, a1);
+        in_head_mode(t, value);
         return;
+    case TEXT:
+        var ws = value.match(leadingWS);
+        if (ws) {
+            in_head_mode(t, ws[0]);
+            value = value.substring(ws[0].length);
+        }
+        if (value.length === 0) return; // no more text
+        break; // Handle non-whitespace below
     case TAG:
-        switch(a1) {
+        switch(value) {
         case "html":
-            in_body(t, a1, a2);
+            in_body_mode(t, value, arg3);
             return;
         case "basefont":
         case "bgsound":
@@ -695,7 +702,7 @@ function in_head_noscript(t, a1, a2, a3) {
         case "meta":
         case "noframes":
         case "style":
-            in_head(t, a1, a2);
+            in_head_mode(t, value, arg3);
             return;
         case "head":
         case "noscript":
@@ -703,10 +710,10 @@ function in_head_noscript(t, a1, a2, a3) {
         }
         break;
     case ENDTAG:
-        switch(a1) {
+        switch(value) {
         case "noscript":
             stack.pop();
-            insertionMode = in_head;
+            insertionMode = in_head_mode;
             return;
         case "br":
             break;  // fallthrough to the outer default
@@ -717,37 +724,38 @@ function in_head_noscript(t, a1, a2, a3) {
     }
 
     // If not handled above
-    in_head_noscript(ENDTAG, "noscript", null);
-    reprocess(t, a1, a2, a3);
+    in_head_noscript_mode(ENDTAG, "noscript", null);
+    reprocess(t, value, arg3, arg4);
 }
 
-function after_head(t, a1, a2, a3) {
+function after_head_mode(t, value, arg3, arg4) {
     switch(t) {
-    case 0x0009: 
-    case 0x000A:
-    case 0x000C:
-    case 0x000D:
-    case 0x0020:
-        insertText(t);
-        return;
+    case TEXT:
+        var ws = value.match(leadingWS);
+        if (ws) {
+            insertText(ws[0]);
+            value = value.substring(ws[0].length);
+        }
+        if (value.length === 0) return;
+        break; // Handle non-whitespace below
     case COMMENT:
-        insertComment(a1);
+        insertComment(value);
         return;
     case DOCTYPE:
         return;
     case TAG:
-        switch(a1) {
+        switch(value) {
         case "html":
-            in_body(t, a1, a2);
+            in_body_mode(t, value, arg3);
             return;
         case "body":
-            insertHTMLElement(a1, a2);
+            insertHTMLElement(value, arg3);
             frameset_ok = false;
-            insertionMode = in_body;
+            insertionMode = in_body_mode;
             return;
         case "frameset":
-            insertHTMLElement(a1, a2);
-            insertionMode = in_frameset;
+            insertHTMLElement(value, arg3);
+            insertionMode = in_frameset_mode;
             return;
         case "base":
         case "basefont":
@@ -759,7 +767,7 @@ function after_head(t, a1, a2, a3) {
         case "style":
         case "title":
             stack.push(head_element_pointer);
-            in_head(TAG, a1, a2);
+            in_head_mode(TAG, value, arg3);
             stack.removeElement(head_element_pointer);
             return;
         case "head":
@@ -767,55 +775,43 @@ function after_head(t, a1, a2, a3) {
         }
         break;
     case ENDTAG:
-        switch(a1) {
+        switch(value) {
         case "body":
         case "html":
         case "br":
-            break; // and fallthrough
+            break;
         default:
             return;  // ignore any other end tag
         }
         break;
     }
 
-    after_head(TAG, "body", null);
+    after_head_mode(TAG, "body", null);
     frameset_ok = true;
-    reprocess(t, a1, a2, a3);
+    reprocess(t, value, arg3, arg4);
 }
 
 // 13.2.5.4.7 The "in body" insertion mode
-function in_body(t,a1,a2,a3) {
-    if (t === 0) return;
-    if (t > 0) { // A character token
-        switch(t) {
-        default: 
-            frameset_ok = false;
-            /* fallthrough */
-        case 0x0009: 
-        case 0x000A:
-        case 0x000C:
-        case 0x000D:
-        case 0x0020:
-            afe.reconstruct();
-            insertText(t);
-            break;
-        }
-        return;
-    }
-
+function in_body_mode(t,value,arg3,arg4) {
     switch(t) {
+    case TEXT:
+        if (frameset_ok && nonWS.test(value))  // If any non-space characters
+            frameset_ok = false;
+        afe.reconstruct();
+        insertText(value);
+        return;
     case DOCTYPE:
         return;
     case COMMENT:
-        insertComment(a1);
+        insertComment(value);
         return;
     case EOF:
         stopParsing();
         return;
     case TAG:
-        switch(a1) {
+        switch(value) {
         case "html":
-            transferAttributes(a2, stack.elements[0]);
+            transferAttributes(arg3, stack.elements[0]);
             return;
         case "base":
         case "basefont":
@@ -827,13 +823,13 @@ function in_body(t,a1,a2,a3) {
         case "script":
         case "style":
         case "title":
-            in_head(TAG, a1, a2);
+            in_head_mode(TAG, value, arg3);
             return;
         case "body":
             var body = stack.elements[1];
             if (!body || !(body instanceof impl.HTMLBodyElement)) return;
             frameset_ok = false;
-            transferAttributes(a2, body);
+            transferAttributes(arg3, body);
             return;
         case "frameset":
             if (!framset_ok) return;
@@ -841,8 +837,8 @@ function in_body(t,a1,a2,a3) {
             if (!body || !(body instanceof impl.HTMLBodyElement)) return;
             if (body.parentNode) body.parentNode.removeChild(body);
             while(!(stack.top instanceof impl.HTMLHtmlElement)) stack.pop();
-            insertHTMLElement(a1, a2);
-            insertionMode = in_frameset;
+            insertHTMLElement(value, arg3);
+            insertionMode = in_frameset_mode;
             return;
 
         case "address":
@@ -867,8 +863,8 @@ function in_body(t,a1,a2,a3) {
         case "section":
         case "summary":
         case "ul":
-            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
-            insertHTMLElement(a1, a2);
+            if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+            insertHTMLElement(value, arg3);
             return;
 
         case "h1":
@@ -877,15 +873,15 @@ function in_body(t,a1,a2,a3) {
         case "h4":
         case "h5":
         case "h6":
-            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
+            if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
             if (stack.top instanceof impl.HTMLHeadingElement) stack.pop();
-            insertHTMLElement(a1, a2);
+            insertHTMLElement(value, arg3);
             return;
             
         case "pre":
         case "listing":
-            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
-            insertHTMLElement(a1, a2);
+            if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+            insertHTMLElement(value, arg3);
             // XXX need to ignore the next token if it is a linefeed.
             // How can I do this?  Can't check the array of input chars
             // since it could be empty right now.
@@ -895,8 +891,8 @@ function in_body(t,a1,a2,a3) {
 
         case "form":
             if (form_element_pointer) return;
-            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
-            form_element_pointer = insertHTMLElement(a1, a2);
+            if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+            form_element_pointer = insertHTMLElement(value, arg3);
             return;
 
         case "li":
@@ -904,14 +900,14 @@ function in_body(t,a1,a2,a3) {
             for(var i = stack.elements.length-1; i >= 0; i--) {
                 var node = stack.elements[i];
                 if (node instanceof impl.HTMLLIElement) {
-                    in_body(ENDTAG, "li", null);
+                    in_body_mode(ENDTAG, "li", null);
                     break;
                 }
                 if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
                     break;
             }
-            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
-            insertHTMLElement(a1, a2);
+            if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+            insertHTMLElement(value, arg3);
             return;
 
         case "dd":
@@ -920,30 +916,30 @@ function in_body(t,a1,a2,a3) {
             for(var i = stack.elements.length-1; i >= 0; i--) {
                 var node = stack.elements[i];
                 if (isA(node, dddtSet)) {
-                    in_body(ENDTAG, node.localName, null);
+                    in_body_mode(ENDTAG, node.localName, null);
                     break;
                 }
                 if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
                     break;
             }
-            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
-            insertHTMLElement(a1, a2);
+            if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+            insertHTMLElement(value, arg3);
             return;
             
         case "plaintext":
-            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
-            insertHTMLElement(a1, a2);
+            if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+            insertHTMLElement(value, arg3);
             tokenizerState = plaintext_state;
             return;
             
         case "button":
             if (stack.inScope("button")) {
-                in_body(ENDTAG, "button", null);
-                reprocess(t, a1, a2)
+                in_body_mode(ENDTAG, "button", null);
+                reprocess(t, value, arg3)
             }
             else {
                 afe.reconstruct();
-                insertHTMLElement(a1, a2);
+                insertHTMLElement(value, arg3);
                 frameset_ok = false;
             }
             return;
@@ -951,7 +947,7 @@ function in_body(t,a1,a2,a3) {
         case "a":
             var activeElement = afe.findElementByTag("a");
             if (activeElement) {
-                in_body(ENDTAG, a1);
+                in_body_mode(ENDTAG, value);
                 afe.remove(activeElement);
                 stack.removeElement(activeElement);
             }
@@ -970,34 +966,34 @@ function in_body(t,a1,a2,a3) {
         case "tt":
         case "u":
             afe.reconstruct();
-            afe.push(insertHTMLElement(a1,a2));
+            afe.push(insertHTMLElement(value,arg3));
             return;
 
         case "nobr":
             afe.reconstruct();
 
-            if (stack.inScope(a1)) {
-                in_body(ENDTAG, a1);
+            if (stack.inScope(value)) {
+                in_body_mode(ENDTAG, value);
                 afe.reconstruct();
             }
-            afe.push(insertHTMLElement(a1,a2));
+            afe.push(insertHTMLElement(value,arg3));
             return;
 
         case "applet":
         case "marquee":
         case "object":
             afe.reconstruct();
-            insertHTMLElement(a1,a2);
+            insertHTMLElement(value,arg3);
             afe.insertMarker();
             return;
 
         case "table":
             if (!doc._quirks && stack.inButtonScope("p")) {
-                in_body(ENDTAG, "p");
+                in_body_mode(ENDTAG, "p");
             }
-            insertHTMLElement(a1,a2);
+            insertHTMLElement(value,arg3);
             frameset_ok = false;
-            insertionMode = in_table;
+            insertionMode = in_table_mode;
             return;
 
         case "area":
@@ -1007,14 +1003,14 @@ function in_body(t,a1,a2,a3) {
         case "keygen":
         case "wbr":
             afe.reconstruct();
-            insertHTMLElement(a1,a2);
+            insertHTMLElement(value,arg3);
             stack.pop();
             frameset_ok = false;
             return;
             
         case "input":
             afe.reconstruct();
-            var elt = insertHTMLElement(a1,a2);
+            var elt = insertHTMLElement(value,arg3);
             stack.pop();
             var type = elt.getAttribute("type");
             if (type.toLowerCase() !== "hidden")
@@ -1024,19 +1020,19 @@ function in_body(t,a1,a2,a3) {
         case "param":
         case "source":
         case "track":
-            insertHTMLElement(a1,a2);
+            insertHTMLElement(value,arg3);
             stack.pop();
             return;
 
         case "hr":
-            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
-            insertHTMLElement(a1,a2);
+            if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+            insertHTMLElement(value,arg3);
             stack.pop();
             frameset_ok = false;
             return;
 
         case "image":
-            in_body(TAG, "img", a2);
+            in_body_mode(TAG, "img", arg3);
             return;
 
         case "isindex":
@@ -1075,62 +1071,62 @@ function in_body(t,a1,a2,a3) {
                 reprocess(ENDTAG, "label");
                 reprocess(TAG, "hr", null);
                 reprocess(ENDTAG, "form");
-            }(a2));
+            }(arg3));
             return;
             
         case "textarea":
-            insertHTMLElement(a1,a2);
+            insertHTMLElement(value,arg3);
             ignoreLinefeed();
             frameset_ok = false;
             tokenizerMode = rc_data_state;
             originalInsertionMode = insertionMode;
-            insertionMode = "text";
+            insertionMode = text_mode;
             return;
 
         case "xmp":
-            if (stack.inButtonScope("p")) in_body(ENDTAG, "p");
+            if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
             afe.reconstruct();
             frameset_ok = false;
-            parseRawText(a1, a2);
+            parseRawText(value, arg3);
             return;
 
         case "iframe":
             frameset_ok = false;
-            parseRawText(a1, a2);
+            parseRawText(value, arg3);
             return;
 
         case "noembed":
-            parseRawText(a1,a2);
+            parseRawText(value,arg3);
             return;
 
         case "noscript":
             if (scripting_enabled) {
-                parseRawText(a1,a2);
+                parseRawText(value,arg3);
                 return;
             }
             break;  // XXX Otherwise treat it as any other open tag?
             
         case "select":
             afe.reconstruct();
-            insertHTMLElement(a1,a2);
+            insertHTMLElement(value,arg3);
             frameset_ok = false;
-            if (insertionMode === in_table ||
-                insertionMode === in_caption ||
-                insertionMode === in_table_body ||
-                insertionMode === in_row ||
-                insertionMode === in_cell)
-                insertionMode = in_select_in_table;
+            if (insertionMode === in_table_mode ||
+                insertionMode === in_caption_mode ||
+                insertionMode === in_table_body_mode ||
+                insertionMode === in_row_mode ||
+                insertionMode === in_cell_mode)
+                insertionMode = in_select_in_table_mode;
             else
-                insertionMode = in_select;
+                insertionMode = in_select_mode;
             return;
 
         case "optgroup":
         case "option":
             if (stack.top instanceof impl.HTMLOptionElement) {
-                in_body(ENDTAG, "option");
+                in_body_mode(ENDTAG, "option");
             }
             afe.reconstruct();
-            insertHTMLElement(a1,a2);
+            insertHTMLElement(value,arg3);
             return;
 
         case "rp":
@@ -1138,24 +1134,24 @@ function in_body(t,a1,a2,a3) {
             if (stack.inScope("ruby")) {
                 stack.generateImpliedEndTags();
             }
-            insertHTMLElement(a1,a2);
+            insertHTMLElement(value,arg3);
             return;
 
         case "math":
             afe.reconstruct();
-            adjustMathMLAttributes(a2);
-            adjustForeignAttributes(a2);
-            insertForeignElement(a1, a2, MATHML_NAMESPACE);
-            if (a3) // self-closing flag
+            adjustMathMLAttributes(arg3);
+            adjustForeignAttributes(arg3);
+            insertForeignElement(value, arg3, MATHML_NAMESPACE);
+            if (arg4) // self-closing flag
                 stack.pop();
             return;
 
         case "svg":
             afe.reconstruct();
-            adjustSVGAttributes(a2);
-            adjustForeignAttributes(a2);
-            insertForeignElement(a1, a2, SVG_NAMESPACE);
-            if (a3) // self-closing flag
+            adjustSVGAttributes(arg3);
+            adjustForeignAttributes(arg3);
+            insertForeignElement(value, arg3, SVG_NAMESPACE);
+            if (arg4) // self-closing flag
                 stack.pop();
             return;
             
@@ -1177,19 +1173,19 @@ function in_body(t,a1,a2,a3) {
         // Handle any other start tag here
         // (and also <noscript> tags when scripting is disabled)
         afe.reconstruct();
-        insertHTMLElement(a1,a2);
+        insertHTMLElement(value,arg3);
         return;
 
     case ENDTAG:
-        switch(a1) {
+        switch(value) {
         case "body":
             if (!stack.inScope("body")) return;
-            insertionMode = after_body;
+            insertionMode = after_body_mode;
             return;
         case "html":
             if (!stack.inScope("body")) return;
-            insertionMode = after_body;
-            reprocess(t, a1, a2);
+            insertionMode = after_body_mode;
+            reprocess(t, value, arg3);
             return;
 
         case "address":
@@ -1217,9 +1213,9 @@ function in_body(t,a1,a2,a3) {
         case "summary":
         case "ul":
             // Ignore if there is not a matching open tag
-            if (!stack.inScope(a1)) return;
+            if (!stack.inScope(value)) return;
             stack.generateImpliedEndTags();
-            stack.popTag(a1);
+            stack.popTag(value);
             return;
 
         case "form":
@@ -1231,27 +1227,27 @@ function in_body(t,a1,a2,a3) {
             return;
 
         case "p":
-            if (!stack.inButtonScope(a1)) {
-                in_body(TAG, a1, null);
-                reprocess(t, a1, a2, a3);
+            if (!stack.inButtonScope(value)) {
+                in_body_mode(TAG, value, null);
+                reprocess(t, value, arg3, arg4);
             }
             else {
-                stack.generateImpliedEndTags(a1);
-                stack.popTag(a1);
+                stack.generateImpliedEndTags(value);
+                stack.popTag(value);
             }
             return;
 
         case "li":
-            if (!stack.inListItemScope(a1)) return;
-            stack.generateImpliedEndTags(a1);
-            stack.popTag(a1);
+            if (!stack.inListItemScope(value)) return;
+            stack.generateImpliedEndTags(value);
+            stack.popTag(value);
             return;
 
         case "dd":
         case "dt":
-            if (!stack.inScope(a1)) return;
-            stack.generateImpliedEndTags(a1);
-            stack.popTag(a1);
+            if (!stack.inScope(value)) return;
+            stack.generateImpliedEndTags(value);
+            stack.popTag(value);
             return;
 
         case "h1":
@@ -1279,29 +1275,29 @@ function in_body(t,a1,a2,a3) {
         case "strong":
         case "tt":
         case "u":
-            var result = adoptionAgency(a1);
+            var result = adoptionAgency(value);
             if (result) return;  // If we did something we're done
             else break;          // Go to the "any other end tag" case
 
         case "applet":
         case "marquee":
         case "object":
-            if (!stack.inScope(a1)) return;
+            if (!stack.inScope(value)) return;
             stack.generateImpliedEndTags();
-            stack.popTag(a1);
+            stack.popTag(value);
             afe.clearToMarker();
             return;
 
         case "br":
-            in_body(TAG, a1, null);  // Turn </br> into <br>
+            in_body_mode(TAG, value, null);  // Turn </br> into <br>
             return;
         }
 
         // Any other end tag goes here
         for(var i = stack.elements.length-1; i >= 0; i--) {
             var node = stack.elements[i];
-            if (node.localName === a1) {
-                stack.generateImpliedEndTags(a1);
+            if (node.localName === value) {
+                stack.generateImpliedEndTags(value);
                 stack.popElement(node);
                 break;
             }
@@ -1314,87 +1310,108 @@ function in_body(t,a1,a2,a3) {
     }
 }
 
-function text() {
-    // XXX: come back to this
-    // it has complicated processing for </script>
-}
-
-function in_table(t, a1, a2, a3) {
-    if (t >= 0) {  // text
-        pending_table_text = [];
-        originalInsertionMode = insertionMode;
-        insertionMode = in_table_text;
-        reprocess(t, a1, a2, a3);
+function text_mode(t, value, arg3, arg4) {
+    switch(t) {
+    case TEXT:
+        insertText(value);
+        return;
+    case EOF:
+        if (stack.top instanceof impl.HTMLScriptElement)
+            stack.top.already_started = true;
+        stack.pop();
+        insertionMode = originalInsertionMode;
+        reprocess(t);
+        return;
+    case ENDTAG:
+        if (value === "script") {
+            // XXX: need to implement this complicated function
+            handleScriptEnd();  
+        }
+        else {
+            stack.pop();
+            insertionMode = originalInsertionMode;
+        }
+        return;
+    default: 
+        // We should never get any other token types
         return;
     }
+}
 
+function in_table_mode(t, value, arg3, arg4) {
     switch(t) {
+    case TEXT:
+        pending_table_text = [];
+        originalInsertionMode = insertionMode;
+        insertionMode = in_table_text_mode;
+        reprocess(t, value, arg3, arg4);
+        return;
     case COMMENT: 
-        insertComment(a1);
+        insertComment(value);
         return;
     case DOCTYPE:
         return;
     case TAG:
-        switch(a1) {
+        switch(value) {
         case "caption":
             stack.clearToTableContext();
             afe.insertMarker();
-            insertHTMLElement(a1,a2);
-            insertionMode = in_caption;
+            insertHTMLElement(value,arg3);
+            insertionMode = in_caption_mode;
             return;
         case "colgroup":
             stack.clearToTableContext();
-            insertHTMLElement(a1,a2);
-            insertionMode = in_column_group;
+            insertHTMLElement(value,arg3);
+            insertionMode = in_column_group_mode;
             return;
         case "col":
-            in_table(TAG, "colgroup", null);
-            reprocess(t, a1, a2, a3);
+            in_table_mode(TAG, "colgroup", null);
+            reprocess(t, value, arg3, arg4);
             return;
         case "tbody":
         case "tfoot":
         case "thead":
             stack.clearToTableContext();
-            insertHTMLElement(a1,a2);
-            insertionMode = in_table_body;
+            insertHTMLElement(value,arg3);
+            insertionMode = in_table_body_mode;
             return;
         case "td":
         case "th":
         case "tr":
-            in_table(TAG, "tbody", null);
-            reprocess(t, a1, a2, a3);
+            in_table_mode(TAG, "tbody", null);
+            reprocess(t, value, arg3, arg4);
             return;
 
         case "table":
-            var repro = stack.inTableScope(a1);
-            in_table(ENDTAG, a1);
-            if (repro) reprocess(t, a1, a2, a3);
+            var repro = stack.inTableScope(value);
+            in_table_mode(ENDTAG, value);
+            if (repro) reprocess(t, value, arg3, arg4);
             return;
 
         case "style":
         case "script":
-            in_head(t, a1, a2, a3);
+            in_head_mode(t, value, arg3, arg4);
             return;
 
         case "input":
-            var type = getTypeAttr(a2);
+            var type = getTypeAttr(arg3);
             if (type !== "hidden") break;  // to the anything else case
-            insertHTMLElement(a1,a2);
+            insertHTMLElement(value,arg3);
             stack.pop();
             return;
 
         case "form":
             if (form_element_pointer) return;
-            form_element_pointer = insertHTMLElement(a1, a2);
+            form_element_pointer = insertHTMLElement(value, arg3);
             stack.pop();
             return;
         }
         break;
     case ENDTAG:
-        switch(a1) {
+        switch(value) {
         case "table":
-            if (!stack.inTableScope(a1)) return;
-            stack.popTag(a1);
+            if (!stack.inTableScope(value)) return;
+            stack.popTag(value);
             resetInsertionMode();
             return;
         case "body":
@@ -1422,29 +1439,135 @@ function in_table(t, a1, a2, a3) {
 
     // This is the anything else case
     foster_parent_mode = true;
-    in_body(t, a1, a2, a3);
+    in_body_mode(t, value, arg3, arg4);
     foster_parent_mode = false;
 }
 
-function in_table_text(t, a1, a2, a3) {
-    if (t > 0) {
-        pending_table_text.push(t);
-        return;
+function in_table_text_mode(t, value, arg3, arg4) {
+    if (t === TEXT) {
+        pending_table_text.push(value);
     }
-    if (t === 0) return;
+    else {
+        var s = pending_table_text.join("");
+        pending_table_text.length = 0;
+        if (nonWS.test(s)) { // If any non-whitespace characters
+            // This must be the same code as the "anything else"
+            // case of the in_table mode above.
+            foster_parent_mode = true;
+            in_body_mode(t, value, arg3, arg4);
+            foster_parent_mode = false;
+        }
+        else {
+            insertText(s);
+        }
+        insertionMode = originalInsertionMode;
+    }
+}
 
-    /*
-      If any of the tokens in the pending table character tokens list
-      are character tokens that are not space characters, then
-      reprocess those character tokens using the rules given in the
-      "anything else" entry in the "in table" insertion mode.
+function end_caption_in_caption_mode() {
+    if (!stack.inTableScope("caption")) return false;
+    stack.generateImpliedEndTags();
+    stack.popTag("caption");
+    afe.clearToMarker();
+    insertionMode = in_table_mode;
+    return true;
+}
 
-      Otherwise, insert the characters given by the pending table
-      character tokens list into the current node.
+function in_caption_mode(t, value, arg3, arg4) {
+    switch(t) {
+    case TAG:
+        switch(value) {
+        case "caption":
+        case "col":
+        case "colgroup":
+        case "tbody":
+        case "td":
+        case "tfoot":
+        case "th":
+        case "thead":
+        case "tr":
+            if (end_caption_in_caption_mode())
+                reprocess(t, value, arg3, arg4);
+            return;
+        }
+        break;
+    case ENDTAG:
+        switch(value) {
+        case "caption":
+            end_caption_in_caption_mode()
+            return;
+        case "table":
+            if (end_caption_in_caption_mode())
+                reprocess(t, value, arg3, arg4);
+            return;
+        case "body":
+        case "col":
+        case "colgroup":
+        case "html":
+        case "tbody":
+        case "td":
+        case "tfoot":
+        case "th":
+        case "thead":
+        case "tr":
+            return;
+        }
+        break;
+    }
 
-      Switch the insertion mode to the original insertion mode and
-      reprocess the token.
-    */
-    // XXX: need to figure out how I'm going to efficiently handle
-    // strings of text.
+    // The Anything Else case
+    in_body_mode(t, value, arg3, arg4);
+}
+
+function in_column_group_mode(t, value, arg3, arg4) {
+    switch(t) {
+    case TEXT:
+        var ws = value.match(leadingWS);
+        if (ws) {
+            insertText(ws[0]);
+            value = value.substring(ws[0].length);
+        }
+        if (value.length === 0) return;
+        break; // Handle non-whitespace below
+
+    case COMMENT:
+        insertComment(value);
+        return;
+    case DOCTYPE:
+        return;
+    case TAG:
+        switch(value) {
+        case "html":
+            in_body(t, value, arg3, arg4);
+            return;
+        case "col":
+            insertHTMLElement(value, arg3);
+            stack.pop();
+            return;
+        }
+        break;
+    case ENDTAG:
+        switch(value) {
+        case "colgroup":
+            if (stack.top instanceof impl.HTMLHtmlElement) return;
+            stack.pop();
+            insertionMode = in_table_mode;
+            return;
+        case "col":
+            return;
+        }
+        break;
+    case EOF:
+        if (stack.top instanceof impl.HTMLHtmlElement) {
+            stopParsing();
+            return;
+        }
+        break;
+    }
+
+    // Anything else
+    if (!(stack.top instanceof impl.HTMLHtmlElement)) {
+        in_column_group_mode(ENDTAG, "colgroup");
+        reprocess(t, value, arg3, arg4);
+    }
 }

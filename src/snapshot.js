@@ -125,6 +125,9 @@ const
     toUpperCase = S.toUpperCase,
     trim = S.trim,
 
+    // One more array-related function
+    pushAll = Function.prototype.apply.bind(Array.prototype.push),
+
     // RegExp functions, too
     exec = Function.prototype.call.bind(RegExp.prototype.exec),
     test = Function.prototype.call.bind(RegExp.prototype.test)

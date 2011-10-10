@@ -10,17 +10,17 @@
 // and its #include directives
 // 
 function HTMLParser(domimpl) {
-    const EOF = -1;  // XXX: use \uFFFF?
     const BOF = 0xFEFF;
     const CR = 0x000D;
     const LF = 0x000A;
 
     // Token types for the tree builder.
-    // Positive integers are codepoints.
-    // Negative integers are EOF or other token types
-    const TAG = -2;
-    const COMMENT = -3;
-    const DOCTYPE = -4;
+    const EOF = -1;  // XXX: use \uFFFF?
+    const TEXT = 1;
+    const TAG = 2;
+    const ENDTAG = 3;
+    const COMMENT = 4;
+    const DOCTYPE = 5;
 
     var doc = domimpl.createHTMLDocument("", "", "");
     while(doc.hasChildNodes()) doc.removeChild(doc.lastChild);
@@ -52,8 +52,6 @@ function HTMLParser(domimpl) {
     var parser_pause_flag = false;
     var insertionMode = initial_mode;
     var originalInsertionMode = null;
-//    var currentnode = null;
-//    var openelts = [];
     var stack = new ElementStack();
     var afe = new ActiveFormattingElements();
     var head_element_pointer = null;
@@ -61,12 +59,18 @@ function HTMLParser(domimpl) {
     var scripting_enabled = true;  // Constructor argument to set this false?
     var frameset_ok = true;
     var force_quirks = false;
-    var pendingText = [];
 
+    // A single run of characters, buffered up to be sent to
+    // the parser as a single string.
+    // XXX: would this be faster with a typed Uint16Array?
+    var textrun = [];
 
-    var push = Array.push;
-    var pop = Array.pop;
-    var foreach = Array.forEach;
+// XXX
+// these are in ../snapshot.js
+//    var push = Array.push;
+//    var pop = Array.pop;
+//    var foreach = Array.forEach;
+
     function buf2str(buf) { return String.fromCharCode.apply(String,buf); }
 
     function addAttribute(namebuf,valuebuf) {
@@ -91,23 +95,23 @@ function HTMLParser(domimpl) {
 #define switchTo(state) tokenizerState = state
 #define pushState() push(savedTokenizerStates, tokenizerState)
 #define popState() tokenizerState = pop(savedTokenizerStates)
-#define beginTagName() \
+#define beginTagName() {\
     is_end_tag = false; \
     tagnamebuf.length = 0; \
-    attributes.length = 0
-#define beginEndTagName() \
+    attributes.length = 0;
+#define beginEndTagName() {\
     is_end_tag = true; \
     tagnamebuf.length = 0; \
-    attributes.length = 0
+    attributes.length = 0;}
 
 #define beginTempBuf() tempbuf.length = 0
 #define beginAttrName() attrnamebuf.length = 0
 #define beginAttrValue() attrvaluebuf.length = 0
 #define beginComment() commentbuf.length = 0
-#define beginDoctype() \
+#define beginDoctype() {\
     doctypebuf.length = 0; \
     doctypepublicbuf = null;\
-    doctypesystembuf = null
+    doctypesystembuf = null;}
 #define beginDoctypePublicId() doctypepublicbuf = []
 #define beginDoctypeSystemId() doctypesystembuf = []
 #define appendChar(buf, char) push(buf, char)
@@ -122,65 +126,63 @@ function HTMLParser(domimpl) {
 // lookahead, either.
 #define pushback() nextchar--
 
+/*
 #define emitChar(c) insertionMode(c);
 #define emitChars(buf) foreach(buf, insertionMode);
+*/
+#define emitChar(c) push(textrun, c);
+#define emitChars(buf) pushAll(textrun, buf);
 
-// XXX
-// This is used by CDATA sections and there really ought to be
-// a way to emit all of these characters at once, as a string
-    function emitCharString(s) {
-        for(var i = 0, n = s.length; i < n; i++)
-            insertionMode(s.charCodeAt(i));
+    function flushText() {
+        if (textrun.length > 0) {
+            var s = buf2str(textrun);
+            textrun.length = 0;
+            // XXX: does this always consume all of s?
+            // Or do we sometimes have to take some of it back?
+            // Do we need to check the return value?
+            insertionMode(TEXT, s);
+        }
     }
 
-#define emitTag() \
-    if (is_end_tag) insertionMode(ENDTAG, buf2str(tagnamebuf)); \
-    else insertionMode(TAG, buf2str(tagnamebuf), attributes)
-#define emitSelfClosingTag() \
-    if (is_end_tag) insertionMode(ENDTAG, buf2str(tagnamebuf), null, true); \
-    else insertionMode(TAG, buf2str(tagnamebuf), attributes, true)
+    // This is used by CDATA sections 
+    function emitCharString(s) {
+        flushText();
+        // XXX see comment in flushText() above
+        insertionMode(TEXT, s);
+    }
 
-#define emitComment() insertionMode(COMMENT, buf2str(commentbuf))
-#define emitCommentString(s) insertionMode(COMMENT, s)
-#define emitDoctype() \
+#define emitTag() {\
+    flushText(); \
+    if (is_end_tag) insertionMode(ENDTAG, buf2str(tagnamebuf)); \
+    else insertionMode(TAG, buf2str(tagnamebuf), attributes);}
+#define emitSelfClosingTag() {\
+    flushText(); \
+    if (is_end_tag) insertionMode(ENDTAG, buf2str(tagnamebuf), null, true); \
+    else insertionMode(TAG, buf2str(tagnamebuf), attributes, true);}
+#define emitComment() {\
+    flushText(); \
+    insertionMode(COMMENT, buf2str(commentbuf));}
+#define emitCommentString(s) {\
+    flushText(); \
+    insertionMode(COMMENT, s);}
+#define emitDoctype() {\
+    flushText(); \
     insertionMode(DOCTYPE, \
                   buf2str(doctypebuf), \
                   doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined, \
-                  doctypesystembuf ? buf2str(doctypesystembuf) : undefined)
+                  doctypesystembuf ? buf2str(doctypesystembuf) : undefined);}
 
 
 // Tree building macros and functions
 #define reprocess(t,a1,a2,a3) insertionMode(t,a1,a2,a3)
-/*
-#define pushElement(e) \
-    push(openelts, e); \
-    currentnode = e
-#define popElement() \
-    pop(openelts); \
-    currentnode = openelts[openelts.length-1]
-*/
-#define insertComment(data) \
-    flushText(); \
-    stack.top.appendChild(doc.createComment(data))
+#define insertComment(data) stack.top.appendChild(doc.createComment(data))
 
-    function insertText(t) {
-        push(pendingText, t);
-        if (pendingText.length > 1024) 
-            flushText();
-    }
-
-    // Be sure to call this function before inserting anything
-    // or changing the current node.
-    function flushText() {
-        if (pendingText.length > 0) {
-            var s = buf2str(pendingText);
-            if (stack.top.lastChild.nodeType === Node.TEXT_NODE) {
-                stack.top.lastChild.appendData(s);
-            }
-            else {
-                stack.top.appendChild(doc.createTextNode(s));
-            }
-            pendingText.length = 0;
+    function insertText(s) {
+        if (stack.top.lastChild.nodeType === Node.TEXT_NODE) {
+            stack.top.lastChild.appendData(s);
+        }
+        else {
+            stack.top.appendChild(doc.createTextNode(s));
         }
     }
 
@@ -203,7 +205,6 @@ function HTMLParser(domimpl) {
     var foster_parent_mode = false;
 
     function insertHTMLElement(name, attrs) {
-        flushText();
         var elt = createHTMLElt(name, attrs);
 
         if (foster_parent_mode) 
@@ -221,7 +222,6 @@ function HTMLParser(domimpl) {
 
 
     function insertForeignElement(name, attrs, ns) {
-        flushText();
         var elt = doc.createElementNS(name, ns);
         
         if (attrs) {
