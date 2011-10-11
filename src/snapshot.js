@@ -24,7 +24,7 @@ const undefined = void 0;
 
 const
     shallow_frozen_copy = function(o) {
-        let r = {};
+        var r = {};
         Object.getOwnPropertyNames(o).forEach(function(n) {
             Object.defineProperty(r, n, Object.getOwnPropertyDescriptor(o, n));
         });

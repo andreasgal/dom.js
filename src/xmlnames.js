@@ -24,20 +24,20 @@
 const [isValidName, isValidQName] = (function() {
 
     // Most names will be ASCII only. Try matching against simple regexps first
-    let simplename = /^[_:A-Za-z][-.:\w]+$/;
-    let simpleqname = /^([_A-Za-z][-.\w]+|[_A-Za-z][-.\w]+:[_A-Za-z][-.\w]+)$/
+    var simplename = /^[_:A-Za-z][-.:\w]+$/;
+    var simpleqname = /^([_A-Za-z][-.\w]+|[_A-Za-z][-.\w]+:[_A-Za-z][-.\w]+)$/
 
     // If the regular expressions above fail, try more complex ones that work
     // for any identifiers using codepoints from the Unicode BMP
-    let ncnamestartchars = "_A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02ff\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD";
-    let ncnamechars = "-._A-Za-z0-9\u00B7\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02ff\u0300-\u037D\u037F-\u1FFF\u200C\u200D\u203f\u2040\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD";
+    var ncnamestartchars = "_A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02ff\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD";
+    var ncnamechars = "-._A-Za-z0-9\u00B7\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02ff\u0300-\u037D\u037F-\u1FFF\u200C\u200D\u203f\u2040\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD";
 
-    let ncname = "[" + ncnamestartchars + "][" + ncnamechars + "]*";
-    let namestartchars = ncnamestartchars + ":";
-    let namechars = ncnamechars + ":";
-    let name = new RegExp("^[" + namestartchars + "]" +
+    var ncname = "[" + ncnamestartchars + "][" + ncnamechars + "]*";
+    var namestartchars = ncnamestartchars + ":";
+    var namechars = ncnamechars + ":";
+    var name = new RegExp("^[" + namestartchars + "]" +
                           "[" + namechars + "]*$");
-    let qname = new RegExp("^(" + ncname + "|" +
+    var qname = new RegExp("^(" + ncname + "|" +
                            ncname + ":" + ncname + ")$");
 
     // XML says that these characters are also legal:
@@ -48,9 +48,9 @@ const [isValidName, isValidQName] = (function() {
     // the right range.  Note that since the characters \uf0000 to \u1f0000 
     // are not allowed, it means that the high surrogate can only go up to
     // \uDB7f instead of \uDBFF.
-    let hassurrogates = /[\uD800-\uDB7F\uDC00-\uDFFF]/;
-    let surrogatechars = /[\uD800-\uDB7F\uDC00-\uDFFF]/g;
-    let surrogatepairs = /[\uD800-\uDB7F][\uDC00-\uDFFF]/g;
+    var hassurrogates = /[\uD800-\uDB7F\uDC00-\uDFFF]/;
+    var surrogatechars = /[\uD800-\uDB7F\uDC00-\uDFFF]/g;
+    var surrogatepairs = /[\uD800-\uDB7F][\uDC00-\uDFFF]/g;
 
     // Modify the variables above to allow surrogates
     ncnamestartchars += "\uD800-\uDB7F\uDC00-\uDFFF";
@@ -60,9 +60,9 @@ const [isValidName, isValidQName] = (function() {
     namechars = ncnamechars + ":";
 
     // Build another set of regexps that include surrogates
-    let surrogatename = new RegExp("^[" + namestartchars + "]" +
+    var surrogatename = new RegExp("^[" + namestartchars + "]" +
                                    "[" + namechars + "]*$");
-    let surrogateqname = new RegExp("^(" + ncname + "|" +
+    var surrogateqname = new RegExp("^(" + ncname + "|" +
                                     ncname + ":" + ncname + ")$");
 
     function isValidName(s) {
@@ -77,7 +77,7 @@ const [isValidName, isValidQName] = (function() {
         if (!test(surrogatename, s)) return false;
 
         // Finally, are the surrogates all correctly paired up?
-        let chars = match(s, surrogatechars), pairs = match(s, surrogatepairs);
+        var chars = match(s, surrogatechars), pairs = match(s, surrogatepairs);
         return pairs != null && 2*pairs.length === chars.length;
     }
 
@@ -88,7 +88,7 @@ const [isValidName, isValidQName] = (function() {
         
         if (!test(hassurrogates, s)) return false;
         if (!test(surrogateqname, s)) return false;
-        let chars = match(s, surrogatechars), pairs = match(s, surrogatepairs);
+        var chars = match(s, surrogatechars), pairs = match(s, surrogatepairs);
         return pairs != null && 2*pairs.length === chars.length;
     }
 

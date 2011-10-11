@@ -46,7 +46,7 @@ defineLazyProperty(impl, "FilteredElementList", function() {
             // increment n so we can compare to length, and so it is never falsy
             if (n !== undefined) n++;  
 
-            let elt;
+            var elt;
             while(elt = this.next()) {
                 push(this.cache, elt);
                 if (n && this.cache.length === n) return;
@@ -58,11 +58,11 @@ defineLazyProperty(impl, "FilteredElementList", function() {
 
         // Return the next element under root that matches filter
         next: function() {
-            let start = (this.cache.length == 0)    // Start at the root or at
+            var start = (this.cache.length == 0)    // Start at the root or at
                 ? this.root                         // the last element we found
                 : this.cache[this.cache.length-1];
 
-            let elt;
+            var elt;
             if (start.nodeType === DOCUMENT_NODE)
                 elt = start.documentElement;
             else

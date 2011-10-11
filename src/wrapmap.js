@@ -17,7 +17,7 @@
 // The methods in this file manage the mapping between nodes and Nodes
 // 
 const [unwrap, unwrapOrNull, wrap] = (function() {
-    let idlToImplMap = new WeakMap(), lastkey = {}, lastvalue = undefined;
+    var idlToImplMap = new WeakMap(), lastkey = {}, lastvalue = undefined;
 
     // Return the implementation object for the DOM Node n
     // This method will throw a TypeError if n is
@@ -32,7 +32,7 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
             return lastvalue;
 
         try {
-            let impl = wmget(idlToImplMap, n);
+            var impl = wmget(idlToImplMap, n);
 
             // This happens if someone passes a bogus object to 
             // appendChild, for example. 
@@ -67,10 +67,10 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
 
         // If n doesn't have a wrapper already, create one.
         if (!n._idl) {
-            let typename = n._idlName;
+            var typename = n._idlName;
             if (!typename)
                 throw Error("Implementation object does not define _idlName");
-            let type = idl[typename];
+            var type = idl[typename];
             if (!type) 
                 throw Error("Unknown idl type " + typename);
 

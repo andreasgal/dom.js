@@ -198,7 +198,7 @@ defineLazyProperty(impl, "Document", function() {
             if (this.isHTML)
                 localName = toLowerCase(localName);
 
-            let interfaceName = tagNameToInterfaceName[localName] ||
+            var interfaceName = tagNameToInterfaceName[localName] ||
                 "HTMLUnknownElement";
             return new impl[interfaceName](this, localName, null);
         }),
@@ -207,7 +207,7 @@ defineLazyProperty(impl, "Document", function() {
             if (!isValidName(qualifiedName)) InvalidCharacterError();
             if (!isValidQName(qualifiedName)) NamespaceError();
             
-            let pos, prefix, localName;
+            var pos, prefix, localName;
             if ((pos = S.indexOf(qualifiedName, ":")) !== -1) {
                 prefix = substring(qualifiedName, 0, pos);
                 localName = substring(qualifiedName, pos+1);
@@ -229,7 +229,7 @@ defineLazyProperty(impl, "Document", function() {
                 NamespaceError();
 
             if (namespace === HTML_NAMESPACE) {
-                let interfaceName = tagNameToInterfaceName[localName] ||
+                var interfaceName = tagNameToInterfaceName[localName] ||
                     "HTMLUnknownElement";
                 return new impl[interfaceName](this, localName, prefix);
             }
@@ -239,8 +239,8 @@ defineLazyProperty(impl, "Document", function() {
 
         createEvent: constant(function createEvent(interfaceName) {
             interfaceName = toLowerCase(interfaceName);
-            let name = replacementEvent[interfaceName] || interfaceName;
-            let constructor = impl[supportedEvents[name]];
+            var name = replacementEvent[interfaceName] || interfaceName;
+            var constructor = impl[supportedEvents[name]];
 
             if (constructor) 
                 return new constructor();
@@ -348,7 +348,7 @@ defineLazyProperty(impl, "Document", function() {
         }),
 
         getElementById: constant(function(id) {
-            let n = this.byId[id];
+            var n = this.byId[id];
             if (!n) return null;
             if (isArray(n)) { // there was more than one element with this id
                 return n[0];  // array is sorted in document order
@@ -362,7 +362,7 @@ defineLazyProperty(impl, "Document", function() {
         // Awaiting resolution of:
         // http://lists.w3.org/Archives/Public/www-dom/2011JulSep/0016.html
         getElementsByTagName: constant(function getElementsByTagName(lname) {
-            let filter;
+            var filter;
             if (lname === "*")
                 filter = ftrue;
             else if (this.doc.isHTML) 
@@ -375,7 +375,7 @@ defineLazyProperty(impl, "Document", function() {
 
         getElementsByTagNameNS: constant(function getElementsByTagNameNS(ns,
                                                                          lname){
-            let filter;
+            var filter;
             if (ns === "*" && lname === "*")
                 filter = ftrue;
             else if (ns === "*") 
@@ -391,7 +391,7 @@ defineLazyProperty(impl, "Document", function() {
         getElementsByClassName: constant(function getElementsByClassName(names){
             names = names.trim();  
             if (names === "") {
-                let result = []; // Empty node list
+                var result = []; // Empty node list
                 result._idlName = "NodeList";
                 return result;
             }
@@ -429,8 +429,8 @@ defineLazyProperty(impl, "Document", function() {
         // XXX For now, setting this attribute is not implemented.
         body: attribute(function() {
             if (this.isHTML && this.documentElement) {
-                let kids = this.documentElement.childNodes;
-                for(let i = 0, n = kids.length; i < n; i++) {
+                var kids = this.documentElement.childNodes;
+                for(var i = 0, n = kids.length; i < n; i++) {
                     if (kids[i].nodeType === ELEMENT_NODE &&
                         kids[i].localName === "body" &&
                         kids[i].namespaceURI === HTML_NAMESPACE) {
@@ -443,8 +443,8 @@ defineLazyProperty(impl, "Document", function() {
         // Return the first <head> child of the document element.
         head: attribute(function() {
             if (this.isHTML && this.documentElement) {
-                let kids = this.documentElement.childNodes;
-                for(let i = 0, n = kids.length; i < n; i++) {
+                var kids = this.documentElement.childNodes;
+                for(var i = 0, n = kids.length; i < n; i++) {
                     if (kids[i].nodeType === ELEMENT_NODE &&
                         kids[i].localName === "head" &&
                         kids[i].namespaceURI === HTML_NAMESPACE) {
@@ -583,7 +583,7 @@ defineLazyProperty(impl, "Document", function() {
 
         // Add a mapping from  id to n for n.ownerDocument
         addId: constant(function addId(id, n) {
-            let val = this.byId[id];
+            var val = this.byId[id];
             if (!val) {
                 this.byId[id] = n;
             }
@@ -600,11 +600,11 @@ defineLazyProperty(impl, "Document", function() {
 
         // Delete the mapping from id to n for n.ownerDocument
         delId: constant(function delId(id, n) {
-            let val = this.byId[id];
+            var val = this.byId[id];
             assert(val);
             
             if (isArray(val)) {
-                let idx = A.indexOf(val, n);
+                var idx = A.indexOf(val, n);
                 splice(val, idx, 1);
                 
                 if (val.length == 1) { // convert back to a single node
@@ -650,7 +650,7 @@ defineLazyProperty(impl, "Document", function() {
         n._nid = n.ownerDocument._nextnid++;
         // Manage id to element mapping 
         if (n.nodeType === ELEMENT_NODE) {
-            let id = n.getAttribute("id");
+            var id = n.getAttribute("id");
             if (id) n.ownerDocument.addId(id, n);
         }
     }
@@ -658,7 +658,7 @@ defineLazyProperty(impl, "Document", function() {
     function uproot(n) {
         // Manage id to element mapping 
         if (n.nodeType === ELEMENT_NODE) {
-            let id = n.getAttribute("id");
+            var id = n.getAttribute("id");
             if (id) n.ownerDocument.delId(id, n);
         }
         delete n._nid;
@@ -673,29 +673,29 @@ defineLazyProperty(impl, "Document", function() {
         // optimize?  Try switching on nodeType?
 /*
         if (node.hasChildNodes()) {
-            let kids = node.childNodes;
-            for(let i = 0, n = kids.length;  i < n; i++) 
+            var kids = node.childNodes;
+            for(var i = 0, n = kids.length;  i < n; i++) 
                 recursivelyRoot(kids[i]);
         }
 */
         if (node.nodeType === ELEMENT_NODE) {
-            let kids = node.childNodes;
-            for(let i = 0, n = kids.length;  i < n; i++) 
+            var kids = node.childNodes;
+            for(var i = 0, n = kids.length;  i < n; i++) 
                 recursivelyRoot(kids[i]);
         }
     }
 
     function recursivelyUproot(node) {
         uproot(node);
-        for(let i = 0, n = node.childNodes.length;  i < n; i++) 
+        for(var i = 0, n = node.childNodes.length;  i < n; i++) 
             recursivelyUproot(node.childNodes[i]);
     }
 
     function recursivelySetOwner(node, owner) {
         node.ownerDocument = owner;
         delete node._lastModTime; // mod times are document-based
-        let kids = node.childNodes;
-        for(let i = 0, n = kids.length; i < n; i++)
+        var kids = node.childNodes;
+        for(var i = 0, n = kids.length; i < n; i++)
             recursivelySetOwner(kids[i], owner);
     }
 
@@ -709,7 +709,7 @@ defineLazyProperty(impl, "Document", function() {
     }
 
     function htmlLocalNameElementFilter(lname) {
-        let lclname = toLowerCase(lname);
+        var lclname = toLowerCase(lname);
         if (lclname === lname)
             return localNameElementFilter(lname);
 
@@ -734,9 +734,9 @@ defineLazyProperty(impl, "Document", function() {
     // Optimize this when I implement classList.
     function classNamesElementFilter(names) {
         return function(e) {
-            let classAttr = e.getAttribute("class");
+            var classAttr = e.getAttribute("class");
             if (!classAttr) return false;
-            let classes = classAttr.trim().split(/\s+/);
+            var classes = classAttr.trim().split(/\s+/);
             return every(names, function(n) {
                 return A.indexOf(classes, n) !== -1;
             })

@@ -8,7 +8,7 @@
 // define property is not even being called.
 // 
 function HTMLCollectionProxy(collection) {
-    let handler = O.create(HTMLCollectionProxy.handler);
+    var handler = O.create(HTMLCollectionProxy.handler);
     handler.collection = collection;
     handler.localprops = O.create(null);
     return Proxy.create(handler, idl.HTMLCollection.prototype);
@@ -43,9 +43,9 @@ HTMLCollectionProxy.handler = {
     },
 
     getOwnPropertyDescriptor: function getOwnPropertyDescriptor(name) {
-        let item;
+        var item;
         if (this.isArrayIndex(name)) {
-            let idx = toULong(name);
+            var idx = toULong(name);
             if (idx < this.collection.length) {
                 return {
                     value: wrap(this.collection.item(idx), idl.Element),
@@ -77,10 +77,10 @@ HTMLCollectionProxy.handler = {
     },
 
     getOwnPropertyNames: function getOwnPropertyNames() {
-        let names = [];
-        for (let i = 0, n = this.collection.length; i < n; i++)
+        var names = [];
+        for (var i = 0, n = this.collection.length; i < n; i++)
             push(names, String(i));
-        for(let n in this.collection.namedItems) 
+        for(var n in this.collection.namedItems) 
             push(names, n);
         return concat(r, O.getOwnPropertyNames(this.localprops));
     },
@@ -108,7 +108,7 @@ HTMLCollectionProxy.handler = {
     delete: function(name) {
         // Can't delete array elements, but if they don't exist, don't complain
         if (this.isArrayIndex(name)) {
-            let idx = toULong(name);
+            var idx = toULong(name);
             return idx >= this.collection.length;
         }
 
@@ -127,14 +127,14 @@ HTMLCollectionProxy.handler = {
     // XXX: Remove this method when this bug is fixed:
     // https://bugzilla.mozilla.org/show_bug.cgi?id=665198
     enumerate: function() {
-        let names = [];
-        for (let i = 0, n = this.collection.length; i < n; i++)
+        var names = [];
+        for (var i = 0, n = this.collection.length; i < n; i++)
             push(names, String(i));
-        for(let n in this.collection.namedItems) 
+        for(var n in this.collection.namedItems) 
             push(names, n);
-        for(let name in this.localprops)
+        for(var name in this.localprops)
             push(names, name);
-        for(let name in idl.HTMLCollection.prototype)
+        for(var name in idl.HTMLCollection.prototype)
             push(names, name);
         return names;
     }

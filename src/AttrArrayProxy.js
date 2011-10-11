@@ -9,7 +9,7 @@ function AttrArrayProxy(attributes) {
     // This function expects an AttributesArray object (see impl/Element.js)
     // Note, though that that object just has an element property that points
     // back to the Element object.  This proxy is based on the element object.
-    let handler = O.create(AttrArrayProxy.handler);
+    var handler = O.create(AttrArrayProxy.handler);
     handler.element = attributes.element;
     handler.localprops = O.create(null);
     return Proxy.create(handler, Array.prototype);
@@ -34,7 +34,7 @@ AttrArrayProxy.handler = {
         }
         if (this.isArrayIndex(name)) {
             if (name < this.element._numattrs) {
-                let v = this.element._attr(name);
+                var v = this.element._attr(name);
                 if (v) {
                     return { 
                         value: wrap(v, idl.Attr),
@@ -57,8 +57,8 @@ AttrArrayProxy.handler = {
         return desc;
     },
     getOwnPropertyNames: function getOwnPropertyNames() {
-        let r = ["length"];
-        for (let i = 0, n = this.element._numattrs; i < n; i++)
+        var r = ["length"];
+        for (var i = 0, n = this.element._numattrs; i < n; i++)
             push(r, String(i));
         return concat(r, O.getOwnPropertyNames(this.localprops));
     },
@@ -83,7 +83,7 @@ AttrArrayProxy.handler = {
             // If an item exists at that index, return false: won't delete it
             // Otherwise, if no item, then the index was out of bounds and
             // we return true to indicate that the deletion was "successful"
-            let idx = toULong(name);
+            var idx = toULong(name);
             return idx >= this.element._numattrs;
         }
         return delete this.localprops[name];
@@ -103,11 +103,11 @@ AttrArrayProxy.handler = {
     // XXX: Remove this method when this bug is fixed:
     // https://bugzilla.mozilla.org/show_bug.cgi?id=665198
     enumerate: function() {
-        let r = [];
-        for (let i = 0, n = this.element._numattrs; i < n; i++)
+        var r = [];
+        for (var i = 0, n = this.element._numattrs; i < n; i++)
             push(r, String(i));
-        for(let name in this.localprops) push(r, name);
-        for(let name in Array.prototype) push(r, name);
+        for(var name in this.localprops) push(r, name);
+        for(var name in Array.prototype) push(r, name);
         return r;
     }
 };

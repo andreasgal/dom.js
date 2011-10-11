@@ -8,8 +8,8 @@ function assert(expr, msg) {
 
 // For stuff that I haven't implemented yet
 function nyi() {
-    let e = new Error();
-    let where = split(e.stack, "\n")[1];
+    var e = new Error();
+    var where = split(e.stack, "\n")[1];
     throw new Error("Not Yet Implemented at " + where);
 }
 
@@ -80,7 +80,7 @@ function defineHiddenConstantProp(o,p,v) {
 function defineLazyProperty(o, p, f, hidden, readonly) {
     O.defineProperty(o, p, {
         get: function() {          // When the property is first retrieved
-            let realval = f();     // compute its actual value
+            var realval = f();     // compute its actual value
             O.defineProperty(o, p, // Store that value, keeping the other
                            { value: realval }); // attributes unchanged
             return realval;        // And return the computed value

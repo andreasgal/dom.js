@@ -347,7 +347,7 @@ function outputMethod(m, prefix) {
         invokeargs(m, prefix + "        ") + ")";
 
     if (isInterfaceType(m.idlType)) {
-        out("%s    let rv = %s;", prefix, invocation);
+        out("%s    var rv = %s;", prefix, invocation);
         out("%s    return wrap(rv);", prefix);
         if (m.idlType.array) {
            // If this is an array type, remember that we've used it

@@ -46,7 +46,7 @@ defineLazyProperty(impl, "Node", function() {
 
         previousSibling: attribute(function() {
             if (!this.parentNode) return null;
-            let sibs = this.parentNode.childNodes, i = this.index;
+            var sibs = this.parentNode.childNodes, i = this.index;
             return i === 0
                 ? null
                 : sibs[i-1]
@@ -54,14 +54,14 @@ defineLazyProperty(impl, "Node", function() {
 
         nextSibling: attribute(function() {
             if (!this.parentNode) return null;
-            let sibs = this.parentNode.childNodes, i = this.index;
+            var sibs = this.parentNode.childNodes, i = this.index;
             return i+1 === sibs.length
                 ? null
                 : sibs[i+1]
         }),
 
         insertBefore: constant(function insertBefore(child, refChild) {
-            let parent = this;
+            var parent = this;
             if (refChild === null) return this.appendChild(child);
             if (refChild.parentNode !== parent) NotFoundError();
             if (child.isAncestor(parent)) HierarchyRequestError();
@@ -73,7 +73,7 @@ defineLazyProperty(impl, "Node", function() {
 
 
         appendChild: constant(function(child) {
-            let parent = this;
+            var parent = this;
             if (child.isAncestor(parent)) HierarchyRequestError();
             if (child.nodeType === DOCUMENT_NODE) HierarchyRequestError();
             parent.ensureSameDoc(child);
@@ -82,19 +82,19 @@ defineLazyProperty(impl, "Node", function() {
         }),
 
         removeChild: constant(function removeChild(child) {
-            let parent = this;
+            var parent = this;
             if (child.parentNode !== parent) NotFoundError();
             child.remove();
             return child;
         }),
 
         replaceChild: constant(function replaceChild(newChild, oldChild) {
-            let parent = this;
+            var parent = this;
             if (oldChild.parentNode !== parent) NotFoundError();
             if (newChild.isAncestor(parent)) HierarchyRequestError();
             parent.ensureSameDoc(newChild);
 
-            let refChild = oldChild.nextSibling;
+            var refChild = oldChild.nextSibling;
             oldChild.remove();
             parent.insertBefore(newChild, refChild);
             return oldChild;
@@ -119,9 +119,9 @@ defineLazyProperty(impl, "Node", function() {
                         DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC);
 
             // Get arrays of ancestors for this and that
-            let these = [], those = []; 
-            for(let n = this; n !== null; n = n.parentNode) push(these, n);
-            for(let n = that; n !== null; n = n.parentNode) push(those, n);
+            var these = [], those = []; 
+            for(var n = this; n !== null; n = n.parentNode) push(these, n);
+            for(var n = that; n !== null; n = n.parentNode) push(those, n);
             these.reverse();  // So we start with the outermost
             those.reverse();
 
@@ -129,8 +129,8 @@ defineLazyProperty(impl, "Node", function() {
                 return (DOCUMENT_POSITION_DISCONNECTED +
                         DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC);
 
-            let n = Math.min(these.length, those.length);
-            for(let i = 1; i < n; i++) {
+            var n = Math.min(these.length, those.length);
+            for(var i = 1; i < n; i++) {
                 if (these[i] !== those[i]) {
                     // We found two different ancestors, so compare
                     // their positions
@@ -166,7 +166,7 @@ defineLazyProperty(impl, "Node", function() {
             // Check for same number of children
             // Check for children this way because it is more efficient
             // for childless leaf nodes.
-            let n; // number of child nodes
+            var n; // number of child nodes
             if (!this.firstChild) {
                 n = 0;
                 if (node.firstChild) return false;
@@ -180,8 +180,8 @@ defineLazyProperty(impl, "Node", function() {
             if (!this.isEqual(node)) return false;
 
             // Now check children for equality
-            for(let i = 0; i < n; i++) {
-                let c1 = this.childNodes[i], c2 = node.childNodes[i];
+            for(var i = 0; i < n; i++) {
+                var c1 = this.childNodes[i], c2 = node.childNodes[i];
                 if (!c1.isEqualNode(c2)) return false;
             }
             
@@ -192,11 +192,11 @@ defineLazyProperty(impl, "Node", function() {
         // that each concrete subclass must implement
         cloneNode: constant(function(deep) {
             // Clone this node
-            let clone = this.clone();
+            var clone = this.clone();
 
             // Handle the recursive case if necessary
             if (deep && this.firstChild) {
-                for(let i = 0, n = this.childNodes.length; i < n; i++) {
+                for(var i = 0, n = this.childNodes.length; i < n; i++) {
                     clone.appendChild(this.childNodes[i].cloneNode(true));
                 }
             }
@@ -205,7 +205,7 @@ defineLazyProperty(impl, "Node", function() {
         }),
 
         lookupPrefix: constant(function lookupPrefix(ns) {
-            let e;
+            var e;
             if (ns === "") return null;
             switch(this.nodeType) {
             case ELEMENT_NODE:
@@ -224,7 +224,7 @@ defineLazyProperty(impl, "Node", function() {
 
 
         lookupNamespaceURI: constant(function lookupNamespaceURI(prefix) {
-            let e;
+            var e;
             switch(this.nodeType) {
             case ELEMENT_NODE:
                 return this.locateNamespace(prefix);
@@ -241,7 +241,7 @@ defineLazyProperty(impl, "Node", function() {
         }),
 
         isDefaultNamespace: constant(function isDefaultNamespace(ns) {
-            let defaultns = this.lookupNamespaceURI(null);
+            var defaultns = this.lookupNamespaceURI(null);
             if (defaultns == null) defaultns = "";
             return ns === defaultns;
         }),
@@ -252,7 +252,7 @@ defineLazyProperty(impl, "Node", function() {
         // Throw if no parent, or if this node is not a child of its parent
         index: attribute(function() {
             assert(this.parentNode);
-            let kids = this.parentNode.childNodes
+            var kids = this.parentNode.childNodes
             if (this._index == undefined || kids[this._index] != this) {
                 this._index = A.indexOf(kids, this);
                 assert(this._index != -1);
@@ -269,7 +269,7 @@ defineLazyProperty(impl, "Node", function() {
             if (this.rooted !== that.rooted) return false;
 
             // Otherwise check by traversing the parentNode chain
-            for(let e = that; e; e = e.parentNode) {
+            for(var e = that; e; e = e.parentNode) {
                 if (e === this) return true;
             }
             return false;
@@ -294,7 +294,7 @@ defineLazyProperty(impl, "Node", function() {
         //     same, throw a HIERARCHY_REQUEST_ERR
         ensureSameDoc: constant(function(that) {
             // Get the owner of the node, the node itself, if it is a document
-            let ownerdoc = this.ownerDocument || this;
+            var ownerdoc = this.ownerDocument || this;
 
             if (that.nodeType === DOCUMENT_TYPE_NODE) {
                 if (that.ownerDocument !== null && that.ownerDocument !== ownerdoc)
@@ -334,8 +334,8 @@ defineLazyProperty(impl, "Node", function() {
         // Remove all of this node's children.  This is a minor 
         // optimization that only calls modify() once.
         removeChildren: constant(function removeChildren() {
-            let root = this.rooted ? this.ownerDocument : null;
-            for(let i = 0, n = this.childNodes.length; i < n; i++) {
+            var root = this.rooted ? this.ownerDocument : null;
+            for(var i = 0, n = this.childNodes.length; i < n; i++) {
                 delete this.childNodes[i].parentNode;
                 if (root) root.mutateRemove(this.childNodes[i]);
             }
@@ -346,12 +346,12 @@ defineLazyProperty(impl, "Node", function() {
         // Insert this node as a child of parent at the specified index,
         // firing mutation events as necessary
         insert: constant(function insert(parent, index) {
-            let child = this, kids = parent.childNodes;
+            var child = this, kids = parent.childNodes;
 
             // If we are already a child of the specified parent, then t
             // the index may have to be adjusted.
             if (child.parentNode === parent) {
-                let currentIndex = child.index;
+                var currentIndex = child.index;
                 // If we're not moving the node, we're done now
                 // XXX: or do DOM mutation events still have to be fired?
                 if (currentIndex === index) return;
@@ -364,7 +364,7 @@ defineLazyProperty(impl, "Node", function() {
 
             // Special case for document fragments
             if (child.nodeType === DOCUMENT_FRAGMENT_NODE) {
-                let  c;
+                var  c;
                 while(c = child.firstChild)
                     c.insert(parent, index++);
                 return;
@@ -375,7 +375,7 @@ defineLazyProperty(impl, "Node", function() {
             if (child.rooted && parent.rooted) {
                 // Remove the child from its current position in the tree
                 // without calling remove(), since we don't want to uproot it.
-                let curpar = child.parentNode, curidx = child.index;
+                var curpar = child.parentNode, curidx = child.index;
                 splice(child.parentNode.childNodes, child.index, 1);
                 curpar.modify();
 
@@ -428,8 +428,8 @@ defineLazyProperty(impl, "Node", function() {
         // against, so only update nodes that already have a
         // _lastModTime property.
         modify: constant(function() {
-            let time = ++this.doc.modclock;
-            for(let n = this; n; n = n.parentElement) {
+            var time = ++this.doc.modclock;
+            for(var n = this; n; n = n.parentElement) {
                 if (n._lastModTime) {
                     n._lastModTime = time;
                 }

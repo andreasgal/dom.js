@@ -27,11 +27,11 @@ defineLazyProperty(impl, "Text", function() {
         splitText: constant(function splitText(offset) {
             if (offset > this._data.length) IndexSizeError();
 
-            let newdata = substring(this._data, offset),
+            var newdata = substring(this._data, offset),
                 newnode = this.ownerDocument.createTextNode(newdata);
             this._data = substring(this.data, 0, offset);
 
-            let parent = this.parentNode;
+            var parent = this.parentNode;
             if (parent !== null)
                 parent.insertBefore(newnode, this.nextSibling);
 

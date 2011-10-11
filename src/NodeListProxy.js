@@ -12,7 +12,7 @@ function NodeListProxy(list) {
             list.item = function(n) { return list[n]; };
     }
 
-    let handler = O.create(NodeListProxy.handler);
+    var handler = O.create(NodeListProxy.handler);
     handler.list = list;
     handler.localprops = O.create(null);
 
@@ -32,7 +32,7 @@ NodeListProxy.handler = {
             // If the index is greater than the length, then we'll just
             // get null or undefined here and do nothing. That is better
             // than testing length.
-            let v = this.list.item(name);
+            var v = this.list.item(name);
             if (v) {
                 return { 
                     value: wrap(v, idl.Node),
@@ -58,8 +58,8 @@ NodeListProxy.handler = {
         return desc;
     },
     getOwnPropertyNames: function getOwnPropertyNames() {
-        let r = [];
-        for (let i = 0, n = this.list.length; i < n; i++)
+        var r = [];
+        for (var i = 0, n = this.list.length; i < n; i++)
             push(r, String(i));
         return concat(r, O.getOwnPropertyNames(this.localprops));
     },
@@ -101,11 +101,11 @@ NodeListProxy.handler = {
     // XXX: Remove this method when this bug is fixed:
     // https://bugzilla.mozilla.org/show_bug.cgi?id=665198
     enumerate: function() {
-        let r = [];
-        for (let i = 0, n = this.list.length; i < n; i++)
+        var r = [];
+        for (var i = 0, n = this.list.length; i < n; i++)
             push(r, String(i));
-        for(let name in this.localprops) push(r, name);
-        for(let name in idl.NodeList.prototype) push(r, name);
+        for(var name in this.localprops) push(r, name);
+        for(var name in idl.NodeList.prototype) push(r, name);
         return r;
     }
 };

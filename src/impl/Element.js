@@ -27,13 +27,13 @@ defineLazyProperty(impl, "Element", function() {
             a.push(node._data);
         }
         else {
-            for(let i = 0, n = node.childNodes.length;  i < n; i++) 
+            for(var i = 0, n = node.childNodes.length;  i < n; i++) 
                 recursiveGetText(node.childNodes[i], a);
         }
     }
 
     function textContentGetter() {
-        let strings = [];
+        var strings = [];
         recursiveGetText(this, strings);
         return strings.join("");
     }
@@ -68,16 +68,16 @@ defineLazyProperty(impl, "Element", function() {
 
 
         firstElementChild: attribute(function() {
-            let kids = this.childNodes;
-            for(let i = 0, n = kids.length; i < n; i++) {
+            var kids = this.childNodes;
+            for(var i = 0, n = kids.length; i < n; i++) {
                 if (kids[i].nodeType === ELEMENT_NODE) return kids[i];
             }
             return null;
         }),
 
         lastElementChild: attribute(function() {
-            let kids = this.childNodes;
-            for(let i = kids.length-1; i >= 0; i--) {
+            var kids = this.childNodes;
+            for(var i = kids.length-1; i >= 0; i--) {
                 if (kids[i].nodeType === ELEMENT_NODE) return kids[i];
             }
             return null;
@@ -85,8 +85,8 @@ defineLazyProperty(impl, "Element", function() {
 
         nextElementSibling: attribute(function() {
             if (this.parentNode) {
-                let sibs = this.parentNode.childNodes;
-                for(let i = this.index+1, n = sibs.length; i < n; i++) {
+                var sibs = this.parentNode.childNodes;
+                for(var i = this.index+1, n = sibs.length; i < n; i++) {
                     if (sibs[i].nodeType === ELEMENT_NODE) return sibs[i];
                 }
             }
@@ -95,8 +95,8 @@ defineLazyProperty(impl, "Element", function() {
 
         previousElementSibling: attribute(function() {
             if (this.parentNode) {
-                let sibs = this.parentNode.childNodes;
-                for(let i = this.index-1; i >= 0; i--) {
+                var sibs = this.parentNode.childNodes;
+                for(var i = this.index-1; i >= 0; i--) {
                     if (sibs[i].nodeType === ELEMENT_NODE) return sibs[i];
                 }
             }
@@ -115,7 +115,7 @@ defineLazyProperty(impl, "Element", function() {
         // This is not a DOM method, but is convenient for 
         // lazy traversals of the tree.
         nextElement: constant(function(root) {
-            let next = this.firstElementChild || this.nextElementSibling;
+            var next = this.firstElementChild || this.nextElementSibling;
             if (next) return next;
 
             if (!root) root = this.ownerDocument.documentElement;
@@ -125,7 +125,7 @@ defineLazyProperty(impl, "Element", function() {
             // sibling.  Be careful, though: if we reach the root
             // element, or if we reach the documentElement, then 
             // the traversal ends.
-            for(let parent = this.parentElement;
+            for(var parent = this.parentElement;
                 parent && parent !== root;
                 parent = parent.parentElement) {
 
@@ -155,7 +155,7 @@ defineLazyProperty(impl, "Element", function() {
         }),
 
         clone: constant(function clone() {
-            let e;
+            var e;
 
             if (this.namespaceURI !== HTML_NAMESPACE || this.prefix)
                 e = this.ownerDocument.createElementNS(this.namespaceURI,
@@ -163,8 +163,8 @@ defineLazyProperty(impl, "Element", function() {
             else
                 e = this.ownerDocument.createElement(this.localName);
 
-            for(let i = 0, n = this._numattrs; i < n; i++) {
-                let a = this._attr(i);
+            for(var i = 0, n = this._numattrs; i < n; i++) {
+                var a = this._attr(i);
                 e.setAttributeNS(a.namespaceURI, a.name, a.value);
             }
 
@@ -180,8 +180,8 @@ defineLazyProperty(impl, "Element", function() {
 
             // Compare the sets of attributes, ignoring order
             // and ignoring attribute prefixes.
-            for(let i = 0, n = this._numattrs; i < n; i++) {
-                let a = this._attr(i);
+            for(var i = 0, n = this._numattrs; i < n; i++) {
+                var a = this._attr(i);
                 if (!that.hasAttributeNS(a.namespaceURI, a.localName))
                     return false;
                 if (that.getAttributeNS(a.namespaceURI,a.localName) !== a.value)
@@ -197,13 +197,13 @@ defineLazyProperty(impl, "Element", function() {
             if (this.namespaceURI === ns && this.prefix !== null) 
                 return this.prefix;
 
-            for(let i = 0, n = this._numattrs; i < n; i++) {
-                let a = this._attr(i);
+            for(var i = 0, n = this._numattrs; i < n; i++) {
+                var a = this._attr(i);
                 if (a.prefix === "xmlns" && a.value === ns)
                     return a.localName;
             }
 
-            let parent = this.parentElement;
+            var parent = this.parentElement;
             return parent ? parent.locateNamespacePrefix(ns) : null;
         }),
 
@@ -213,15 +213,15 @@ defineLazyProperty(impl, "Element", function() {
             if (this.prefix === prefix && this.namespaceURI !== null)
                 return this.namespaceURI;
 
-            for(let i = 0, n = this._numattrs; i < n; i++) {
-                let a = this._attr(i);
+            for(var i = 0, n = this._numattrs; i < n; i++) {
+                var a = this._attr(i);
                 if ((a.prefix === "xmlns" && a.localName === prefix) ||
                     (a.prefix === null && a.localName === "xmlns")) {
                     return a.value || null;
                 }
             }
 
-            let parent = this.parentElement;
+            var parent = this.parentElement;
             return parent ? parent.locateNamespace(prefix) : null;
         }),
 
@@ -359,7 +359,7 @@ defineLazyProperty(impl, "Element", function() {
             if (!isValidName(qname)) InvalidCharacterError();
             if (!isValidQName(qname)) NamespaceError();
 
-            let pos = S.indexOf(qname, ":"), prefix, lname;
+            var pos = S.indexOf(qname, ":"), prefix, lname;
             if (pos === -1) {
                 prefix = null;
                 lname = qname;
@@ -770,7 +770,7 @@ defineLazyProperty(impl, "Element", function() {
 
         set value(v) {
             if (this.data === v) return;
-            let oldval = this.data;
+            var oldval = this.data;
             this.data = v;
             
             // Run the onchange hook for the attribute
@@ -829,27 +829,27 @@ defineLazyProperty(impl, "Element", function() {
         },
 
         updateCache: function updateCache() {
-            let namedElts = /^(a|applet|area|embed|form|frame|frameset|iframe|img|object)$/;
+            var namedElts = /^(a|applet|area|embed|form|frame|frameset|iframe|img|object)$/;
             if (this.lastModTime !== this.element.lastModTime) {
                 this.lastModTime = this.element.lastModTime;
                 this.childrenByNumber = [];
                 this.childrenByName = {};
 
-                for(let i = 0, n = this.element.childNodes.length; i < n; i++) {
-                    let c = this.element.childNodes[i];
+                for(var i = 0, n = this.element.childNodes.length; i < n; i++) {
+                    var c = this.element.childNodes[i];
                     if (c.nodeType == ELEMENT_NODE) {
                         push(this.childrenByNumber, c);
                         
                         // XXX Are there any requirements about the namespace
                         // of the id property?
-                        let id = c.getAttribute("id");
+                        var id = c.getAttribute("id");
 
                         // If there is an id that is not already in use...
                         if (id && !this.childrenByName[id]) 
                             this.childrenByName[id] = c;
 
                         // For certain HTML elements we check the name attribute
-                        let name = c.getAttribute("name");
+                        var name = c.getAttribute("name");
                         if (name && 
                             this.element.namespaceURI === HTML_NAMESPACE &&
                             namedElts.test(this.element.localName) &&

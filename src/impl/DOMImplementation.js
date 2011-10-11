@@ -22,7 +22,7 @@ defineLazyProperty(impl, "DOMImplementation", function() {
                  "unreliable and imprecise. " +
                  "Use explicit feature testing instead.");
 
-            let f = supportedFeatures[feature.toLowerCase()];
+            var f = supportedFeatures[feature.toLowerCase()];
 
             return (f && f[version]) || false;
         },
@@ -44,7 +44,7 @@ defineLazyProperty(impl, "DOMImplementation", function() {
             // namespace and doctype are propertly set.  See this thread:
             // http://lists.w3.org/Archives/Public/www-dom/2011AprJun/0132.html
             // 
-            let d = new impl.Document(false), e;
+            var d = new impl.Document(false), e;
             
             if (qualifiedName) 
                 e = d.createElementNS(namespace, qualifiedName);
@@ -62,13 +62,13 @@ defineLazyProperty(impl, "DOMImplementation", function() {
         },
 
         createHTMLDocument: function createHTMLDocument(titleText) {
-            let d = new impl.Document(true);
+            var d = new impl.Document(true);
             d.appendChild(new impl.DocumentType("html"));
-            let html = d.createElement("html");
+            var html = d.createElement("html");
             d.appendChild(html);
-            let head = d.createElement("head");
+            var head = d.createElement("head");
             html.appendChild(head);
-            let title = d.createElement("title");
+            var title = d.createElement("title");
             head.appendChild(title);
             title.appendChild(d.createTextNode(titleText));
             html.appendChild(d.createElement("body"));

@@ -123,22 +123,22 @@ global.DOMException = (function() {
     function DOMException(code) {
 /*
         // This kudge is so we get lineNumber, fileName and stack properties
-        let e = Error(messages[code]);
+        var e = Error(messages[code]);
         e.__proto__ = DOMException.prototype;
 */
 
-        let e = O.create(DOMException.prototype);
+        var e = O.create(DOMException.prototype);
         e.code = code;
         e.message = messages[code];
         e.name = names[code];
 
         // Get stack, lineNumber and fileName properties like a real
         // Error object has.
-        let x = Error();
-        let frames = split(x.stack,"\n");
+        var x = Error();
+        var frames = split(x.stack,"\n");
         A.shift(frames);
         e.stack = join(frames,"\n");
-        let parts = match(frames[0], /[^@]*@([^:]*):(\d*)/);
+        var parts = match(frames[0], /[^@]*@([^:]*):(\d*)/);
         e.fileName = parts[1];
         e.lineNumber = parts[2];
         
@@ -148,8 +148,8 @@ global.DOMException = (function() {
     DOMException.prototype = O.create(Error.prototype);
 
     // Initialize the constants on DOMException and DOMException.prototype
-    for(let c in constants) {
-        let v = constants[c];
+    for(var c in constants) {
+        var v = constants[c];
         defineConstantProp(DOMException, c, v);
         defineConstantProp(DOMException.prototype, c, v);
     }

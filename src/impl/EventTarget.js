@@ -23,17 +23,17 @@ defineLazyProperty(impl, "EventTarget", function() {
             if (capture === undefined) capture = false;
             if (!this._listeners) this._listeners = {};
             if (!(type in this._listeners)) this._listeners[type] = {};
-            let list = this._listeners[type];
+            var list = this._listeners[type];
 
             // If this listener has already been registered, just return
             for(var i = 0, n = list.length; i < n; i++) {
-                let l = list[i];
+                var l = list[i];
                 if (l.listener === listener && l.capture === capture)
                     return;
             }
             
             // Add an object to the list of listeners
-            let obj = { listener: listener, capture: capture };
+            var obj = { listener: listener, capture: capture };
             if (typeof listener === "function") obj.f = listener;
             push(list, obj);
         },
@@ -43,11 +43,11 @@ defineLazyProperty(impl, "EventTarget", function() {
                                                           capture) {
             if (capture === undefined) capture = false;
             if (this._listeners) {
-                let list = this._listeners[type];
+                var list = this._listeners[type];
                 if (list) {
                     // Find the listener in the list and remove it
                     for(var i = 0, n = list.length; i < n; i++) {
-                        let l = list[i];
+                        var l = list[i];
                         if (l.listener === listener && l.capture === capture) {
                             if (list.length === 1)
                                 delete this._listeners[type];
@@ -67,19 +67,19 @@ defineLazyProperty(impl, "EventTarget", function() {
         dispatchEvent: function dispatchEvent(event) {
 
             function invoke(target, event) {
-                let type = event.type, phase = event.eventPhase;
+                var type = event.type, phase = event.eventPhase;
                 event.currentTarget = target;
 
                 // If there was an individual handler defined, invoke it first
                 if (phase !== CAPTURING_PHASE &&
                     target._handlers && target._handlers[type])
                 {
-                    let handler = target._handlers[type];
+                    var handler = target._handlers[type];
                     if (typeof handler === "function") {
                         handler.call(wrap(event.currentTarget), wrap(event));
                     }
                     else {
-                        let f = handler.handleEvent;
+                        var f = handler.handleEvent;
                         if (typeof f !== "function")
                             throw TypeError("handleEvent property of " +
                                             "event handler object is" +
@@ -89,12 +89,12 @@ defineLazyProperty(impl, "EventTarget", function() {
                 }
 
                 // Now invoke list list of listeners for this target and type
-                let list = target._listeners && target._listeners[type];
+                var list = target._listeners && target._listeners[type];
                 if (!list) return;
 
                 for(var i = 0, n = list.length; i < n; i++) {
                     if (event._stopImmediatePropagation) return;
-                    let l = list[i];
+                    var l = list[i];
                     if ((phase === CAPTURING_PHASE && !l.capture) ||
                         (phase === BUBBLING_PHASE && l.capture))
                         continue;
@@ -105,7 +105,7 @@ defineLazyProperty(impl, "EventTarget", function() {
                         l.f.call(wrap(event.currentTarget), wrap(event));
                     }
                     else {
-                        let f = l.listener.handleEvent;
+                        var f = l.listener.handleEvent;
                         if (typeof f !== "function")
                             throw TypeError("handleEvent property of " +
                                             "event listener object is " +
@@ -127,13 +127,13 @@ defineLazyProperty(impl, "EventTarget", function() {
 
             // Build the list of targets for the capturing and bubbling phases
             // XXX: we'll eventually have to add Window to this list.
-            let ancestors = [];
-            for(let n = this.parentNode; n; n = n.parentNode)
+            var ancestors = [];
+            for(var n = this.parentNode; n; n = n.parentNode)
                 push(ancestors, n);
 
             // Capturing phase
             event.eventPhase = CAPTURING_PHASE;
-            for(let i = ancestors.length-1; i >= 0; i--) {
+            for(var i = ancestors.length-1; i >= 0; i--) {
                 invoke(ancestors[i], event);
                 if (event._propagationStopped) break;
             }
@@ -147,7 +147,7 @@ defineLazyProperty(impl, "EventTarget", function() {
             // Bubbling phase
             if (event.bubbles && !event._propagationStopped) {
                 event.eventPhase = BUBBLING_PHASE;
-                for(let i = 0, n = ancestors.length; i < n; i++) {
+                for(var i = 0, n = ancestors.length; i < n; i++) {
                     invoke(ancestors[i], event);
                     if (event._propagationStopped) break;
                 }

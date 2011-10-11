@@ -51,7 +51,7 @@ function OptionalObject(x) {
 }
 
 function toCallback(x) {
-    let t = typeof x;
+    var t = typeof x;
     if (t === "function" || t === "object") return x;
     else throw TypeError("Expected callback; got: " + x);
 }
@@ -78,12 +78,12 @@ function toCallbackOrNull(x) {
 //   factory         // A factory function for creating an instance
 //
 function IDLInterface(o) {
-    let name = o.name || "";
-    let superclass = o.superclass;
-    let proxyFactory = o.proxyFactory;
-    let constants = o.constants || {};
-    let members = o.members || {};
-    let prototype, interfaceObject;
+    var name = o.name || "";
+    var superclass = o.superclass;
+    var proxyFactory = o.proxyFactory;
+    var constants = o.constants || {};
+    var members = o.members || {};
+    var prototype, interfaceObject;
 
     // Set up the prototype object
     prototype = superclass ? O.create(superclass.prototype) : {};
@@ -109,8 +109,8 @@ function IDLInterface(o) {
 
     // Constants must be defined on both the prototype and interface objects
     // And they must read-only and non-configurable
-    for(let c in constants) {
-        let value = constants[c];
+    for(var c in constants) {
+        var value = constants[c];
         defineConstantProp(prototype, c, value);
         defineConstantProp(interfaceObject, c, value);
     }
@@ -120,9 +120,9 @@ function IDLInterface(o) {
     // defined with getters and setters. Methods should be regular properties.
     // This will mean that the members will all be enumerable, configurable
     // and writable (unless there is no setter) as they are supposed to be.
-    for(let m in members) {
+    for(var m in members) {
         // Get the property descriptor of the member
-        let desc = O.getOwnPropertyDescriptor(members, m);
+        var desc = O.getOwnPropertyDescriptor(members, m);
 
         // Now copy the property to the prototype object
         O.defineProperty(prototype, m, desc);
