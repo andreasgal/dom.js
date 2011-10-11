@@ -132,7 +132,7 @@ function HTMLParser(domimpl) {
                     tokenizerState(LF);
                     break;
                 case 0xFFFF:
-                    if (input_complete && nextchar === numchars-1) {
+                    if (input_complete && nextchar === numchars) {
                         tokenizerState(EOF);  // codepoint will be 0xFFFF here
                         break;
                     }
@@ -213,7 +213,6 @@ function HTMLParser(domimpl) {
             }
         }
     }
-    
 
 
     /*
@@ -337,6 +336,10 @@ function HTMLParser(domimpl) {
                       doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined,
                       doctypesystembuf ? buf2str(doctypesystembuf) : undefined);
     }
+    function emitEOF() {
+        flushText();
+        insertionMode(EOF);
+    }
 
 
     /*
@@ -347,8 +350,9 @@ function HTMLParser(domimpl) {
     }
 
     function insertText(s) {
-        if (stack.top.lastChild.nodeType === Node.TEXT_NODE) {
-            stack.top.lastChild.appendData(s);
+        var lastChild = stack.top.lastChild;
+        if (lastChild && lastChild.nodeType === Node.TEXT_NODE) {
+            lastChild.appendData(s);
         }
         else {
             stack.top.appendChild(doc.createTextNode(s));
@@ -381,7 +385,7 @@ function HTMLParser(domimpl) {
         else
             stack.top.appendChild(elt);
 
-        pushElement(elt);
+        stack.push(elt);
 
         // XXX
         // If this is a form element, set its form attribute property
@@ -404,7 +408,7 @@ function HTMLParser(domimpl) {
         }
 
         stack.top.appendChild(elt);
-        pushElement(elt);
+        stack.push(elt);
     }
 
     /*
@@ -611,7 +615,6 @@ function HTMLParser(domimpl) {
         case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
             beginTagName();
             appendChar(tagnamebuf, c);
-            opentag = true;
             tokenizerState = tag_name_state; 
             break; 
         case 0x003F: //  QUESTION MARK (?) 
@@ -644,7 +647,6 @@ function HTMLParser(domimpl) {
         case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
             beginEndTagName();
             appendChar(tagnamebuf, c);
-            opentag = false;
             tokenizerState = tag_name_state; 
             break; 
         case 0x003E: //  GREATER-THAN SIGN (>) 
@@ -723,7 +725,6 @@ function HTMLParser(domimpl) {
         case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
             beginEndTagName();
             appendChar(tagnamebuf, c + 0x0020);
-            opentag = false;
             appendChar(tempbuf, c); 
             tokenizerState = rcdata_end_tag_name_state; 
             break; 
@@ -735,7 +736,6 @@ function HTMLParser(domimpl) {
         case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
             beginEndTagName();
             appendChar(tagnamebuf, c);
-            opentag = false;
             appendChar(tempbuf, c); 
             tokenizerState = rcdata_end_tag_name_state; 
             break; 
@@ -832,7 +832,6 @@ function HTMLParser(domimpl) {
         case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
             beginEndTagName();
             appendChar(tagnamebuf, c + 0x0020);
-            opentag = false;
             appendChar(tempbuf, c); 
             tokenizerState = rawtext_end_tag_name_state; 
             break; 
@@ -844,7 +843,6 @@ function HTMLParser(domimpl) {
         case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
             beginEndTagName();
             appendChar(tagnamebuf, c);
-            opentag = false;
             appendChar(tempbuf, c); 
             tokenizerState = rawtext_end_tag_name_state; 
             break; 
@@ -944,7 +942,6 @@ function HTMLParser(domimpl) {
         case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
             beginEndTagName();
             appendChar(tagnamebuf, c + 0x0020);
-            opentag = false;
             appendChar(tempbuf, c); 
             tokenizerState = script_data_end_tag_name_state; 
             break; 
@@ -956,7 +953,6 @@ function HTMLParser(domimpl) {
         case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
             beginEndTagName();
             appendChar(tagnamebuf, c);
-            opentag = false;
             appendChar(tempbuf, c); 
             tokenizerState = script_data_end_tag_name_state; 
             break; 
@@ -2505,7 +2501,7 @@ function HTMLParser(domimpl) {
         }
     };
 
-    ActiveFormatttingElements.prototype.reconstruct = function() {
+    ActiveFormattingElements.prototype.reconstruct = function() {
         if (this.list.length === 0) return;
         var entry = this.list[this.list.length-1];
         // If the last is a marker , do nothing
@@ -2527,8 +2523,8 @@ function HTMLParser(domimpl) {
         for(i = i+1; i < this.list.length; i++) {
             entry = this.list[i];
             var newelt = entry.cloneNode(false); // shallow clone
-            currentnode.appendChild(newelt);
-            pushElement(newelt);
+            stack.top.appendChild(newelt);
+            stack.push(newelt);
             this.list[i] = newelt;
         }
     };
@@ -2603,7 +2599,7 @@ function HTMLParser(domimpl) {
                 if (e.localName === tag) break;
             }
             this.elements.length = i;
-            this.top = this.element[i-1];
+            this.top = this.elements[i-1];
         };
 
         // Pop elements off the stack up to and including the first 
@@ -2613,7 +2609,7 @@ function HTMLParser(domimpl) {
                 if (this.elements[i] instanceof type) break;
             }
             this.elements.length = i;
-            this.top = this.element[i-1];
+            this.top = this.elements[i-1];
         };
 
         // Pop elements off the stack up to and including the element e.
@@ -2624,7 +2620,7 @@ function HTMLParser(domimpl) {
                 if (this.elements[i] === e) break;
             }
             this.elements.length = i;
-            this.top = this.element[i-1];
+            this.top = this.elements[i-1];
         };
 
         // Remove a specific element from the stack.
@@ -3560,7 +3556,7 @@ function HTMLParser(domimpl) {
                 in_body_mode(t,value,arg3,arg4);
                 return;
             case "head":
-                var elt = insertHTMLElement(name, arg3);
+                var elt = insertHTMLElement(value, arg3);
                 head_element_pointer = elt;
                 insertionMode = in_head_mode;
                 return;
@@ -5254,7 +5250,7 @@ function HTMLParser(domimpl) {
         "yuml": 0xFF
     };
 
-    namedCharRefs = {
+    var namedCharRefs = {
         "AElig;": 0xc6,
         "AMP;": 0x26,
         "Aacute;": 0xc1,
