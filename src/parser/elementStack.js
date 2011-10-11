@@ -70,10 +70,29 @@ var ElementStack = (function() {
         this.top = this.elements[i];
     }
 
+    ElementStack.prototype.clearToContext = function(type) {
+        // Note that we don't loop to 0. Never pop the <html> elt off.
+        for(var i = this.elements.length-1; i > 0; i--) {
+            if (this.elements[i] instanceof type) break;
+        }
+        this.elements.length = i+1;
+        this.top = this.elements[i];
+    }
+
+
     ElementStack.prototype.clearToTableContext = function() {
         // Note that we don't loop to 0. Never pop the <html> elt off.
         for(var i = this.elements.length-1; i > 0; i--) {
             if (this.elements[i] instanceof HTMLTableElement) break;
+        }
+        this.elements.length = i+1;
+        this.top = this.elements[i];
+    }
+
+    ElementStack.prototype.clearToTableBodyContext = function() {
+        // Note that we don't loop to 0. Never pop the <html> elt off.
+        for(var i = this.elements.length-1; i > 0; i--) {
+            if (this.elements[i] instanceof HTMLTableSectionElement) break;
         }
         this.elements.length = i+1;
         this.top = this.elements[i];

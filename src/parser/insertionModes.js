@@ -1354,13 +1354,13 @@ function in_table_mode(t, value, arg3, arg4) {
     case TAG:
         switch(value) {
         case "caption":
-            stack.clearToTableContext();
+            stack.clearToContext(impl.HTMLTableElement);
             afe.insertMarker();
             insertHTMLElement(value,arg3);
             insertionMode = in_caption_mode;
             return;
         case "colgroup":
-            stack.clearToTableContext();
+            stack.clearToContext(impl.HTMLTableElement);
             insertHTMLElement(value,arg3);
             insertionMode = in_column_group_mode;
             return;
@@ -1371,7 +1371,7 @@ function in_table_mode(t, value, arg3, arg4) {
         case "tbody":
         case "tfoot":
         case "thead":
-            stack.clearToTableContext();
+            stack.clearToContext(impl.HTMLTableElement);
             insertHTMLElement(value,arg3);
             insertionMode = in_table_body_mode;
             return;
@@ -1464,16 +1464,17 @@ function in_table_text_mode(t, value, arg3, arg4) {
     }
 }
 
-function end_caption_in_caption_mode() {
-    if (!stack.inTableScope("caption")) return false;
-    stack.generateImpliedEndTags();
-    stack.popTag("caption");
-    afe.clearToMarker();
-    insertionMode = in_table_mode;
-    return true;
-}
 
 function in_caption_mode(t, value, arg3, arg4) {
+    function end_caption() {
+        if (!stack.inTableScope("caption")) return false;
+        stack.generateImpliedEndTags();
+        stack.popTag("caption");
+        afe.clearToMarker();
+        insertionMode = in_table_mode;
+        return true;
+    }
+
     switch(t) {
     case TAG:
         switch(value) {
@@ -1486,19 +1487,17 @@ function in_caption_mode(t, value, arg3, arg4) {
         case "th":
         case "thead":
         case "tr":
-            if (end_caption_in_caption_mode())
-                reprocess(t, value, arg3, arg4);
+            if (end_caption()) reprocess(t, value, arg3, arg4);
             return;
         }
         break;
     case ENDTAG:
         switch(value) {
         case "caption":
-            end_caption_in_caption_mode()
+            end_caption()
             return;
         case "table":
-            if (end_caption_in_caption_mode())
-                reprocess(t, value, arg3, arg4);
+            if (end_caption()) reprocess(t, value, arg3, arg4);
             return;
         case "body":
         case "col":
@@ -1571,3 +1570,131 @@ function in_column_group_mode(t, value, arg3, arg4) {
         reprocess(t, value, arg3, arg4);
     }
 }
+
+function in_table_body_mode(t, value, arg3, arg4) {
+    function endsect() {
+        if (!stack.elementInTableScope("tbody") &&
+            !stack.elementInTableScope("thead") && 
+            !stack.elementInTableScope("tfoot")) 
+            return;
+        stack.clearToContext(impl.HTMLTableSectionElement);
+        in_table_body_mode(ENDTAG, stack.top.localName, null);
+        reprocess(t, value, arg3, arg4);
+    }
+
+    switch(t) {
+    case TAG:
+        switch(value) {
+        case "tr":
+            stack.clearToContext(impl.HTMLTableSectionElement);
+            insertHTMLElement(value, arg3);
+            insertionMode = in_row_mode;
+            return;
+        case "th":
+        case "td":
+            in_table_body_mode(TAG, "tr", null);
+            reprocess(t, value, arg3, arg4);
+            return;
+        case "caption":
+        case "col":
+        case "colgroup":
+        case "tbody":
+        case "tfoot":
+        case "thead":
+            endsect();
+            return;
+        }
+        break;
+    case ENDTAG:
+        switch(value) {
+        case "table":
+            endsect();
+            return;
+        case "tbody":
+        case "tfoot":
+        case "thead":
+            if (stack.inTableScope(value)) {
+                stack.clearToContext(impl.HTMLTableSectionElement);
+                stack.pop();
+                insertionMode = in_table_mode;
+            }
+            return;
+        case "body":
+        case "caption":
+        case "col":
+        case "colgroup":
+        case "html":
+        case "td":
+        case "th":
+        case "tr":
+            return;
+        }
+        break;
+    }
+
+    // Anything else:
+    in_table(t, value, arg3, arg4);
+}
+
+function in_row_mode(t, value, arg3, arg4) {
+    function end_row() {
+        if (!stack.inTableContext("tr")) return false;
+        stack.clearToContext(impl.HTMLTableRowElement);
+        stack.pop();
+        insertionMode = in_table_body_mode;
+        return true;
+    }
+
+    switch(t) {
+    case TAG:
+        switch(value) {
+        case "th":
+        case "td":
+            stack.clearToContext(impl.HTMLTableRowElement);
+            insertHTMLElement(value, arg3);
+            insertionMode = in_cell_mode;
+            afe.insertMarker();
+            return;
+        case "caption":
+        case "col":
+        case "colgroup":
+        case "tbody":
+        case "tfoot":
+        case "thead":
+        case "tr":
+            if (endrow()) reprocess(t, value, arg3, arg4);
+            return;
+        }
+        break;
+    case ENDTAG:
+        switch(value) {
+        case "tr":
+            endrow();
+            return;
+        case "table":
+            if (endrow()) reprocess(t, value, arg3, arg4);
+            return;
+        case "tbody":
+        case "tfoot":
+        case "thead":
+            if (stack.inTableScope(value)) {
+                in_row_mode(ENDTAG, "tr");
+                reprocess(t, value, arg3, arg4);
+            }
+            return;
+        case "body":
+        case "caption":
+        case "col":
+        case "colgroup":
+        case "html":
+        case "td":
+        case "th":
+            return;
+        }
+        break;
+    }
+
+    // anything else
+    in_table(t, value, arg3, arg4);
+}
+
