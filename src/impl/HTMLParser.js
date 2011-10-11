@@ -1,5 +1,3 @@
-"use strict";
-
 // XXX: will have to add arguments for fragment parsing, I think.
 // To use the returned HTMLParser object, append text to it with append()
 // Insert text (from document.write()) with insert(). Call end() when
@@ -7,17 +5,17 @@
 // DocumentFragment (?)
 //
 function HTMLParser(domimpl) {
-    const BOF = 0xFEFF;
-    const CR = 0x000D;
-    const LF = 0x000A;
+    var BOF = 0xFEFF;
+    var CR = 0x000D;
+    var LF = 0x000A;
 
     // Token types for the tree builder.
-    const EOF = -1;  // XXX: use \uFFFF?
-    const TEXT = 1;
-    const TAG = 2;
-    const ENDTAG = 3;
-    const COMMENT = 4;
-    const DOCTYPE = 5;
+    var EOF = -1;  // XXX: use \uFFFF?
+    var TEXT = 1;
+    var TAG = 2;
+    var ENDTAG = 3;
+    var COMMENT = 4;
+    var DOCTYPE = 5;
 
     var doc = domimpl.createHTMLDocument("", "", "");
     while(doc.hasChildNodes()) doc.removeChild(doc.lastChild);
@@ -37,7 +35,7 @@ function HTMLParser(domimpl) {
     var attrnamebuf = [];
     var attrvaluebuf = [];
     var commentbuf = [];
-    var doctypebuf = []
+    var doctypebuf = [];
     var doctypepublicbuf = [];
     var doctypesystembuf = [];
     var attributes = [];
@@ -73,7 +71,7 @@ function HTMLParser(domimpl) {
     // Pass true as the second argument if this is the end of the data.
     function scannerAppend(s, eof) {
         if (eof) {
-            if (s == null) s = "";
+            s = s || "";
             // Add a special marker character to the end of the buffer.
             // If the scanner is at the end of the buffer and input_complete
             // is set, then this character will transform into an EOF token.
@@ -81,7 +79,7 @@ function HTMLParser(domimpl) {
             // character buffer makes lookahead regexp matching work 
             // more easily, and this is important for character references.
             s += "\uFFFF";
-            input_complete = true;  // Makes processChars() send EOF
+            input_complete = true;  // Makes scanChars() send EOF
         }
 
         if (chars === null) { // If this is the first text appended
@@ -114,10 +112,11 @@ function HTMLParser(domimpl) {
     // waiting to see if the next char is LF, or for states that require
     // lookahead...)
     function scanChars() {
+        var codepoint, s, pattern;
         while(nextchar < numchars) {
             switch(typeof tokenizerState.lookahead) {
             case 'undefined':
-                var codepoint = chars.charCodeAt(nextchar++);
+                codepoint = chars.charCodeAt(nextchar++);
                 switch(codepoint) {
                 case CR:
                     // Need to peek and see if next char is LF.
@@ -128,7 +127,7 @@ function HTMLParser(domimpl) {
                     }
                     var next = chars.charCodeAt(nextchar);
                     // If CR/LF pair, just skip the CR
-                    if (next === LF) nextchar++
+                    if (next === LF) nextchar++;
                     // In either case, tokenize just one LF
                     tokenizerState(LF);
                     break;
@@ -137,7 +136,7 @@ function HTMLParser(domimpl) {
                         tokenizerState(EOF);  // codepoint will be 0xFFFF here
                         break;
                     }
-                    /* Fallthrough */
+                    /* falls through */
                 default:
                     tokenizerState(codepoint);
                     break;
@@ -147,7 +146,6 @@ function HTMLParser(domimpl) {
             case 'number':
                 // tokenizer wants n chars of lookahead
                 var n = tokenizerState.lookahead;
-                var s;
                 
                 if (n < numchars - nextchar) {  // If we can look ahead that far
                     s = chars.substring(nextchar, nextchar+n);
@@ -164,15 +162,14 @@ function HTMLParser(domimpl) {
                         return;
                     }
                 }
-                var codepoint = chars.charCodeAt(nextchar);
+                codepoint = chars.charCodeAt(nextchar);
                 tokenizerState(codepoint, s, input_complete);
                 break;
             case 'string':
                 // tokenizer wants characters up to a matching string
-                var pattern = tokenizerState.lookahead;
+                pattern = tokenizerState.lookahead;
                 var pos = chars.indexOf(pattern, nextchar);
-                var codepoint = chars.charCodeAt(nextchar);
-                var s;
+                codepoint = chars.charCodeAt(nextchar);
                 if (pos !== -1) {
                     s = chars.substring(nextchar, pos + pattern.length);
                 }
@@ -188,9 +185,8 @@ function HTMLParser(domimpl) {
                 break;
             case 'object':
                 // tokenizer wants characters that match a regexp
-                var pattern = tokenizerState.lookahead;
-                var codepoint = chars.charCodeAt(nextchar);
-                var s;
+                pattern = tokenizerState.lookahead;
+                codepoint = chars.charCodeAt(nextchar);
                 pattern.lastIndex = nextchar;
                 if (pattern.test(chars)) {
                     // Found a match.
@@ -295,7 +291,7 @@ function HTMLParser(domimpl) {
             if (ignore_linefeed) {
                 ignore_linefeed = false;
                 if (s[0] === "\n") s = s.substring(1);
-                if (s.length == 0) return;
+                if (s.length === 0) return;
             }
 
             insertionMode(TEXT, s);
@@ -310,7 +306,7 @@ function HTMLParser(domimpl) {
         if (ignore_linefeed) {
             ignore_linefeed = false;
             if (s[0] === "\n") s = s.substring(1);
-            if (s.length == 0) return;
+            if (s.length === 0) return;
         }
         
         insertionMode(TEXT, s);
@@ -474,8 +470,7 @@ function HTMLParser(domimpl) {
     // (decimal, hex, or named) that comes after the ampersand. Note that it
     // uses the non-standard "y" modifier to anchor the match start position
     // to lastIndex.  
-    const CHARREF = /#[0-9]+[^0-9]|#[xX][0-9a-fA-F]+[^0-9a-fA-F]|[a-zA-Z][a-zA-Z0-9]*[^a-zA-Z0-9]/y;
-
+    var CHARREF = /#[0-9]+[^0-9]|#[xX][0-9a-fA-F]+[^0-9a-fA-F]|[a-zA-Z][a-zA-Z0-9]*[^a-zA-Z0-9]/y;
 
     function data_state(c) {
         switch(c) {
@@ -499,7 +494,7 @@ function HTMLParser(domimpl) {
 
     function character_reference_in_data_state(c, lookahead, eof) {
         var char = parseCharRef(lookahead, eof);
-        if (char != null) {
+        if (char !== null) {
             if (typeof char === "number") emitChar(char);
             else emitChars(char);  // An array of characters
         }
@@ -532,7 +527,7 @@ function HTMLParser(domimpl) {
 
     function character_reference_in_rcdata_state(c, lookahead, eof) {
         var char = parseCharRef(lookahead, eof);
-        if (char != null) {
+        if (char !== null) {
             if (typeof char === "number") emitChar(char);
             else emitChars(char);  // An array of characters
         }
@@ -606,7 +601,7 @@ function HTMLParser(domimpl) {
         case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
         case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
             c += 0x20;  // to lowercase
-            // fallthrough
+            /* falls through */
 
         case 0x0061:  // [a-z]
         case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
@@ -639,7 +634,7 @@ function HTMLParser(domimpl) {
         case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
         case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
             c += 0x20; // to lowercase
-            // fallthrough
+            /* falls through */
 
         case 0x0061:  // [a-z]
         case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
@@ -706,16 +701,14 @@ function HTMLParser(domimpl) {
 
     function rcdata_less_than_sign_state(c) {
     /* identical to the RAWTEXT less-than sign state, except s/RAWTEXT/RCDATA/g */
-        switch(c) {
-        case 0x002F: //  SOLIDUS (/)
+        if (c === 0x002F) {  //  SOLIDUS (/)
             beginTempBuf();
             tokenizerState = rcdata_end_tag_open_state;
-            break; 
-        default: 
+        }
+        else {
             emitChar(0x003C); // LESS-THAN SIGN
             pushback();
             tokenizerState = rcdata_state;
-            break; 
         }
     }
 
@@ -815,16 +808,16 @@ function HTMLParser(domimpl) {
     }
 
     function rawtext_less_than_sign_state(c) {
-     /* identical to the RCDATA less-than sign state, except s/RCDATA/RAWTEXT/g */    switch(c) {
-        case 0x002F: //  SOLIDUS (/)
+     /* identical to the RCDATA less-than sign state, except s/RCDATA/RAWTEXT/g 
+*/    
+        if (c === 0x002F) { //  SOLIDUS (/)
             beginTempBuf();
             tokenizerState = rawtext_end_tag_open_state;
-            break; 
-        default: 
+        }
+        else {
             emitChar(0x003C); // LESS-THAN SIGN
             pushback();
             tokenizerState = rawtext_state;
-            break; 
         }
     }
 
@@ -1036,28 +1029,24 @@ function HTMLParser(domimpl) {
     }
 
     function script_data_escape_start_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        if (c === 0x002D) { //  HYPHEN-MINUS (-) 
             tokenizerState = script_data_escape_start_dash_state; 
             emitChar(0x002D); // HYPHEN-MINUS
-            break; 
-        default: 
+        }
+        else {
             pushback();
             tokenizerState = script_data_state;
-            break; 
         }
     }
 
     function script_data_escape_start_dash_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        if (c === 0x002D) { //  HYPHEN-MINUS (-) 
             tokenizerState = script_data_escaped_dash_dash_state; 
             emitChar(0x002D); // HYPHEN-MINUS
-            break; 
-        default: 
+        }
+        else {
             pushback();
             tokenizerState = script_data_state;
-            break; 
         }
     }
 
@@ -1378,16 +1367,14 @@ function HTMLParser(domimpl) {
     }
 
     function script_data_double_escaped_less_than_sign_state(c) {
-        switch(c) {
-        case 0x002F: //  SOLIDUS (/) 
+        if (c === 0x002F) { //  SOLIDUS (/) 
             beginTempBuf();
             tokenizerState = script_data_double_escape_end_state; 
             emitChar(0x002F); // SOLIDUS
-            break; 
-        default: 
+        }
+        else {
             pushback();
             tokenizerState = script_data_double_escaped_state;
-            break; 
         }
     }
 
@@ -1470,7 +1457,7 @@ function HTMLParser(domimpl) {
         case 0x0027: //  APOSTROPHE (') 
         case 0x003C: //  LESS-THAN SIGN (<) 
         case 0x003D: //  EQUALS SIGN (=) 
-            // fallthrough
+            /* falls through */
         default: 
             beginAttrName();
             appendChar(attrnamebuf, c);
@@ -1518,7 +1505,7 @@ function HTMLParser(domimpl) {
         case 0x0022: //  QUOTATION MARK (") 
         case 0x0027: //  APOSTROPHE (') 
         case 0x003C: //  LESS-THAN SIGN (<) 
-            // fallthrough
+            /* falls through */
         default: 
             appendChar(attrnamebuf, c);
             break; 
@@ -1571,7 +1558,7 @@ function HTMLParser(domimpl) {
         case 0x0022: //  QUOTATION MARK (") 
         case 0x0027: //  APOSTROPHE (') 
         case 0x003C: //  LESS-THAN SIGN (<) 
-            // fallthrough
+            /* falls through */
         default: 
             addAttribute(attrnamebuf);
             beginAttrName();
@@ -1615,7 +1602,7 @@ function HTMLParser(domimpl) {
         case 0x003C: //  LESS-THAN SIGN (<) 
         case 0x003D: //  EQUALS SIGN (=) 
         case 0x0060: //  GRAVE ACCENT (`) 
-            // fallthrough
+            /* falls through */
         default: 
             appendChar(attrvaluebuf, c); 
             tokenizerState = attribute_value_unquoted_state;
@@ -1699,7 +1686,7 @@ function HTMLParser(domimpl) {
         case 0x003C: //  LESS-THAN SIGN (<) 
         case 0x003D: //  EQUALS SIGN (=) 
         case 0x0060: //  GRAVE ACCENT (`) 
-            // fallthrough
+            /* falls through */
         default: 
             appendChar(attrvaluebuf, c);
             break; 
@@ -1708,7 +1695,7 @@ function HTMLParser(domimpl) {
 
     function character_reference_in_attribute_value_state(c) {
         var char = parseCharRef(lookahead, eof);
-        if (char != null) {
+        if (char !== null) {
             if (typeof char === "number")
                 appendChar(attrvaluebuf, char);
             else {
@@ -2507,7 +2494,7 @@ function HTMLParser(domimpl) {
                 a.namespaceURI !== b.namespaceURI) return false;
             if (a._numattrs !== b._numattrs) return false;
             for(var i = 0, n = a._numattrs; i < n; i++) {
-                let aa = a._attr(i);
+                var aa = a._attr(i);
                 if (!b.hasAttributeNS(aa.namespaceURI, aa.localName))
                     return false;
                 if (b.getAttributeNS(aa.namespaceURI,aa.localName) !== aa.value)
@@ -2565,31 +2552,31 @@ function HTMLParser(domimpl) {
                 return elt;
         }
         return null;
-    }
+    };
 
     ActiveFormattingElements.prototype.contains = function(e) {
         var idx = A.lastIndexOf(this.list, e);
         return idx !== -1;
-    }
+    };
 
     // Find the element e in the list and remove it
     // Used when parsing <a> in_body()
     ActiveFormattingElements.prototype.remove = function(e) {
         var idx = A.lastIndexOf(this.list, e);
         if (idx !== -1) splice(this.list, idx, 1);
-    }
+    };
 
     // Find element a in the list and replace it with element b
     ActiveFormattingElements.prototype.replace = function(a, b) {
         var idx = A.lastIndexOf(this.list, a);
         if (idx !== -1) this.list[idx] = b;
-    }
+    };
 
     // Find a in the list and insert b after it
     ActiveFormattingElements.prototype.insertAfter = function(a,b) {
         var idx = A.lastIndexOf(this.list, a);
         if (idx !== -1) splice(this.list, idx, 0, b);
-    }
+    };
 
     function ElementStack() {
         this.elements = [];
@@ -2597,16 +2584,15 @@ function HTMLParser(domimpl) {
     }
 
     (function() {
-
         ElementStack.prototype.push = function(e) {
             push(this.elements, e);
             this.top = e;
-        }
+        };
 
         ElementStack.prototype.pop = function(e) {
             pop(this.elements);
             this.top = this.elements[this.elements.length-1];
-        }
+        };
 
         // Pop elements off the stack up to and including the first 
         // element with the specified (HTML) tagname
@@ -2618,7 +2604,7 @@ function HTMLParser(domimpl) {
             }
             this.elements.length = i;
             this.top = this.element[i-1];
-        }
+        };
 
         // Pop elements off the stack up to and including the first 
         // element that is an instance of the specified type
@@ -2628,7 +2614,7 @@ function HTMLParser(domimpl) {
             }
             this.elements.length = i;
             this.top = this.element[i-1];
-        }
+        };
 
         // Pop elements off the stack up to and including the element e.
         // Note that this is very different from removeElement()
@@ -2650,7 +2636,7 @@ function HTMLParser(domimpl) {
                 if (idx !== -1)
                     splice(this.elements, idx, 1);
             }
-        }
+        };
 
         // Pop elements off the stack until (but not including) the first one
         // that is a member of the specified set
@@ -2661,7 +2647,7 @@ function HTMLParser(domimpl) {
             }
             this.elements.length = i+1;
             this.top = this.elements[i];
-        }
+        };
 
         ElementStack.prototype.clearToContext = function(type) {
             // Note that we don't loop to 0. Never pop the <html> elt off.
@@ -2670,7 +2656,7 @@ function HTMLParser(domimpl) {
             }
             this.elements.length = i+1;
             this.top = this.elements[i];
-        }
+        };
 
 
         ElementStack.prototype.clearToTableContext = function() {
@@ -2680,7 +2666,7 @@ function HTMLParser(domimpl) {
             }
             this.elements.length = i+1;
             this.top = this.elements[i];
-        }
+        };
 
         ElementStack.prototype.clearToTableBodyContext = function() {
             // Note that we don't loop to 0. Never pop the <html> elt off.
@@ -2689,11 +2675,11 @@ function HTMLParser(domimpl) {
             }
             this.elements.length = i+1;
             this.top = this.elements[i];
-        }
+        };
 
         ElementStack.prototype.contains = function(elt) {
             return A.lastIndexOf(this.elements, elt) !== -1;
-        }
+        };
 
         ElementStack.prototype.getFosterParent = function() {
             for(var i = this.elements.length-1; i >= 0; i--) {
@@ -2703,7 +2689,7 @@ function HTMLParser(domimpl) {
                 }
             }
             return this.elements[0];
-        }
+        };
 
         ElementStack.prototype.inSpecificScope = function(tag, set) {
             for(var i = this.elements.length-1; i >= 0; i--) {
@@ -2715,7 +2701,7 @@ function HTMLParser(domimpl) {
                 if (tags && localname in tags) return false;
             }
             return false;
-        }
+        };
 
         // Like the above, but for a specific element, not a tagname
         ElementStack.prototype.elementInSpecificScope = function(target, set) {
@@ -2726,7 +2712,7 @@ function HTMLParser(domimpl) {
                 if (tags && elt.localName in tags) return false;
             }
             return false;
-        }
+        };
 
         // Like the above, but for an element interface, not a tagname
         ElementStack.prototype.elementTypeInSpecificScope = function(target, set) {
@@ -2737,31 +2723,31 @@ function HTMLParser(domimpl) {
                 if (tags && elt.localName in tags) return false;
             }
             return false;
-        }
+        };
 
         ElementStack.prototype.inScope = function(tag) {
             return this.inSpecificScope(tag, inScopeSet);
-        }
+        };
 
         ElementStack.prototype.elementInScope = function(e) {
             return this.elementInSpecificScope(e, inScopeSet);
-        }
+        };
 
         ElementStack.prototype.elementTypeInScope = function(type) {
             return this.elementTypeInSpecificScope(type, inScopeSet);
-        }
+        };
 
         ElementStack.prototype.inButtonScope = function(tag) {
             return this.inSpecificScope(tag, inButtonScopeSet);
-        }
+        };
 
         ElementStack.prototype.inListItemScope = function(tag) {
             return this.inSpecificScope(tag, inListItemScopeSet);
-        }
+        };
 
         ElementStack.prototype.inTableScope = function(tag) {
             return this.inSpecificScope(tag, inTableScopeSet);
-        }
+        };
 
         ElementStack.prototype.inSelectScope = function(tag) {
             // Can't implement this one with inSpecificScope, since it involves
@@ -2775,7 +2761,7 @@ function HTMLParser(domimpl) {
                     return false;
             }
             return false;
-        }
+        };
 
         ElementStack.prototype.generateImpliedEndTags = function(butnot) {
             for(var i = this.elements.length-1; i >= 0; i--) {
@@ -2786,7 +2772,7 @@ function HTMLParser(domimpl) {
 
             this.elements.length = i+1;
             this.top = this.elements[i];
-        }
+        };
 
 
         var tagToMode = {
@@ -2840,7 +2826,7 @@ function HTMLParser(domimpl) {
                 "td":true,
                 "th":true,
                 "marquee":true,
-                "object":true,
+                "object":true
             },
             MATHML_NAMESPACE: {
                 "mi":true,
@@ -2848,12 +2834,12 @@ function HTMLParser(domimpl) {
                 "mn":true,
                 "ms":true,
                 "mtext":true,
-                "annotation-xml":true,
+                "annotation-xml":true
             },
             SVG_NAMESPACE: {
                 "foreignObject":true,
                 "desc":true,
-                "title":true,
+                "title":true
             }
         };
 
@@ -2880,20 +2866,20 @@ function HTMLParser(domimpl) {
                 "optgroup":true,
                 "option":true
             }
-        }
+        };
     }());
 
     /*
      * The tree builder insertion modes
      */
 
-    const quirkyPublicIds = /^HTML$|^-\/\/W3O\/\/DTD W3 HTML Strict 3\.0\/\/EN\/\/$|^-\/W3C\/DTD HTML 4\.0 Transitional\/EN$|^\+\/\/Silmaril\/\/dtd html Pro v0r11 19970101\/\/|^-\/\/AdvaSoft Ltd\/\/DTD HTML 3\.0 asWedit \+ extensions\/\/|^-\/\/AS\/\/DTD HTML 3\.0 asWedit \+ extensions\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Level 1\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Level 2\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Strict Level 1\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Strict Level 2\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Strict\/\/|^-\/\/IETF\/\/DTD HTML 2\.0\/\/|^-\/\/IETF\/\/DTD HTML 2\.1E\/\/|^-\/\/IETF\/\/DTD HTML 3\.0\/\/|^-\/\/IETF\/\/DTD HTML 3\.2 Final\/\/|^-\/\/IETF\/\/DTD HTML 3\.2\/\/|^-\/\/IETF\/\/DTD HTML 3\/\/|^-\/\/IETF\/\/DTD HTML Level 0\/\/|^-\/\/IETF\/\/DTD HTML Level 1\/\/|^-\/\/IETF\/\/DTD HTML Level 2\/\/|^-\/\/IETF\/\/DTD HTML Level 3\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 0\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 1\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 2\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 3\/\/|^-\/\/IETF\/\/DTD HTML Strict\/\/|^-\/\/IETF\/\/DTD HTML\/\/|^-\/\/Metrius\/\/DTD Metrius Presentational\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 2\.0 HTML Strict\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 2\.0 HTML\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 2\.0 Tables\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 3\.0 HTML Strict\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 3\.0 HTML\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 3\.0 Tables\/\/|^-\/\/Netscape Comm\. Corp\.\/\/DTD HTML\/\/|^-\/\/Netscape Comm\. Corp\.\/\/DTD Strict HTML\/\/|^-\/\/O'Reilly and Associates\/\/DTD HTML 2\.0\/\/|^-\/\/O'Reilly and Associates\/\/DTD HTML Extended 1\.0\/\/|^-\/\/O'Reilly and Associates\/\/DTD HTML Extended Relaxed 1\.0\/\/|^-\/\/SoftQuad Software\/\/DTD HoTMetaL PRO 6\.0::19990601::extensions to HTML 4\.0\/\/|^-\/\/SoftQuad\/\/DTD HoTMetaL PRO 4\.0::19971010::extensions to HTML 4\.0\/\/|^-\/\/Spyglass\/\/DTD HTML 2\.0 Extended\/\/|^-\/\/SQ\/\/DTD HTML 2\.0 HoTMetaL \+ extensions\/\/|^-\/\/Sun Microsystems Corp\.\/\/DTD HotJava HTML\/\/|^-\/\/Sun Microsystems Corp\.\/\/DTD HotJava Strict HTML\/\/|^-\/\/W3C\/\/DTD HTML 3 1995-03-24\/\/|^-\/\/W3C\/\/DTD HTML 3\.2 Draft\/\/|^-\/\/W3C\/\/DTD HTML 3\.2 Final\/\/|^-\/\/W3C\/\/DTD HTML 3\.2\/\/|^-\/\/W3C\/\/DTD HTML 3\.2S Draft\/\/|^-\/\/W3C\/\/DTD HTML 4\.0 Frameset\/\/|^-\/\/W3C\/\/DTD HTML 4\.0 Transitional\/\/|^-\/\/W3C\/\/DTD HTML Experimental 19960712\/\/|^-\/\/W3C\/\/DTD HTML Experimental 970421\/\/|^-\/\/W3C\/\/DTD W3 HTML\/\/|^-\/\/W3O\/\/DTD W3 HTML 3\.0\/\/|^-\/\/WebTechs\/\/DTD Mozilla HTML 2\.0\/\/|^-\/\/WebTechs\/\/DTD Mozilla HTML\/\//i;
+    var quirkyPublicIds = /^HTML$|^-\/\/W3O\/\/DTD W3 HTML Strict 3\.0\/\/EN\/\/$|^-\/W3C\/DTD HTML 4\.0 Transitional\/EN$|^\+\/\/Silmaril\/\/dtd html Pro v0r11 19970101\/\/|^-\/\/AdvaSoft Ltd\/\/DTD HTML 3\.0 asWedit \+ extensions\/\/|^-\/\/AS\/\/DTD HTML 3\.0 asWedit \+ extensions\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Level 1\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Level 2\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Strict Level 1\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Strict Level 2\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Strict\/\/|^-\/\/IETF\/\/DTD HTML 2\.0\/\/|^-\/\/IETF\/\/DTD HTML 2\.1E\/\/|^-\/\/IETF\/\/DTD HTML 3\.0\/\/|^-\/\/IETF\/\/DTD HTML 3\.2 Final\/\/|^-\/\/IETF\/\/DTD HTML 3\.2\/\/|^-\/\/IETF\/\/DTD HTML 3\/\/|^-\/\/IETF\/\/DTD HTML Level 0\/\/|^-\/\/IETF\/\/DTD HTML Level 1\/\/|^-\/\/IETF\/\/DTD HTML Level 2\/\/|^-\/\/IETF\/\/DTD HTML Level 3\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 0\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 1\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 2\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 3\/\/|^-\/\/IETF\/\/DTD HTML Strict\/\/|^-\/\/IETF\/\/DTD HTML\/\/|^-\/\/Metrius\/\/DTD Metrius Presentational\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 2\.0 HTML Strict\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 2\.0 HTML\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 2\.0 Tables\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 3\.0 HTML Strict\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 3\.0 HTML\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 3\.0 Tables\/\/|^-\/\/Netscape Comm\. Corp\.\/\/DTD HTML\/\/|^-\/\/Netscape Comm\. Corp\.\/\/DTD Strict HTML\/\/|^-\/\/O'Reilly and Associates\/\/DTD HTML 2\.0\/\/|^-\/\/O'Reilly and Associates\/\/DTD HTML Extended 1\.0\/\/|^-\/\/O'Reilly and Associates\/\/DTD HTML Extended Relaxed 1\.0\/\/|^-\/\/SoftQuad Software\/\/DTD HoTMetaL PRO 6\.0::19990601::extensions to HTML 4\.0\/\/|^-\/\/SoftQuad\/\/DTD HoTMetaL PRO 4\.0::19971010::extensions to HTML 4\.0\/\/|^-\/\/Spyglass\/\/DTD HTML 2\.0 Extended\/\/|^-\/\/SQ\/\/DTD HTML 2\.0 HoTMetaL \+ extensions\/\/|^-\/\/Sun Microsystems Corp\.\/\/DTD HotJava HTML\/\/|^-\/\/Sun Microsystems Corp\.\/\/DTD HotJava Strict HTML\/\/|^-\/\/W3C\/\/DTD HTML 3 1995-03-24\/\/|^-\/\/W3C\/\/DTD HTML 3\.2 Draft\/\/|^-\/\/W3C\/\/DTD HTML 3\.2 Final\/\/|^-\/\/W3C\/\/DTD HTML 3\.2\/\/|^-\/\/W3C\/\/DTD HTML 3\.2S Draft\/\/|^-\/\/W3C\/\/DTD HTML 4\.0 Frameset\/\/|^-\/\/W3C\/\/DTD HTML 4\.0 Transitional\/\/|^-\/\/W3C\/\/DTD HTML Experimental 19960712\/\/|^-\/\/W3C\/\/DTD HTML Experimental 970421\/\/|^-\/\/W3C\/\/DTD W3 HTML\/\/|^-\/\/W3O\/\/DTD W3 HTML 3\.0\/\/|^-\/\/WebTechs\/\/DTD Mozilla HTML 2\.0\/\/|^-\/\/WebTechs\/\/DTD Mozilla HTML\/\//i;
 
-    const quirkySystemId = "http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd";
+    var quirkySystemId = "http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd";
 
-    const conditionallyQuirkyPublicIds = /^-\/\/W3C\/\/DTD HTML 4\.01 Frameset\/\/|^-\/\/W3C\/\/DTD HTML 4\.01 Transitional\/\//i;
+    var conditionallyQuirkyPublicIds = /^-\/\/W3C\/\/DTD HTML 4\.01 Frameset\/\/|^-\/\/W3C\/\/DTD HTML 4\.01 Transitional\/\//i;
 
-    const limitedQuirkyPublicIds = /^-\/\/W3C\/\/DTD XHTML 1\.0 Frameset\/\/|^-\/\/W3C\/\/DTD XHTML 1\.0 Transitional\/\//i;
+    var limitedQuirkyPublicIds = /^-\/\/W3C\/\/DTD XHTML 1\.0 Frameset\/\/|^-\/\/W3C\/\/DTD XHTML 1\.0 Transitional\/\//i;
 
 
     // The set of special elements
@@ -2992,7 +2978,7 @@ function HTMLParser(domimpl) {
             "mtext":true,
             "annotation-xml":true
         }
-    }
+    };
 
     // The set of address, div, and p HTML tags
     var addressdivpSet = {
@@ -3152,7 +3138,7 @@ function HTMLParser(domimpl) {
         "xml:lang":      XML_NAMESPACE,
         "xml:space":     XML_NAMESPACE,
         "xmlns":         XMLNS_NAMESPACE,
-        "xmlns:xlink":   XMLNS_NAMESPACE,
+        "xmlns:xlink":   XMLNS_NAMESPACE
     };
 
     function adjustForeignAttributes(attrs) {
@@ -3231,9 +3217,10 @@ function HTMLParser(domimpl) {
                 // formatting element in the stack of open elements.
                 var ancestor = stack.elements[index-1];
 
-                // Let a bookmark note the position of the formatting element in
-                // the list of active formatting elements relative to the elements
-                // on either side of it in the list.
+                // Let a bookmark note the position of the formatting
+                // element in the list of active formatting elements
+                // relative to the elements on either side of it in
+                // the list.
                 afe.insertAfter(fmtelt, BOOKMARK);
                 
                 // Let node and last node be the furthest block. 
@@ -3244,44 +3231,51 @@ function HTMLParser(domimpl) {
                 // Let inner loop counter be zero.
                 var inner = 0; 
 
-                // Inner loop: If inner loop counter is greater than or equal to
-                // three, then abort these steps.
+                // Inner loop: If inner loop counter is greater than
+                // or equal to three, then abort these steps.
                 while(inner < 3) {
                     // Increment inner loop counter by one.
                     inner++;
-                    // Let node be the element immediately above node in the stack
-                    // of open elements, or if node is no longer in the stack of
-                    // open elements (e.g. because it got removed by the next
-                    // step), the element that was immediately above node in the
-                    // stack of open elements before node was removed.
+
+                    // Let node be the element immediately above node
+                    // in the stack of open elements, or if node is no
+                    // longer in the stack of open elements
+                    // (e.g. because it got removed by the next step),
+                    // the element that was immediately above node in
+                    // the stack of open elements before node was
+                    // removed.
                     node = stack.elements[--nodeindex];
 
-                    // If node is not in the list of active formatting elements,
-                    // then remove node from the stack of open elements and then go
-                    // back to the step labeled inner loop.
+                    // If node is not in the list of active formatting
+                    // elements, then remove node from the stack of
+                    // open elements and then go back to the step
+                    // labeled inner loop.
                     if (!afe.contains(node)) {
                         stack.removeElement(node);
                         continue;
                     }
 
-                    // Otherwise, if node is the formatting element, then go to the
-                    // next step in the overall algorithm.
+                    // Otherwise, if node is the formatting element,
+                    // then go to the next step in the overall
+                    // algorithm.
                     if (node === fmtelt) break;
 
-                    // Create an element for the token for which the element node
-                    // was created, replace the entry for node in the list of
-                    // active formatting elements with an entry for the new
-                    // element, replace the entry for node in the stack of open
-                    // elements with an entry for the new element, and let node be
-                    // the new element.
+                    // Create an element for the token for which the
+                    // element node was created, replace the entry for
+                    // node in the list of active formatting elements
+                    // with an entry for the new element, replace the
+                    // entry for node in the stack of open elements
+                    // with an entry for the new element, and let node
+                    // be the new element.
                     var newelt = node.cloneNode(false);
                     afe.replace(node, newelt);
                     stack.elements[nodeindex] = newelt;
                     node = newelt;
 
-                    // If last node is the furthest block, then move the
-                    // aforementioned bookmark to be immediately after the new node
-                    // in the list of active formatting elements.
+                    // If last node is the furthest block, then move
+                    // the aforementioned bookmark to be immediately
+                    // after the new node in the list of active
+                    // formatting elements.
                     if (lastnode === furthestblock) {
                         afe.remove(BOOKMARK);
                         afe.insertAfter(newelt, BOOKMARK);
@@ -3295,48 +3289,51 @@ function HTMLParser(domimpl) {
                     lastnode = node;
                 }
 
-                // If the common ancestor node is a table, tbody, tfoot, thead, or
-                // tr element, then, foster parent whatever last node ended up
-                // being in the previous step, first removing it from its previous
-                // parent node if any.
+                // If the common ancestor node is a table, tbody,
+                // tfoot, thead, or tr element, then, foster parent
+                // whatever last node ended up being in the previous
+                // step, first removing it from its previous parent
+                // node if any.
                 if (isA(ancestor, tablesectionrowSet)) {
                     var fosterparent = stack.getFosterParent();
                     fosterparent.appendChild(lastnode);
                 }
-                // Otherwise, append whatever last node ended up being in the
-                // previous step to the common ancestor node, first removing it
-                // from its previous parent node if any.
+
+                // Otherwise, append whatever last node ended up being
+                // in the previous step to the common ancestor node,
+                // first removing it from its previous parent node if
+                // any.
                 else {
                     ancestor.appendChild(lastnode);
                 }
 
-                // Create an element for the token for which the formatting element
-                // was created.
-                var newelt = fmtelt.cloneNode(false);
+                // Create an element for the token for which the
+                // formatting element was created.
+                var newelt2 = fmtelt.cloneNode(false);
 
                 // Take all of the child nodes of the furthest block and append
                 // them to the element created in the last step.
                 while(furthestblock.hasChildNodes()) {
-                    newelt.appendChild(furthestblock.firstChild);
+                    newelt2.appendChild(furthestblock.firstChild);
                 }
 
                 // Append that new element to the furthest block.
-                furthestblock.appendChild(newelt);
+                furthestblock.appendChild(newelt2);
 
-                // Remove the formatting element from the list of active formatting
-                // elements, and insert the new element into the list of active
-                // formatting elements at the position of the aforementioned
-                // bookmark.
+                // Remove the formatting element from the list of
+                // active formatting elements, and insert the new
+                // element into the list of active formatting elements
+                // at the position of the aforementioned bookmark.
                 afe.remove(fmtelt);
-                afe.replace(BOOKMARK, newelt);
+                afe.replace(BOOKMARK, newelt2);
 
-                // Remove the formatting element from the stack of open elements,
-                // and insert the new element into the stack of open elements
-                // immediately below the position of the furthest block in that
-                // stack.
+                // Remove the formatting element from the stack of
+                // open elements, and insert the new element into the
+                // stack of open elements immediately below the
+                // position of the furthest block in that stack.
                 stack.removeElement(fmtelt);
                 var pos = A.lastIndexOf(stack.elements, furthestblock);
-                splice(stack.elements, pos, 0, newelt);
+                splice(stack.elements, pos, 0, newelt2);
             }
         }
 
@@ -3502,6 +3499,7 @@ function HTMLParser(domimpl) {
 
     // 11.2.5.4.2 The "before html" insertion mode
     function before_html_mode(t,value,arg3,arg4) {
+        var elt;
         switch(t) {
         case TEXT:
             value = trimLeadingWS(value);   // Ignore spaces
@@ -3515,7 +3513,7 @@ function HTMLParser(domimpl) {
             return;
         case TAG:
             if (value === "html") {
-                var elt = doc.createElement(value);
+                elt = doc.createElement(value);
                 stack.push(elt);
                 doc.appendChild(elt);
                 // XXX: handle application cache here
@@ -3535,7 +3533,7 @@ function HTMLParser(domimpl) {
         }
 
         // Anything that didn't get handled above is handled like this:
-        var elt = doc.createElement("html");
+        elt = doc.createElement("html");
         stack.push(elt);
         doc.appendChild(elt);
         // XXX: handle application cache here
@@ -3566,9 +3564,8 @@ function HTMLParser(domimpl) {
                 head_element_pointer = elt;
                 insertionMode = in_head_mode;
                 return;
-            default:
-                break;
             }
+            break;
         case ENDTAG:
             switch(value) {
             case "html":
@@ -3609,7 +3606,7 @@ function HTMLParser(domimpl) {
             case "meta":
                 // XXX: 
                 // May need to change the encoding based on this tag
-                /* fallthrough */
+                /* falls through */
             case "base":
             case "basefont":
             case "bgsound":
@@ -3628,7 +3625,7 @@ function HTMLParser(domimpl) {
                     return;
                 }
                 // Otherwise, if scripting is enabled...
-                /* fallthrough */
+                /* falls through */
             case "noframes":
             case "style":
                 parseRawText(value,arg3);
@@ -3713,7 +3710,7 @@ function HTMLParser(domimpl) {
                 insertionMode = in_head_mode;
                 return;
             case "br":
-                break;  // fallthrough to the outer default
+                break;  // goes to the outer default
             default:
                 return; // ignore other end tags
             }
@@ -3790,6 +3787,7 @@ function HTMLParser(domimpl) {
 
     // 13.2.5.4.7 The "in body" insertion mode
     function in_body_mode(t,value,arg3,arg4) {
+        var body, i, node;
         switch(t) {
         case TEXT:
             if (frameset_ok && nonWS.test(value))  // If any non-space characters
@@ -3823,14 +3821,14 @@ function HTMLParser(domimpl) {
                 in_head_mode(TAG, value, arg3);
                 return;
             case "body":
-                var body = stack.elements[1];
+                body = stack.elements[1];
                 if (!body || !(body instanceof impl.HTMLBodyElement)) return;
                 frameset_ok = false;
                 transferAttributes(arg3, body);
                 return;
             case "frameset":
                 if (!framset_ok) return;
-                var body = stack.elements[1];
+                body = stack.elements[1];
                 if (!body || !(body instanceof impl.HTMLBodyElement)) return;
                 if (body.parentNode) body.parentNode.removeChild(body);
                 while(!(stack.top instanceof impl.HTMLHtmlElement)) stack.pop();
@@ -3891,8 +3889,8 @@ function HTMLParser(domimpl) {
 
             case "li":
                 frameset_ok = false;
-                for(var i = stack.elements.length-1; i >= 0; i--) {
-                    var node = stack.elements[i];
+                for(i = stack.elements.length-1; i >= 0; i--) {
+                    node = stack.elements[i];
                     if (node instanceof impl.HTMLLIElement) {
                         in_body_mode(ENDTAG, "li", null);
                         break;
@@ -3907,8 +3905,8 @@ function HTMLParser(domimpl) {
             case "dd":
             case "dt":
                 frameset_ok = false;
-                for(var i = stack.elements.length-1; i >= 0; i--) {
-                    var node = stack.elements[i];
+                for(i = stack.elements.length-1; i >= 0; i--) {
+                    node = stack.elements[i];
                     if (isA(node, dddtSet)) {
                         in_body_mode(ENDTAG, node.localName, null);
                         break;
@@ -3929,7 +3927,7 @@ function HTMLParser(domimpl) {
             case "button":
                 if (stack.inScope("button")) {
                     in_body_mode(ENDTAG, "button", null);
-                    insertionMode(t, value, arg3)
+                    insertionMode(t, value, arg3);
                 }
                 else {
                     afe.reconstruct();
@@ -3945,7 +3943,7 @@ function HTMLParser(domimpl) {
                     afe.remove(activeElement);
                     stack.removeElement(activeElement);
                 }
-                /* fallthrough */
+                /* falls through */
 
             case "b":
             case "big":
@@ -4033,7 +4031,7 @@ function HTMLParser(domimpl) {
                 if (form_element_pointer) return;
                 (function handleIsIndexTag(attrs) {
                     var actionAttribute = null, prompt, hasnameattr;
-                    for(var i = 0; i < attrs.length; i++) {
+                    for(i = 0; i < attrs.length; i++) {
                         var a = attrs[i];
                         if (a[0] === "action") {
                             actionAttribute = splice(attrs, i, 1);
@@ -4058,7 +4056,7 @@ function HTMLParser(domimpl) {
                     // The default prompt presumably needs localization.
                     if (!prompt)
                         prompt="This is a searchable index. Enter search keywords:";
-                    for(var i = 0, n = prompt.length; i < n; i++)
+                    for(i = 0, n = prompt.length; i < n; i++)
                         emitChar(prompt.charCodeAt(i));
 
                     insertionMode(TAG, "input", attrs);
@@ -4215,7 +4213,7 @@ function HTMLParser(domimpl) {
             case "form":
                 var openform = form_element_pointer;
                 form_element_pointer = null;
-                if (openform == null || !stack.elementInScope(openform)) return;
+                if (!openform || !stack.elementInScope(openform)) return;
                 stack.generateImpliedEndTags();
                 stack.removeElement(openform);
                 return;
@@ -4271,7 +4269,7 @@ function HTMLParser(domimpl) {
             case "u":
                 var result = adoptionAgency(value);
                 if (result) return;  // If we did something we're done
-                else break;          // Go to the "any other end tag" case
+                break;               // Go to the "any other end tag" case
 
             case "applet":
             case "marquee":
@@ -4288,8 +4286,8 @@ function HTMLParser(domimpl) {
             }
 
             // Any other end tag goes here
-            for(var i = stack.elements.length-1; i >= 0; i--) {
-                var node = stack.elements[i];
+            for(i = stack.elements.length-1; i >= 0; i--) {
+                node = stack.elements[i];
                 if (node.localName === value) {
                     stack.generateImpliedEndTags(value);
                     stack.popElement(node);
@@ -4487,7 +4485,7 @@ function HTMLParser(domimpl) {
         case ENDTAG:
             switch(value) {
             case "caption":
-                end_caption()
+                end_caption();
                 return;
             case "table":
                 if (end_caption()) insertionMode(t, value, arg3, arg4);
@@ -4805,8 +4803,8 @@ function HTMLParser(domimpl) {
             switch(value) {
             case "optgroup":
                 if (stack.top instanceof impl.HTMLOptionElement &&
-                    stack.elements[stack.elements.length-2]
-                        instanceof impl.HTMLOptGroupElement) {
+                    stack.elements[stack.elements.length-2] instanceof
+                    impl.HTMLOptGroupElement) {
                     in_select_mode(ENDTAG, "option");
                 }
                 if (stack.top instanceof impl.HTMLOptGroupElement) 
@@ -5050,6 +5048,7 @@ function HTMLParser(domimpl) {
     // the scanner? Right now I'm just returing a single int or an array of ints
     function parseCharRef(s) {
         var len = s.length;
+        var rv;
         if (len === 0) return null;  // No character reference matched
 
         if (s[0] === "#") {               // Numeric character reference
@@ -5089,10 +5088,10 @@ function HTMLParser(domimpl) {
             // are all between 2 and 6 characters long.
 
             if (s[len-1] === ";") {
-                var rv = namedCharRefs[s];
+                rv = namedCharRefs[s];
                 if (rv !== undefined) {
                     consume(len);  // consume all the characters
-                    return rv
+                    return rv;
                 }
             }
 
@@ -5101,7 +5100,7 @@ function HTMLParser(domimpl) {
             len--;  // Ignore whatever the terminating character is
             if (len > 6) len = 6; // Maximum possible match length
             while(len >= 2) {
-                var rv = namedCharRefsNoSemi[s.substring(0, len)];
+                rv = namedCharRefsNoSemi[s.substring(0, len)];
                 if (rv !== undefined) {
                     consume(len);
                     return rv;
@@ -5252,7 +5251,7 @@ function HTMLParser(domimpl) {
         "uuml": 0xFC,
         "yacute": 0xFD,
         "yen": 0xA5,
-        "yuml": 0xFF,
+        "yuml": 0xFF
     };
 
     namedCharRefs = {
@@ -7380,7 +7379,7 @@ function HTMLParser(domimpl) {
         "zopf;": [0xd835, 0xdd6b],
         "zscr;": [0xd835, 0xdccf],
         "zwj;": 0x200d,
-        "zwnj;": 0x200c,
+        "zwnj;": 0x200c
     };
 
     // Return a parser object
