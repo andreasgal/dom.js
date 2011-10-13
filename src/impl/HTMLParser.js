@@ -17,8 +17,7 @@ function HTMLParser(domimpl) {
     var COMMENT = 4;
     var DOCTYPE = 5;
 
-    var doc = domimpl.createHTMLDocument("", "", "");
-    while(doc.hasChildNodes()) doc.removeChild(doc.lastChild);
+    var doc = new impl.Document(true);
 
     // Scanner state
     var chars = null;       
@@ -56,6 +55,7 @@ function HTMLParser(domimpl) {
     var scripting_enabled = true;  // Constructor argument to set this false?
     var frameset_ok = true;
     var force_quirks = false;
+    var pending_table_text;
 
     // A single run of characters, buffered up to be sent to
     // the parser as a single string.
@@ -294,7 +294,7 @@ function HTMLParser(domimpl) {
     // Return true if the codepoints in the specified buffer match those
     // in lasttagbuf
     function appropriateEndTag(buf) {
-        if (buf.length === lasttagbuf.length) return false;
+        if (buf.length !== lasttagbuf.length) return false;
         for(var i = 0, n = buf.length; i < n; i++) {
             if (buf[i] !== lasttagbuf[i]) return false;
         }
@@ -336,7 +336,12 @@ function HTMLParser(domimpl) {
     function emitTag() {
         flushText();
         if (is_end_tag) insertionMode(ENDTAG, buf2str(tagnamebuf));
-        else insertionMode(TAG, buf2str(tagnamebuf), attributes);
+        else {
+            // Remember the last open tag we emitted
+            lasttagbuf = tagnamebuf;
+            tagnamebuf = [];
+            insertionMode(TAG, buf2str(lasttagbuf), attributes);
+        }
     }
     function emitSelfClosingTag() {
         flushText(); 
@@ -372,12 +377,17 @@ function HTMLParser(domimpl) {
     }
 
     function insertText(s) {
-        var lastChild = stack.top.lastChild;
-        if (lastChild && lastChild.nodeType === Node.TEXT_NODE) {
-            lastChild.appendData(s);
+        if (foster_parent_mode) {
+            fosterParent(doc.createTextNode(s));
         }
         else {
-            stack.top.appendChild(doc.createTextNode(s));
+            var lastChild = stack.top.lastChild;
+            if (lastChild && lastChild.nodeType === Node.TEXT_NODE) {
+                lastChild.appendData(s);
+            }
+            else {
+                stack.top.appendChild(doc.createTextNode(s));
+            }
         }
     }
 
@@ -402,10 +412,12 @@ function HTMLParser(domimpl) {
     function insertHTMLElement(name, attrs) {
         var elt = createHTMLElt(name, attrs);
 
-        if (foster_parent_mode) 
-            stack.getFosterParent().appendChild(elt);
-        else
+        if (foster_parent_mode) {
+            fosterParent(elt);
+        }
+        else {
             stack.top.appendChild(elt);
+        }
 
         stack.push(elt);
 
@@ -415,6 +427,36 @@ function HTMLParser(domimpl) {
         return elt;
     }
 
+    function fosterParent(elt) {
+        var parent, before;
+
+        for(var i = stack.elements.length-1; i >= 0; i--) {
+            if (stack.elements[i] instanceof impl.HTMLTableElement) {
+                parent = stack.elements[i].parentElement;
+                if (parent)
+                    before = stack.elements[i];
+                else 
+                    parent = stack.elements[i-1];
+                
+                break;
+            }
+        }
+        if (!parent) parent = stack.elements[0];
+
+        if (elt.nodeType === Node.TEXT_NODE) {
+            var prev;
+            if (before) prev = before.previousSibling;
+            else prev = parent.lastChild;
+            if (prev && prev.nodeType === Node.TEXT_NODE) {
+                prev.appendData(elt.data);
+                return;
+            }
+        }
+        if (before)
+            parent.insertBefore(elt, before);
+        else
+            parent.appendChild(elt);
+    }
 
     function insertForeignElement(name, attrs, ns) {
         var elt = doc.createElementNS(name, ns);
@@ -533,8 +575,6 @@ function HTMLParser(domimpl) {
 
     function rcdata_state(c) {
         // Save the open tag so we can find a matching close tag
-        lasttagbuf = [].concat(tagnamebuf);
-
         switch(c) {
         case 0x0026: //  AMPERSAND (&) 
             tokenizerState = character_reference_in_rcdata_state;
@@ -568,9 +608,6 @@ function HTMLParser(domimpl) {
     character_reference_in_rcdata_state.lookahead = CHARREF;
 
     function rawtext_state(c) {
-        // Save the open tag so we can find a matching close tag
-        lasttagbuf = [].concat(tagnamebuf);
-
         switch(c) {
         case 0x003C: //  LESS-THAN SIGN (<) 
             tokenizerState = rawtext_less_than_sign_state;
@@ -588,9 +625,6 @@ function HTMLParser(domimpl) {
     }
 
     function script_data_state(c) {
-        // Save the open tag so we can find a matching close tag
-        lasttagbuf = [].concat(tagnamebuf);
-
         switch(c) {
         case 0x003C: //  LESS-THAN SIGN (<) 
             tokenizerState = script_data_less_than_sign_state;
@@ -1508,7 +1542,7 @@ function HTMLParser(domimpl) {
             tokenizerState = self_closing_start_tag_state;
             break; 
         case 0x003D: //  EQUALS SIGN (=) 
-            beginAttributeValue();
+            beginAttrValue();
             tokenizerState = before_attribute_value_state;
             break; 
         case 0x003E: //  GREATER-THAN SIGN (>) 
@@ -1555,7 +1589,7 @@ function HTMLParser(domimpl) {
             tokenizerState = self_closing_start_tag_state;
             break; 
         case 0x003D: //  EQUALS SIGN (=) 
-            beginAttributeValue();
+            beginAttrValue();
             tokenizerState = before_attribute_value_state;
             break; 
         case 0x003E: //  GREATER-THAN SIGN (>) 
@@ -2490,7 +2524,13 @@ function HTMLParser(domimpl) {
         this.list = [];
     }
 
-    ActiveFormattingElements.prototype.MARKER = {};
+    ActiveFormattingElements.prototype.MARKER = { localName: "|" };
+
+    // For debugging
+    ActiveFormattingElements.prototype.toString = function() {
+        return "AFE: " +
+            this.list.map(function(e) { return e.localName; }).join("-");
+    }
 
     ActiveFormattingElements.prototype.insertMarker = function() {
         push(this.list, this.MARKER);
@@ -2563,7 +2603,7 @@ function HTMLParser(domimpl) {
     };
 
     ActiveFormattingElements.prototype.clearToMarker = function() {
-        for(var i = this.list.length-1; i >= 0; i++) {
+        for(var i = this.list.length-1; i >= 0; i--) {
             if (this.list[i] === this.MARKER) break;
         }
         this.list.length = (i < 0) ? 0 : i;
@@ -2573,7 +2613,7 @@ function HTMLParser(domimpl) {
     // end of the list and the last marker on the list.
     // Used when parsing <a> in_body()
     ActiveFormattingElements.prototype.findElementByTag = function(tag) {
-        for(var i = this.list.length-1; i >= 0; i++) {
+        for(var i = this.list.length-1; i >= 0; i--) {
             var elt = this.list[i];
             if (elt === this.MARKER) break;
             if (elt.namespaceURI === HTML_NAMESPACE &&
@@ -2613,6 +2653,11 @@ function HTMLParser(domimpl) {
     }
 
     (function() {
+        ElementStack.prototype.toString = function(e) {
+            return "STACK: " + 
+                this.elements.map(function(e) {return e.localName;}).join("-");
+        }
+
         ElementStack.prototype.push = function(e) {
             push(this.elements, e);
             this.top = e;
@@ -2691,7 +2736,7 @@ function HTMLParser(domimpl) {
         ElementStack.prototype.clearToTableContext = function() {
             // Note that we don't loop to 0. Never pop the <html> elt off.
             for(var i = this.elements.length-1; i > 0; i--) {
-                if (this.elements[i] instanceof HTMLTableElement) break;
+                if (this.elements[i] instanceof impl.HTMLTableElement) break;
             }
             this.elements.length = i+1;
             this.top = this.elements[i];
@@ -2700,7 +2745,8 @@ function HTMLParser(domimpl) {
         ElementStack.prototype.clearToTableBodyContext = function() {
             // Note that we don't loop to 0. Never pop the <html> elt off.
             for(var i = this.elements.length-1; i > 0; i--) {
-                if (this.elements[i] instanceof HTMLTableSectionElement) break;
+                if (this.elements[i] instanceof impl.HTMLTableSectionElement)
+                    break;
             }
             this.elements.length = i+1;
             this.top = this.elements[i];
@@ -2708,16 +2754,6 @@ function HTMLParser(domimpl) {
 
         ElementStack.prototype.contains = function(elt) {
             return A.lastIndexOf(this.elements, elt) !== -1;
-        };
-
-        ElementStack.prototype.getFosterParent = function() {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                if (this.elements[i] instanceof HTMLTableElement) {
-                    var parent = this.elements[i].parentElement;
-                    return parent ? parent: this.elements[i-1];
-                }
-            }
-            return this.elements[0];
         };
 
         ElementStack.prototype.inSpecificScope = function(tag, set) {
@@ -2785,7 +2821,7 @@ function HTMLParser(domimpl) {
                 var elt = this.elements[i];
                 if (elt.namespaceURI !== HTML_NAMESPACE) return false;
                 var localname = elt.localName;
-                if (localname === target) return true;
+                if (localname === tag) return true;
                 if (localname !== "optgroup" && localname !== "option")
                     return false;
             }
@@ -2846,55 +2882,53 @@ function HTMLParser(domimpl) {
         };
 
 
-        var inScopeSet = {
-            HTML_NAMESPACE: {
-                "applet":true,
-                "caption":true,
-                "html":true,
-                "table":true,
-                "td":true,
-                "th":true,
-                "marquee":true,
-                "object":true
-            },
-            MATHML_NAMESPACE: {
-                "mi":true,
-                "mo":true,
-                "mn":true,
-                "ms":true,
-                "mtext":true,
-                "annotation-xml":true
-            },
-            SVG_NAMESPACE: {
-                "foreignObject":true,
-                "desc":true,
-                "title":true
-            }
+        var inScopeSet = {};
+        inScopeSet[HTML_NAMESPACE]= {
+            "applet":true,
+            "caption":true,
+            "html":true,
+            "table":true,
+            "td":true,
+            "th":true,
+            "marquee":true,
+            "object":true
+        };
+        inScopeSet[MATHML_NAMESPACE] = {
+            "mi":true,
+            "mo":true,
+            "mn":true,
+            "ms":true,
+            "mtext":true,
+            "annotation-xml":true
+        };
+        inScopeSet[SVG_NAMESPACE] = {
+            "foreignObject":true,
+            "desc":true,
+            "title":true
         };
 
         var inListItemScopeSet = Object.create(inScopeSet);
-        inListItemScopeSet.HTML_NAMESPACE = Object.create(inScopeSet.HTML_NAMESPACE);
-        inListItemScopeSet.HTML_NAMESPACE.ol = true;
-        inListItemScopeSet.HTML_NAMESPACE.ul = true;
+        inListItemScopeSet[HTML_NAMESPACE] =
+            Object.create(inScopeSet[HTML_NAMESPACE]);
+        inListItemScopeSet[HTML_NAMESPACE].ol = true;
+        inListItemScopeSet[HTML_NAMESPACE].ul = true;
 
         var inButtonScopeSet = Object.create(inScopeSet);
-        inButtonScopeSet.HTML_NAMESPACE =
-            Object.create(inScopeSet.HTML_NAMESPACE);
-        inButtonScopeSet.HTML_NAMESPACE.button = true;
+        inButtonScopeSet[HTML_NAMESPACE] =
+            Object.create(inScopeSet[HTML_NAMESPACE]);
+        inButtonScopeSet[HTML_NAMESPACE].button = true;
 
-        var inTableScopeSet = {
-            HTML_NAMESPACE: {
-                "html":true,
-                "table":true
-            }
+        var inTableScopeSet = {};
+        inTableScopeSet[HTML_NAMESPACE] = {
+            "html":true,
+            "table":true
         };
 
         // The set of elements for select scope is the everything *except* these
-        var invertedSelectScopeSet = {
-            HTML_NAMESPACE: {
-                "optgroup":true,
-                "option":true
-            }
+        var invertedSelectScopeSet = {};
+        invertedSelectScopeSet[HTML_NAMESPACE] = {
+            "optgroup":true,
+            "option":true
         };
     }());
 
@@ -2912,127 +2946,135 @@ function HTMLParser(domimpl) {
 
 
     // The set of special elements
-    var specialSet = {
-        HTML_NAMESPACE: {
-            "address":true,
-            "applet":true,
-            "area":true,
-            "article":true,
-            "aside":true,
-            "base":true,
-            "basefont":true,
-            "bgsound":true,
-            "blockquote":true,
-            "body":true,
-            "br":true,
-            "button":true,
-            "caption":true,
-            "center":true,
-            "col":true,
-            "colgroup":true,
-            "command":true,
-            "dd":true,
-            "details":true,
-            "dir":true,
-            "div":true,
-            "dl":true,
-            "dt":true,
-            "embed":true,
-            "fieldset":true,
-            "figcaption":true,
-            "figure":true,
-            "footer":true,
-            "form":true,
-            "frame":true,
-            "frameset":true,
-            "h1":true,
-            "h2":true,
-            "h3":true,
-            "h4":true,
-            "h5":true,
-            "h6":true,
-            "head":true,
-            "header":true,
-            "hgroup":true,
-            "hr":true,
-            "html":true,
-            "iframe":true,
-            "img":true,
-            "input":true,
-            "isindex":true,
-            "li":true,
-            "link":true,
-            "listing":true,
-            "marquee":true,
-            "menu":true,
-            "meta":true,
-            "nav":true,
-            "noembed":true,
-            "noframes":true,
-            "noscript":true,
-            "object":true,
-            "ol":true,
-            "p":true,
-            "param":true,
-            "plaintext":true,
-            "pre":true,
-            "script":true,
-            "section":true,
-            "select":true,
-            "style":true,
-            "summary":true,
-            "table":true,
-            "tbody":true,
-            "td":true,
-            "textarea":true,
-            "tfoot":true,
-            "th":true,
-            "thead":true,
-            "title":true,
-            "tr":true,
-            "ul":true,
-            "wbr":true,
-            "xmp":true
-        },
-        SVG_NAMESPACE: {
-            "foreignObject": true,
-            "desc": true,
-            "title": true
-        },
-        MATHML_NAMESPACE: {
-            "mi":true,
-            "mo":true,
-            "mn":true,
-            "ms":true,
-            "mtext":true,
-            "annotation-xml":true
-        }
+    var specialSet = {};
+    specialSet[HTML_NAMESPACE] = {
+        "address":true,
+        "applet":true,
+        "area":true,
+        "article":true,
+        "aside":true,
+        "base":true,
+        "basefont":true,
+        "bgsound":true,
+        "blockquote":true,
+        "body":true,
+        "br":true,
+        "button":true,
+        "caption":true,
+        "center":true,
+        "col":true,
+        "colgroup":true,
+        "command":true,
+        "dd":true,
+        "details":true,
+        "dir":true,
+        "div":true,
+        "dl":true,
+        "dt":true,
+        "embed":true,
+        "fieldset":true,
+        "figcaption":true,
+        "figure":true,
+        "footer":true,
+        "form":true,
+        "frame":true,
+        "frameset":true,
+        "h1":true,
+        "h2":true,
+        "h3":true,
+        "h4":true,
+        "h5":true,
+        "h6":true,
+        "head":true,
+        "header":true,
+        "hgroup":true,
+        "hr":true,
+        "html":true,
+        "iframe":true,
+        "img":true,
+        "input":true,
+        "isindex":true,
+        "li":true,
+        "link":true,
+        "listing":true,
+        "marquee":true,
+        "menu":true,
+        "meta":true,
+        "nav":true,
+        "noembed":true,
+        "noframes":true,
+        "noscript":true,
+        "object":true,
+        "ol":true,
+        "p":true,
+        "param":true,
+        "plaintext":true,
+        "pre":true,
+        "script":true,
+        "section":true,
+        "select":true,
+        "style":true,
+        "summary":true,
+        "table":true,
+        "tbody":true,
+        "td":true,
+        "textarea":true,
+        "tfoot":true,
+        "th":true,
+        "thead":true,
+        "title":true,
+        "tr":true,
+        "ul":true,
+        "wbr":true,
+        "xmp":true
+    };
+    specialSet[SVG_NAMESPACE] = {
+        "foreignObject": true,
+        "desc": true,
+        "title": true
+    };
+    specialSet[MATHML_NAMESPACE] = {
+        "mi":true,
+        "mo":true,
+        "mn":true,
+        "ms":true,
+        "mtext":true,
+        "annotation-xml":true
     };
 
     // The set of address, div, and p HTML tags
-    var addressdivpSet = {
-        HTML_NAMESPACE: {
-            "address":true, 
-            "div":true,
-            "p":true
-        }
+    var addressdivpSet = {};
+     addressdivpSet[HTML_NAMESPACE] = {
+        "address":true, 
+        "div":true,
+        "p":true
     };
 
-    var dddtSet = {
-        HTML_NAMESPACE: {
-            "dd":true, 
-            "dt":true
-        }
+    var dddtSet = {};
+    dddtSet[HTML_NAMESPACE] = {
+        "dd":true, 
+        "dt":true
     };
 
-    var tablesectionrowSet = {
-        HTML_NAMESPACE: {
-            "table":true,
-            "thead":true,
-            "tbody":true,
-            "tfoot":true,
-            "tr":true
-        }
+    var tablesectionrowSet = {};
+    tablesectionrowSet[HTML_NAMESPACE] = {
+        "table":true,
+        "thead":true,
+        "tbody":true,
+        "tfoot":true,
+        "tr":true
+    };
+
+    var impliedEndTagsSet = {};
+    impliedEndTagsSet[HTML_NAMESPACE] = {
+        "dd": true,
+        "dt": true,
+        "li": true,
+        "option": true,
+        "optgroup": true,
+        "p": true,
+        "rp": true,
+        "rt": true
     };
 
     // Determine whether the element is a member of the set.
@@ -3044,20 +3086,6 @@ function HTMLParser(domimpl) {
     }
 
 
-    var impliedEndTagsSet = {
-        HTML_NAMESPACE: {
-            "dd": true,
-            "dt": true,
-            "li": true,
-            "option": true,
-            "optgroup": true,
-            "p": true,
-            "rp": true,
-            "rt": true
-        }
-    };
-
-
     function parseRawText(name, attrs) {
         insertHTMLElement(name, attrs);
         tokenizerState = rawtext_state;
@@ -3065,7 +3093,7 @@ function HTMLParser(domimpl) {
         insertionMode = text_mode;
     }
 
-    function parseRCDATA(name, attributes) {
+    function parseRCDATA(name, attrs) {
         insertHTMLElement(name, attrs);
         tokenizerState = rcdata_state;
         originalInsertionMode = insertionMode;
@@ -3180,7 +3208,7 @@ function HTMLParser(domimpl) {
         }
     }
 
-    var BOOKMARK = {};  // Used by the adoptionAgency() function
+    var BOOKMARK = {localName:"BM"};  // Used by the adoptionAgency() function
 
     function adoptionAgency(tag) {
         // Let outer loop counter be zero.
@@ -3192,15 +3220,14 @@ function HTMLParser(domimpl) {
             // Increment outer loop counter by one.
             outer++;
 
-            // Let the formatting element be the last element in the list of active
-            // formatting elements that: is between the end of the list and the
-            // last scope marker in the list, if any, or the start of the list
-            // otherwise, and has the same tag name as the token.
+            // Let the formatting element be the last element in the list of
+            // active formatting elements that: is between the end of the list
+            // and the last scope marker in the list, if any, or the start of
+            // the list otherwise, and has the same tag name as the token.
             var fmtelt = afe.findElementByTag(tag);
 
-
-            // If there is no such node, then abort these steps and instead act as
-            // described in the "any other end tag" entry below.
+            // If there is no such node, then abort these steps and instead
+            // act as described in the "any other end tag" entry below.
             if (!fmtelt)
                 return false;  // false means handle by the default case
 
@@ -3213,16 +3240,18 @@ function HTMLParser(domimpl) {
                 return true;   // true means no more handling required
             }
 
-            // Otherwise, if there is such a node, and that node is also in the
-            // stack of open elements, but the element is not in scope, then this
-            // is a parse error; ignore the token, and abort these steps.
+            // Otherwise, if there is such a node, and that node is also in
+            // the stack of open elements, but the element is not in scope,
+            // then this is a parse error; ignore the token, and abort these
+            // steps.
             if (!stack.elementInScope(fmtelt)) {
                 return true;
             }
 
             // Let the furthest block be the topmost node in the stack of open
-            // elements that is lower in the stack than the formatting element, and
-            // is an element in the special category. There might not be one.
+            // elements that is lower in the stack than the formatting
+            // element, and is an element in the special category. There might
+            // not be one.
             var furthestblock = null, furthestblockindex;
             for(var i = index+1; i < stack.elements.length; i++) {
                 if (isA(stack.elements[i], specialSet)) {
@@ -3232,24 +3261,23 @@ function HTMLParser(domimpl) {
                 }
             }
 
-            // If there is no furthest block, then the UA must skip the subsequent
-            // steps and instead just pop all the nodes from the bottom of the
-            // stack of open elements, from the current node up to and including
-            // the formatting element, and remove the formatting element from the
-            // list of active formatting elements.
+            // If there is no furthest block, then the UA must skip the
+            // subsequent steps and instead just pop all the nodes from the
+            // bottom of the stack of open elements, from the current node up
+            // to and including the formatting element, and remove the
+            // formatting element from the list of active formatting elements.
             if (!furthestblock) {
                 stack.popElement(fmtelt);
                 afe.remove(fmtelt);
             }
             else {
-                // Let the common ancestor be the element immediately above the
-                // formatting element in the stack of open elements.
+                // Let the common ancestor be the element immediately above
+                // the formatting element in the stack of open elements.
                 var ancestor = stack.elements[index-1];
 
-                // Let a bookmark note the position of the formatting
-                // element in the list of active formatting elements
-                // relative to the elements on either side of it in
-                // the list.
+                // Let a bookmark note the position of the formatting element
+                // in the list of active formatting elements relative to the
+                // elements on either side of it in the list.
                 afe.insertAfter(fmtelt, BOOKMARK);
                 
                 // Let node and last node be the furthest block. 
@@ -3263,48 +3291,45 @@ function HTMLParser(domimpl) {
                 // Inner loop: If inner loop counter is greater than
                 // or equal to three, then abort these steps.
                 while(inner < 3) {
+
                     // Increment inner loop counter by one.
                     inner++;
 
-                    // Let node be the element immediately above node
-                    // in the stack of open elements, or if node is no
-                    // longer in the stack of open elements
-                    // (e.g. because it got removed by the next step),
-                    // the element that was immediately above node in
-                    // the stack of open elements before node was
+                    // Let node be the element immediately above node in the
+                    // stack of open elements, or if node is no longer in the
+                    // stack of open elements (e.g. because it got removed by
+                    // the next step), the element that was immediately above
+                    // node in the stack of open elements before node was
                     // removed.
                     node = stack.elements[--nodeindex];
 
                     // If node is not in the list of active formatting
-                    // elements, then remove node from the stack of
-                    // open elements and then go back to the step
-                    // labeled inner loop.
+                    // elements, then remove node from the stack of open
+                    // elements and then go back to the step labeled inner
+                    // loop.
                     if (!afe.contains(node)) {
                         stack.removeElement(node);
                         continue;
                     }
 
-                    // Otherwise, if node is the formatting element,
-                    // then go to the next step in the overall
-                    // algorithm.
+                    // Otherwise, if node is the formatting element, then go
+                    // to the next step in the overall algorithm.
                     if (node === fmtelt) break;
 
-                    // Create an element for the token for which the
-                    // element node was created, replace the entry for
-                    // node in the list of active formatting elements
-                    // with an entry for the new element, replace the
-                    // entry for node in the stack of open elements
-                    // with an entry for the new element, and let node
-                    // be the new element.
+                    // Create an element for the token for which the element
+                    // node was created, replace the entry for node in the
+                    // list of active formatting elements with an entry for
+                    // the new element, replace the entry for node in the
+                    // stack of open elements with an entry for the new
+                    // element, and let node be the new element.
                     var newelt = node.cloneNode(false);
                     afe.replace(node, newelt);
                     stack.elements[nodeindex] = newelt;
                     node = newelt;
 
-                    // If last node is the furthest block, then move
-                    // the aforementioned bookmark to be immediately
-                    // after the new node in the list of active
-                    // formatting elements.
+                    // If last node is the furthest block, then move the
+                    // aforementioned bookmark to be immediately after the new
+                    // node in the list of active formatting elements.
                     if (lastnode === furthestblock) {
                         afe.remove(BOOKMARK);
                         afe.insertAfter(newelt, BOOKMARK);
@@ -3318,20 +3343,16 @@ function HTMLParser(domimpl) {
                     lastnode = node;
                 }
 
-                // If the common ancestor node is a table, tbody,
-                // tfoot, thead, or tr element, then, foster parent
-                // whatever last node ended up being in the previous
-                // step, first removing it from its previous parent
-                // node if any.
+                // If the common ancestor node is a table, tbody, tfoot,
+                // thead, or tr element, then, foster parent whatever last
+                // node ended up being in the previous step, first removing it
+                // from its previous parent node if any.
                 if (isA(ancestor, tablesectionrowSet)) {
-                    var fosterparent = stack.getFosterParent();
-                    fosterparent.appendChild(lastnode);
+                    fosterParent(lastnode);
                 }
-
-                // Otherwise, append whatever last node ended up being
-                // in the previous step to the common ancestor node,
-                // first removing it from its previous parent node if
-                // any.
+                // Otherwise, append whatever last node ended up being in the
+                // previous step to the common ancestor node, first removing
+                // it from its previous parent node if any.
                 else {
                     ancestor.appendChild(lastnode);
                 }
@@ -3349,20 +3370,20 @@ function HTMLParser(domimpl) {
                 // Append that new element to the furthest block.
                 furthestblock.appendChild(newelt2);
 
-                // Remove the formatting element from the list of
-                // active formatting elements, and insert the new
-                // element into the list of active formatting elements
-                // at the position of the aforementioned bookmark.
+                // Remove the formatting element from the list of active
+                // formatting elements, and insert the new element into the
+                // list of active formatting elements at the position of the
+                // aforementioned bookmark.
                 afe.remove(fmtelt);
                 afe.replace(BOOKMARK, newelt2);
 
-                // Remove the formatting element from the stack of
-                // open elements, and insert the new element into the
-                // stack of open elements immediately below the
-                // position of the furthest block in that stack.
+                // Remove the formatting element from the stack of open
+                // elements, and insert the new element into the stack of open
+                // elements immediately below the position of the furthest
+                // block in that stack.
                 stack.removeElement(fmtelt);
                 var pos = A.lastIndexOf(stack.elements, furthestblock);
-                splice(stack.elements, pos, 0, newelt2);
+                splice(stack.elements, pos+1, 0, newelt2);
             }
         }
 
@@ -3477,7 +3498,7 @@ function HTMLParser(domimpl) {
     }
 
 
-    var nonWS = /[^\x09\x0A\x0C\x0D\x20]/;
+    var nonWS = /[^\x09\x0A\x0C\x0D\x20]/g;
     var leadingWS = /^[\x09\x0A\x0C\x0D\x20]+/;
     function trimLeadingWS(s) {
         // Can I be more efficient than this?
@@ -4099,7 +4120,7 @@ function HTMLParser(domimpl) {
                 insertHTMLElement(value,arg3);
                 ignoreLinefeed();
                 frameset_ok = false;
-                tokenizerMode = rc_data_state;
+                tokenizerState = rcdata_state;
                 originalInsertionMode = insertionMode;
                 insertionMode = text_mode;
                 return;
@@ -4474,13 +4495,14 @@ function HTMLParser(domimpl) {
                 // This must be the same code as the "anything else"
                 // case of the in_table mode above.
                 foster_parent_mode = true;
-                in_body_mode(t, value, arg3, arg4);
+                in_body_mode(TEXT, s);
                 foster_parent_mode = false;
             }
             else {
                 insertText(s);
             }
             insertionMode = originalInsertionMode;
+            insertionMode(t, value, arg3, arg4);
         }
     }
 
@@ -4593,9 +4615,9 @@ function HTMLParser(domimpl) {
 
     function in_table_body_mode(t, value, arg3, arg4) {
         function endsect() {
-            if (!stack.elementInTableScope("tbody") &&
-                !stack.elementInTableScope("thead") && 
-                !stack.elementInTableScope("tfoot")) 
+            if (!stack.inTableScope("tbody") &&
+                !stack.inTableScope("thead") && 
+                !stack.inTableScope("tfoot")) 
                 return;
             stack.clearToContext(impl.HTMLTableSectionElement);
             in_table_body_mode(ENDTAG, stack.top.localName, null);
@@ -4653,12 +4675,12 @@ function HTMLParser(domimpl) {
         }
 
         // Anything else:
-        in_table(t, value, arg3, arg4);
+        in_table_mode(t, value, arg3, arg4);
     }
 
     function in_row_mode(t, value, arg3, arg4) {
-        function end_row() {
-            if (!stack.inTableContext("tr")) return false;
+        function endrow() {
+            if (!stack.inTableScope("tr")) return false;
             stack.clearToContext(impl.HTMLTableRowElement);
             stack.pop();
             insertionMode = in_table_body_mode;
@@ -4715,7 +4737,7 @@ function HTMLParser(domimpl) {
         }
 
         // anything else
-        in_table(t, value, arg3, arg4);
+        in_table_mode(t, value, arg3, arg4);
     }
 
     function in_cell_mode(t, value, arg3, arg4) {
@@ -4894,7 +4916,8 @@ function HTMLParser(domimpl) {
             in_body_mode(t, value);
             return;
         case COMMENT:
-            insertComment(value);
+            // Append it to the <html> element
+            stack.elements[0].appendChild(doc.createComment(value));
             return;
         case DOCTYPE:
             return;
@@ -7422,7 +7445,7 @@ function HTMLParser(domimpl) {
             s = s || "";
             scannerAppend(s, true);
             scanChars();
-            return doc;
+            return wrap(doc);
         }
     };
 }

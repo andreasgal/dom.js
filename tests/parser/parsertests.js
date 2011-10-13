@@ -32,9 +32,8 @@ function runTestFile(filename) {
 
 function test(input, expected, filename, testnum) {
     numtests++;
-
     try {
-        var parser = HTMLParser(document.implementation);
+        var parser = HTMLParser();
         var doc = parser.end(input);
         var output = serialize(doc, " ");
     
@@ -99,7 +98,8 @@ function serialize(n, prefix) {
     if (n.attributes && n.attributes.length) {
         for(var i = 0; i < n.attributes.length; i++) {
             var a = n.attributes[i];
-            s += "|" + prefix + "  " + a.name + '="' + a.value + '"\n';
+            var value = a.value || "";
+            s += "|" + prefix + "  " + a.name + '="' + value + '"\n';
         }
     }
 
