@@ -31,11 +31,12 @@ function HTMLParser(domimpl) {
     var tokenizerState = data_state;
     var savedTokenizerStates = [];
     var tagnamebuf = [];
+    var lasttagbuf;  // holds the target end tag for text states
     var tempbuf = [];
     var attrnamebuf = [];
     var attrvaluebuf = [];
     var commentbuf = [];
-    var doctypebuf = [];
+    var doctypenamebuf = [];
     var doctypepublicbuf = [];
     var doctypesystembuf = [];
     var attributes = [];
@@ -105,6 +106,11 @@ function HTMLParser(domimpl) {
         nextchar = 0;
     }
 
+    // tokenizer states that require lookahead call this
+    function consume(n) {
+        nextchar += n;
+    }
+
 
     // Loop through the characters in chars, and pass them one at a time
     // to the tokenizer FSM. Return when no more characters can be processed
@@ -112,7 +118,7 @@ function HTMLParser(domimpl) {
     // waiting to see if the next char is LF, or for states that require
     // lookahead...)
     function scanChars() {
-        var codepoint, s, pattern;
+        var codepoint, s, pattern, eof;
         while(nextchar < numchars) {
             switch(typeof tokenizerState.lookahead) {
             case 'undefined':
@@ -149,6 +155,7 @@ function HTMLParser(domimpl) {
                 
                 if (n < numchars - nextchar) {  // If we can look ahead that far
                     s = chars.substring(nextchar, nextchar+n);
+                    eof = false;
                 }
                 else { // if we don't have that many characters
                     if (input_complete) { // If no more are coming
@@ -156,6 +163,7 @@ function HTMLParser(domimpl) {
                         // XXX
                         // This includes the synthetic \uFFFF char, right?
                         s = chars.substring(nextchar, numchars);
+                        eof = true;
                     }
                     else {
                         // Return now and wait for more chars later
@@ -163,7 +171,7 @@ function HTMLParser(domimpl) {
                     }
                 }
                 codepoint = chars.charCodeAt(nextchar);
-                tokenizerState(codepoint, s, input_complete);
+                tokenizerState(codepoint, s, eof);
                 break;
             case 'string':
                 // tokenizer wants characters up to a matching string
@@ -172,6 +180,7 @@ function HTMLParser(domimpl) {
                 codepoint = chars.charCodeAt(nextchar);
                 if (pos !== -1) {
                     s = chars.substring(nextchar, pos + pattern.length);
+                    eof = false;
                 }
                 else {  // No match
                     // If more characters coming, wait for them
@@ -179,9 +188,10 @@ function HTMLParser(domimpl) {
 
                     // Otherwise, we've got to return what we've got
                     s = chars.substring(nextchar, numchars);
+                    eof = true;
                 }
 
-                tokenizerState(codepoint, s, input_complete);
+                tokenizerState(codepoint, s, eof);
                 break;
             case 'object':
                 // tokenizer wants characters that match a regexp
@@ -192,6 +202,7 @@ function HTMLParser(domimpl) {
                     // Found a match.
                     // lastIndex now points to the first char after it
                     s = chars.substring(nextchar, pattern.lastIndex);
+                    eof = false;
                 }
                 else {
                     // No match.  If we're not at the end of input, then
@@ -206,9 +217,10 @@ function HTMLParser(domimpl) {
                     // in the if branch above, so here we're dealing with
                     // things that really aren't char refs
                     s = "";
+                    eof = true;
                 }
                 
-                tokenizerState(codepoint, s, input_complete);
+                tokenizerState(codepoint, s, eof);
                 break;
             }
         }
@@ -259,7 +271,7 @@ function HTMLParser(domimpl) {
     function beginAttrValue() { attrvaluebuf.length = 0; }
     function beginComment() { commentbuf.length = 0; }
     function beginDoctype() {
-        doctypebuf.length = 0;
+        doctypenamebuf.length = 0;
         doctypepublicbuf = null;
         doctypesystembuf = null;
     }
@@ -278,6 +290,16 @@ function HTMLParser(domimpl) {
     // state.  And its shouldn't be called from a state that uses
     // lookahead, either.
     function pushback() { nextchar--; }
+
+    // Return true if the codepoints in the specified buffer match those
+    // in lasttagbuf
+    function appropriateEndTag(buf) {
+        if (buf.length === lasttagbuf.length) return false;
+        for(var i = 0, n = buf.length; i < n; i++) {
+            if (buf[i] !== lasttagbuf[i]) return false;
+        }
+        return true;
+    }
 
     function emitChar(c) { push(textrun, c); }
     function emitChars(buf) { pushAll(textrun, buf); }
@@ -332,7 +354,7 @@ function HTMLParser(domimpl) {
     function emitDoctype() {
         flushText();
         insertionMode(DOCTYPE,
-                      buf2str(doctypebuf), 
+                      buf2str(doctypenamebuf), 
                       doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined,
                       doctypesystembuf ? buf2str(doctypesystembuf) : undefined);
     }
@@ -510,6 +532,9 @@ function HTMLParser(domimpl) {
     character_reference_in_data_state.lookahead = CHARREF;
 
     function rcdata_state(c) {
+        // Save the open tag so we can find a matching close tag
+        lasttagbuf = [].concat(tagnamebuf);
+
         switch(c) {
         case 0x0026: //  AMPERSAND (&) 
             tokenizerState = character_reference_in_rcdata_state;
@@ -543,6 +568,9 @@ function HTMLParser(domimpl) {
     character_reference_in_rcdata_state.lookahead = CHARREF;
 
     function rawtext_state(c) {
+        // Save the open tag so we can find a matching close tag
+        lasttagbuf = [].concat(tagnamebuf);
+
         switch(c) {
         case 0x003C: //  LESS-THAN SIGN (<) 
             tokenizerState = rawtext_less_than_sign_state;
@@ -560,6 +588,9 @@ function HTMLParser(domimpl) {
     }
 
     function script_data_state(c) {
+        // Save the open tag so we can find a matching close tag
+        lasttagbuf = [].concat(tagnamebuf);
+
         switch(c) {
         case 0x003C: //  LESS-THAN SIGN (<) 
             tokenizerState = script_data_less_than_sign_state;
@@ -618,6 +649,7 @@ function HTMLParser(domimpl) {
             tokenizerState = tag_name_state; 
             break; 
         case 0x003F: //  QUESTION MARK (?) 
+            pushback();
             tokenizerState = bogus_comment_state;
             break; 
         default: 
@@ -659,6 +691,7 @@ function HTMLParser(domimpl) {
             tokenizerState = data_state;
             break; 
         default: 
+            pushback();
             tokenizerState = bogus_comment_state;
             break; 
         }
@@ -755,19 +788,19 @@ function HTMLParser(domimpl) {
         case 0x000A: //  LINE FEED (LF) 
         case 0x000C: //  FORM FEED (FF) 
         case 0x0020: //  SPACE
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = before_attribute_name_state;
                 return;
             }
             break;
         case 0x002F: //  SOLIDUS (/)
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = self_closing_start_tag_state;
                 return;
             }
             break;
         case 0x003E: //  GREATER-THAN SIGN (>)
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 emitTag();
                 tokenizerState = data_state;
                 return;
@@ -862,19 +895,19 @@ function HTMLParser(domimpl) {
         case 0x000A: //  LINE FEED (LF) 
         case 0x000C: //  FORM FEED (FF)
         case 0x0020: //  SPACE
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = before_attribute_name_state;
                 return;
             }
             break;
         case 0x002F: //  SOLIDUS (/)
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = self_closing_start_tag_state;
                 return;
             }
             break;
         case 0x003E: //  GREATER-THAN SIGN (>)
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 emitTag();
                 tokenizerState = data_state;
                 return;
@@ -972,19 +1005,19 @@ function HTMLParser(domimpl) {
         case 0x000A: //  LINE FEED (LF) 
         case 0x000C: //  FORM FEED (FF) 
         case 0x0020: //  SPACE
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = before_attribute_name_state;
                 return;
             }
             break;
         case 0x002F: //  SOLIDUS (/)
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = self_closing_start_tag_state;
                 return;
             }
             break;
         case 0x003E: //  GREATER-THAN SIGN (>)
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 emitTag();
                 tokenizerState = data_state;
                 return;
@@ -1196,19 +1229,19 @@ function HTMLParser(domimpl) {
         case 0x000A: //  LINE FEED (LF) 
         case 0x000C: //  FORM FEED (FF)
         case 0x0020: //  SPACE 
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = before_attribute_name_state; 
                 return;
             }
             break; 
         case 0x002F: //  SOLIDUS (/) 
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = self_closing_start_tag_state; 
                 return;
             }
             break; 
         case 0x003E: //  GREATER-THAN SIGN (>) 
-            if (appropriate(tagnamebuf)) {
+            if (appropriateEndTag(tagnamebuf)) {
                 emitTag();
                 tokenizerState = data_state; 
                 return;
@@ -1764,7 +1797,7 @@ function HTMLParser(domimpl) {
         }
 
         emitCommentString(lookahead
-                          .substring(len-1)
+                          .substring(0,len-1)
                           .replace(/\u0000/g,"\uFFFD"));
 
         tokenizerState = data_state;
@@ -2468,7 +2501,7 @@ function HTMLParser(domimpl) {
         // we encounter a marker, then drop the last one
         var count = 0;
         for(var i = this.list.length-1; i >= 0; i--) {
-            if (this.list[i] === MARKER) break;
+            if (this.list[i] === this.MARKER) break;
             if (equal(elt, this.list[i])) {  // equal() is defined below
                 count++;
                 if (count === 3) {
@@ -2507,14 +2540,14 @@ function HTMLParser(domimpl) {
         // If the last is a marker , do nothing
         if (entry === this.MARKER) return;
         // Or if it is an open element, do nothing
-        if (A.lastIndexOf(openelts, entry) !== -1) return;
+        if (A.lastIndexOf(stack.elements, entry) !== -1) return;
 
         // Loop backward through the list until we find a marker or an
         // open element, and then move forward one from there.
         for(var i = this.list.length-2; i >= 0; i--) {
             entry = this.list[i];
             if (entry === this.MARKER) break;
-            if (A.lastIndexOf(openelts, entry) !== -1) break;
+            if (A.lastIndexOf(stack.elements, entry) !== -1) break;
         }
 
         // Now loop forward, starting from the element after the current one,
@@ -3475,13 +3508,13 @@ function HTMLParser(domimpl) {
             if (force_quirks || 
                 name.toLowerCase() !== "html" ||
                 quirkyPublicIds.test(publicid) ||
-                systemid.toLowerCase() === quirkySystemId ||
+                (systemid && systemid.toLowerCase() === quirkySystemId) ||
                 (systemid === undefined &&
-                 conditionallyQuirkyPublicIds.test(publicId)))
+                 conditionallyQuirkyPublicIds.test(publicid)))
                 doc._quirks = true;
-            else if (limitedQuirkyPublicIds.test(publicId) ||
+            else if (limitedQuirkyPublicIds.test(publicid) ||
                      (systemid !== undefined &&
-                      conditionallyQuirkyPublicIds.test(publicId)))
+                      conditionallyQuirkyPublicIds.test(publicid)))
                 doc._limitedQuirks = true;
             insertionMode = before_html_mode;
             return;
