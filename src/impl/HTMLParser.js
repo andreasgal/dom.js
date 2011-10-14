@@ -475,6 +475,18 @@ function HTMLParser(domimpl) {
         stack.push(elt);
     }
 
+    // For each attribute in attrs, if elt doesn't have an attribute
+    // by that name, add the attribute to elt
+    // XXX: I'm ignoring namespaces for now
+    function transferAttributes(attrs, elt) {
+        for(var i = 0, n = attrs.length; i < n; i++) {
+            var name = attrs[i][0], value = attrs[i][1];
+            if (elt.hasAttribute(name)) continue;
+            elt.setAttribute(name, value);
+        }
+    }
+
+
     /*
      * Tokenizer states 
      */
@@ -1756,7 +1768,7 @@ function HTMLParser(domimpl) {
         }
     }
 
-    function character_reference_in_attribute_value_state(c) {
+    function character_reference_in_attribute_value_state(c, lookahead, eof) {
         var char = parseCharRef(lookahead, eof);
         if (char !== null) {
             if (typeof char === "number")
@@ -3520,12 +3532,14 @@ function HTMLParser(domimpl) {
             var name = value;
             var publicid = arg3;
             var systemid = arg4;
-            doc.appendChild(doc.implementation.createDocumentType(name,
-                                                                  publicid || "",
-                                                                  systemid || ""));
+            // Use the constructor directly instead of 
+            // implementation.createDocumentType because the create
+            // function throws errors on invalid characters, and 
+            // we don't want the parser to throw them.
+            doc.appendChild(new impl.DocumentType(name,publicid, systemid));
 
-            // Note that there is no public API for setting quirks mode
-            // We can do this here because we have access to implementation details
+            // Note that there is no public API for setting quirks mode We can
+            // do this here because we have access to implementation details
             if (force_quirks || 
                 name.toLowerCase() !== "html" ||
                 quirkyPublicIds.test(publicid) ||
@@ -4055,7 +4069,7 @@ function HTMLParser(domimpl) {
                 var elt = insertHTMLElement(value,arg3);
                 stack.pop();
                 var type = elt.getAttribute("type");
-                if (type.toLowerCase() !== "hidden")
+                if (!type || type.toLowerCase() !== "hidden")
                     frameset_ok = false;
                 return;
 
@@ -4081,7 +4095,7 @@ function HTMLParser(domimpl) {
                 if (form_element_pointer) return;
                 (function handleIsIndexTag(attrs) {
                     var actionAttribute = null, prompt, hasnameattr;
-                    for(i = 0; i < attrs.length; i++) {
+                    for(var i = 0; i < attrs.length; i++) {
                         var a = attrs[i];
                         if (a[0] === "action") {
                             actionAttribute = splice(attrs, i, 1);
@@ -4106,7 +4120,7 @@ function HTMLParser(domimpl) {
                     // The default prompt presumably needs localization.
                     if (!prompt)
                         prompt="This is a searchable index. Enter search keywords:";
-                    for(i = 0, n = prompt.length; i < n; i++)
+                    for(var i = 0, n = prompt.length; i < n; i++)
                         emitChar(prompt.charCodeAt(i));
 
                     insertionMode(TAG, "input", attrs);
@@ -5042,7 +5056,7 @@ function HTMLParser(domimpl) {
             stopParsing();
             return;
         case TAG:
-            if (value === html) {
+            if (value === "html") {
                 in_body_mode(t, value, arg3, arg4);
                 return;
             }

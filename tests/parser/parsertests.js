@@ -128,6 +128,7 @@ function report() {
                 print("Aborted with:",
                       f.exception.name + ": " + f.exception.message,
                       "at", f.exception.fileName + ":" +f.exception.lineNumber);
+                print(f.exception.stack.split("\n").slice(1,5).join("\n"));
             }
             else {
                 print("Got:");
