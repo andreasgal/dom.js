@@ -280,7 +280,8 @@ function HTMLParser(domimpl) {
     function appendChar(buf, char) { push(buf, char); }
     function forcequirks() { force_quirks = true; }
     function cdataAllowed() {
-        return stack.top.namespaceURI !== "http://www.w3.org/1999/xhtml";
+        return stack.top &&
+            stack.top.namespaceURI !== "http://www.w3.org/1999/xhtml";
     }
 
     // Back up one character so the codepoint just passed to the tokenizer
@@ -315,7 +316,7 @@ function HTMLParser(domimpl) {
                 if (s.length === 0) return;
             }
 
-            insertionMode(TEXT, s);
+            insertToken(TEXT, s);
         }
         ignore_linefeed = false;
     }
@@ -330,42 +331,109 @@ function HTMLParser(domimpl) {
             if (s.length === 0) return;
         }
         
-        insertionMode(TEXT, s);
+        insertToken(TEXT, s);
     }
 
     function emitTag() {
         flushText();
-        if (is_end_tag) insertionMode(ENDTAG, buf2str(tagnamebuf));
+        if (is_end_tag) insertToken(ENDTAG, buf2str(tagnamebuf));
         else {
             // Remember the last open tag we emitted
             lasttagbuf = tagnamebuf;
             tagnamebuf = [];
-            insertionMode(TAG, buf2str(lasttagbuf), attributes);
+            insertToken(TAG, buf2str(lasttagbuf), attributes);
         }
     }
     function emitSelfClosingTag() {
         flushText(); 
-        if (is_end_tag) insertionMode(ENDTAG, buf2str(tagnamebuf), null, true);
-        else insertionMode(TAG, buf2str(tagnamebuf), attributes, true);
+        if (is_end_tag) insertToken(ENDTAG, buf2str(tagnamebuf), null, true);
+        else insertToken(TAG, buf2str(tagnamebuf), attributes, true);
     }
     function emitComment() {
         flushText();
-        insertionMode(COMMENT, buf2str(commentbuf));
+        insertToken(COMMENT, buf2str(commentbuf));
     }
     function emitCommentString(s) {
         flushText();
-        insertionMode(COMMENT, s);
+        insertToken(COMMENT, s);
     }
     function emitDoctype() {
         flushText();
-        insertionMode(DOCTYPE,
-                      buf2str(doctypenamebuf), 
-                      doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined,
-                      doctypesystembuf ? buf2str(doctypesystembuf) : undefined);
+        insertToken(DOCTYPE,
+               buf2str(doctypenamebuf), 
+               doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined,
+               doctypesystembuf ? buf2str(doctypesystembuf) : undefined);
     }
     function emitEOF() {
         flushText();
-        insertionMode(EOF);
+        insertionMode(EOF);  // EOF never goes to insertForeignContent()
+    }
+
+    var mathmlTextIntegrationPointSet = {};
+    mathmlTextIntegrationPointSet[MATHML_NAMESPACE] = {
+        mi: true,
+        mo: true,
+        mn: true,
+        ms: true,
+        mtext: true
+    };
+
+    var htmlIntegrationPointSet = {};
+    htmlIntegrationPointSet[SVG_NAMESPACE] = {
+        foreignObject: true,
+        desc: true,
+        title: true
+    };
+
+    function isMathmlTextIntegrationPoint(n) {
+        return isA(n, mathmlTextIntegrationPointSet);
+    }
+    
+    function isHTMLIntegrationPoint(n) {
+        if (isA(n, htmlIntegrationPointSet)) return true;
+        if (n.namespaceURI === MATHML_NAMESPACE &&
+            n.localName === "annotation-xml") {
+            var encoding = n.getAttribute("encoding");
+            if (encoding) encoding = encoding.toLowerCase();
+            if (encoding === "text/html" ||
+                encoding === "application/xhtml+xml")
+                return true;
+        }
+        return false;
+    }
+
+    // Insert a token, either using the current insertionMode (for HTML stuff)
+    // or using the insertForeignToken() method.
+    function insertToken(t, value, arg3, arg4) {
+        var current = stack.top;
+        if (!current || current.namespaceURI === HTML_NAMESPACE) {
+            // This is the common case
+            insertionMode(t, value, arg3, arg4);
+        }
+        else {
+            // Otherwise we may need to insert this token as foreign content
+            if (t !== TAG && t !== TEXT) {
+                insertForeignToken(t, value, arg3, arg4);
+            }
+            else {
+                // But in some cases we treat it as regular content
+                if ((isMathmlTextIntegrationPoint(current) &&
+                     (t === TEXT ||
+                      (t === TAG &&
+                       value !== "mglyph" && value !== "malignmark"))) ||
+                    (t === TAG &&
+                     value === "svg" &&
+                     current.namespaceURI === MATHML_NAMESPACE &&
+                     current.localName === "annotation-xml") ||
+                    isHTMLIntegrationPoint(current)) {
+                    insertionMode(t, value, arg3, arg4);
+                }
+                // Otherwise it is foreign content
+                else {
+                    insertForeignToken(t, value, arg3, arg4);
+                }
+            }
+        }
     }
 
 
@@ -377,7 +445,7 @@ function HTMLParser(domimpl) {
     }
 
     function insertText(s) {
-        if (foster_parent_mode) {
+        if (foster_parent_mode && isA(stack.top, tablesectionrowSet)) {
             fosterParent(doc.createTextNode(s));
         }
         else {
@@ -392,10 +460,18 @@ function HTMLParser(domimpl) {
     }
 
     function createHTMLElt(name, attrs) {
-        var elt = doc.createElement(name);
+        // Create the element this way, rather than with 
+        // doc.createElement because createElement() does error
+        // checking on the element name that we need to avoid here.
+        var interfaceName = tagNameToInterfaceName[name] ||
+            "HTMLUnknownElement";
+        var elt = new impl[interfaceName](doc, name, null);
+
         if (attrs) {
             for(var i = 0, n = attrs.length; i < n; i++) {
-                elt.setAttribute(attrs[i][0], attrs[i][1]);
+                // Use the _ version to avoid testing the validity
+                // of the attribute name
+                elt._setAttribute(attrs[i][0], attrs[i][1]);
             }
         }
         // XXX
@@ -411,8 +487,17 @@ function HTMLParser(domimpl) {
 
     function insertHTMLElement(name, attrs) {
         var elt = createHTMLElt(name, attrs);
+        insertElement(elt);
 
-        if (foster_parent_mode) {
+        // XXX
+        // If this is a form element, set its form attribute property
+
+        return elt;
+    }
+
+    // Insert the element into the open element or foster parent it
+    function insertElement(elt) {
+        if (foster_parent_mode && isA(stack.top, tablesectionrowSet)) {
             fosterParent(elt);
         }
         else {
@@ -420,11 +505,6 @@ function HTMLParser(domimpl) {
         }
 
         stack.push(elt);
-
-        // XXX
-        // If this is a form element, set its form attribute property
-
-        return elt;
     }
 
     function fosterParent(elt) {
@@ -459,20 +539,19 @@ function HTMLParser(domimpl) {
     }
 
     function insertForeignElement(name, attrs, ns) {
-        var elt = doc.createElementNS(name, ns);
-        
+        var elt = doc.createElementNS(ns, name);
         if (attrs) {
             for(var i = 0, n = attrs.length; i < n; i++) {
                 var attr = attrs[i];
                 if (attr.length == 2) 
-                    elt.setAttribute(attr[0], attr[1]);
-                else
-                    elt.setAttributeNS(attr[2], attr[0], attr[1]);
+                    elt._setAttribute(attr[0], attr[1]);
+                else {
+                    elt._setAttributeNS(attr[2], attr[0], attr[1]);
+                }
             }
         }
 
-        stack.top.appendChild(elt);
-        stack.push(elt);
+        insertElement(elt);
     }
 
     // For each attribute in attrs, if elt doesn't have an attribute
@@ -482,7 +561,7 @@ function HTMLParser(domimpl) {
         for(var i = 0, n = attrs.length; i < n; i++) {
             var name = attrs[i][0], value = attrs[i][1];
             if (elt.hasAttribute(name)) continue;
-            elt.setAttribute(name, value);
+            elt._setAttribute(name, value);
         }
     }
 
@@ -552,6 +631,9 @@ function HTMLParser(domimpl) {
     // to lastIndex.  
     var CHARREF = /#[0-9]+[^0-9]|#[xX][0-9a-fA-F]+[^0-9a-fA-F]|[a-zA-Z][a-zA-Z0-9]*[^a-zA-Z0-9]/y;
 
+    // Like the above, but for named char refs, the last char can't be =
+    var ATTRCHARREF = /#[0-9]+[^0-9]|#[xX][0-9a-fA-F]+[^0-9a-fA-F]|[a-zA-Z][a-zA-Z0-9]*[^=a-zA-Z0-9]/y;
+
     function data_state(c) {
         switch(c) {
         case 0x0026: //  AMPERSAND (&) 
@@ -573,7 +655,7 @@ function HTMLParser(domimpl) {
     }
 
     function character_reference_in_data_state(c, lookahead, eof) {
-        var char = parseCharRef(lookahead, eof);
+        var char = parseCharRef(lookahead, false);
         if (char !== null) {
             if (typeof char === "number") emitChar(char);
             else emitChars(char);  // An array of characters
@@ -607,7 +689,7 @@ function HTMLParser(domimpl) {
     }
 
     function character_reference_in_rcdata_state(c, lookahead, eof) {
-        var char = parseCharRef(lookahead, eof);
+        var char = parseCharRef(lookahead, false);
         if (char !== null) {
             if (typeof char === "number") emitChar(char);
             else emitChars(char);  // An array of characters
@@ -1332,7 +1414,7 @@ function HTMLParser(domimpl) {
         case 0x0020: //  SPACE 
         case 0x002F: //  SOLIDUS (/) 
         case 0x003E: //  GREATER-THAN SIGN (>) 
-            if (contains(tempbuf, "script")) {
+            if (buf2str(tempbuf) === "script") {
                 tokenizerState = script_data_double_escaped_state;
             }
             else {
@@ -1461,7 +1543,7 @@ function HTMLParser(domimpl) {
         case 0x0020: //  SPACE 
         case 0x002F: //  SOLIDUS (/) 
         case 0x003E: //  GREATER-THAN SIGN (>) 
-            if (contains(tempbuf, "script")) {
+            if (buf2str(tempbuf) === "script") {
                 tokenizerState = script_data_escaped_state;
             }
             else {
@@ -1769,7 +1851,7 @@ function HTMLParser(domimpl) {
     }
 
     function character_reference_in_attribute_value_state(c, lookahead, eof) {
-        var char = parseCharRef(lookahead, eof);
+        var char = parseCharRef(lookahead, true);
         if (char !== null) {
             if (typeof char === "number")
                 appendChar(attrvaluebuf, char);
@@ -1786,7 +1868,7 @@ function HTMLParser(domimpl) {
 
         popState();
     }
-    character_reference_in_attribute_value_state.lookahead = CHARREF;
+    character_reference_in_attribute_value_state.lookahead = ATTRCHARREF;
 
     function after_attribute_value_quoted_state(c) {
         switch(c) {
@@ -1819,7 +1901,7 @@ function HTMLParser(domimpl) {
         case 0x003E: //  GREATER-THAN SIGN (>) 
             // Set the <i>self-closing flag</i> of the current tag token. 
             tokenizerState = data_state; 
-            emibtSelfClosingTag(true); 
+            emitSelfClosingTag(true); 
             break; 
         case EOF: 
             pushback();
@@ -1900,7 +1982,8 @@ function HTMLParser(domimpl) {
 
     function comment_start_dash_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) Switch to the #comment-end-state
+        case 0x002D: //  HYPHEN-MINUS (-)
+            tokenizerState = comment_end_state;
             break; 
         case 0x0000: //  NULL 
             appendChar(commentbuf, 0x002D /* HYPHEN-MINUS  (-)*/);
@@ -2140,15 +2223,17 @@ function HTMLParser(domimpl) {
         case 0x000C: //  FORM FEED (FF) 
         case 0x0020: //  SPACE 
             /* Ignore the character. */
+            consume(1);
             break; 
         case 0x003E: //  GREATER-THAN SIGN (>) 
             tokenizerState = data_state;
+            consume(1);
             emitDoctype();
             break; 
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            // pushback(); No need to pushback since we didn't consume
             tokenizerState = data_state;
             break; 
         default:  
@@ -2608,8 +2693,9 @@ function HTMLParser(domimpl) {
         for(i = i+1; i < this.list.length; i++) {
             entry = this.list[i];
             var newelt = entry.cloneNode(false); // shallow clone
-            stack.top.appendChild(newelt);
-            stack.push(newelt);
+//            stack.top.appendChild(newelt);
+//            stack.push(newelt);
+            insertElement(newelt);
             this.list[i] = newelt;
         }
     };
@@ -3177,6 +3263,51 @@ function HTMLParser(domimpl) {
         zoomandpan: "zoomAndPan"
     };
 
+    var svgTagNameAdjustments = {
+        altglyph: "altGlyph",
+        altglyphdef: "altGlyphDef",
+        altglyphitem: "altGlyphItem",
+        animatecolor: "animateColor",
+        animatemotion: "animateMotion",
+        animatetransform: "animateTransform",
+        clippath: "clipPath",
+        feblend: "feBlend",
+        fecolormatrix: "feColorMatrix",
+        fecomponenttransfer: "feComponentTransfer",
+        fecomposite: "feComposite",
+        feconvolvematrix: "feConvolveMatrix",
+        fediffuselighting: "feDiffuseLighting",
+        fedisplacementmap: "feDisplacementMap",
+        fedistantlight: "feDistantLight",
+        feflood: "feFlood",
+        fefunca: "feFuncA",
+        fefuncb: "feFuncB",
+        fefuncg: "feFuncG",
+        fefuncr: "feFuncR",
+        fegaussianblur: "feGaussianBlur",
+        feimage: "feImage",
+        femerge: "feMerge",
+        femergenode: "feMergeNode",
+        femorphology: "feMorphology",
+        feoffset: "feOffset",
+        fepointlight: "fePointLight",
+        fespecularlighting: "feSpecularLighting",
+        fespotlight: "feSpotLight",
+        fetile: "feTile",
+        feturbulence: "feTurbulence",
+        foreignobject: "foreignObject",
+        glyphref: "glyphRef",
+        lineargradient: "linearGradient",
+        radialgradient: "radialGradient",
+        textpath: "textPath"
+    };
+
+    function adjustSVGTagName(name) {
+       if (name in svgTagNameAdjustments) 
+          return svgTagNameAdjustments[name];
+       else 
+          return name;
+    }
 
     function adjustSVGAttributes(attrs) {
         for(var i = 0, n = attrs.length; i < n; i++) {
@@ -3240,9 +3371,9 @@ function HTMLParser(domimpl) {
 
             // If there is no such node, then abort these steps and instead
             // act as described in the "any other end tag" entry below.
-            if (!fmtelt)
+            if (!fmtelt) {
                 return false;  // false means handle by the default case
-
+            }
             // Otherwise, if there is such a node, but that node is not in the
             // stack of open elements, then this is a parse error; remove the
             // element from the list, and abort these steps.
@@ -3510,7 +3641,8 @@ function HTMLParser(domimpl) {
     }
 
 
-    var nonWS = /[^\x09\x0A\x0C\x0D\x20]/g;
+    var nonWS = /[^\x09\x0A\x0C\x0D\x20]/;
+    var allNonWS = /[^\x09\x0A\x0C\x0D\x20]/g;  // like above, with g flag
     var leadingWS = /^[\x09\x0A\x0C\x0D\x20]+/;
     function trimLeadingWS(s) {
         // Can I be more efficient than this?
@@ -3891,7 +4023,7 @@ function HTMLParser(domimpl) {
                 transferAttributes(arg3, body);
                 return;
             case "frameset":
-                if (!framset_ok) return;
+                if (!frameset_ok) return;
                 body = stack.elements[1];
                 if (!body || !(body instanceof impl.HTMLBodyElement)) return;
                 if (body.parentNode) body.parentNode.removeChild(body);
@@ -4102,7 +4234,8 @@ function HTMLParser(domimpl) {
                             i--;
                         }
                         else if (a[0] === "prompt") {
-                            prompt = splice(attrs, i, 1)[1];
+                            prompt = a[1];
+                            splice(attrs, i, 1);
                             i--;
                         }
                         else if (a[0] === "name") {
@@ -4394,6 +4527,13 @@ function HTMLParser(domimpl) {
     }
 
     function in_table_mode(t, value, arg3, arg4) {
+        function getTypeAttr(attrs) {
+            for(var i = 0, n = attrs.length; i < n; i++) {
+                if (attrs[i][0] === "type") return attrs[i][1];
+            }
+            return null;
+        }
+
         switch(t) {
         case TEXT:
             pending_table_text = [];
@@ -4962,7 +5102,7 @@ function HTMLParser(domimpl) {
         switch(t) {
         case TEXT:
             // Ignore any non-space characters
-            value = value.replace(nonWS, "");
+            value = value.replace(allNonWS, "");
             if (value.length > 0) insertText(value);
             return;
         case COMMENT:
@@ -5008,7 +5148,7 @@ function HTMLParser(domimpl) {
         switch(t) {
         case TEXT:
             // Ignore any non-space characters
-            value = value.replace(nonWS, "");
+            value = value.replace(allNonWS, "");
             if (value.length > 0) insertText(value);
             return;
         case COMMENT:
@@ -5031,7 +5171,7 @@ function HTMLParser(domimpl) {
             break;
         case ENDTAG:
             if (value === "html") {
-                insertionMode = after_after_frameset;
+                insertionMode = after_after_frameset_mode;
                 return;
             }
             break;
@@ -5072,7 +5212,7 @@ function HTMLParser(domimpl) {
         switch(t) {
         case TEXT:
             // Ignore any non-space characters
-            value = value.replace(nonWS, "");
+            value = value.replace(allNonWS, "");
             if (value.length > 0) 
                 in_body_mode(t, value, arg3, arg4);
             return;
@@ -5101,8 +5241,150 @@ function HTMLParser(domimpl) {
     }
 
 
-    // XXX: I haven't implemented this section yet. When do I need to use it?
     // 13.2.5.5 The rules for parsing tokens in foreign content
+    // This is like one of the insertion modes above, but is 
+    // invoked somewhat differently when the current token is not HTML.
+    // See the insertToken() function.
+    function insertForeignToken(t, value, arg3, arg4) {
+        // A <font> tag is an HTML font tag if it has a color, font, or size
+        // attribute.  Otherwise we assume it is foreign content
+        function isHTMLFont(attrs) {
+            for(var i = 0, n = attrs.length; i < n; i++) {
+                switch(attrs[i][0]) {
+                case "color":
+                case "font":
+                case "size":
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        var current;
+
+        switch(t) {
+        case TEXT:
+            if (frameset_ok && nonWS.test(value)) // If any non-space characters
+                frameset_ok = false;
+            insertText(value);
+            return;
+        case COMMENT:
+            insertComment(value);
+            return;
+        case DOCTYPE:
+            // ignore it
+            return;
+        case TAG:
+            switch(value) {
+            case "font":
+                if (!isHTMLFont(arg3)) break;
+                /* falls through */
+            case "b":
+            case "big":
+            case "blockquote":
+            case "body":
+            case "br":
+            case "center":
+            case "code":
+            case "dd":
+            case "div":
+            case "dl":
+            case "dt":
+            case "em":
+            case "embed":
+            case "h1":
+            case "h2":
+            case "h3":
+            case "h4":
+            case "h5":
+            case "h6":
+            case "head":
+            case "hr":
+            case "i":
+            case "img":
+            case "li":
+            case "listing":
+            case "menu":
+            case "meta":
+            case "nobr":
+            case "ol":
+            case "p":
+            case "pre":
+            case "ruby":
+            case "s":
+            case "small":
+            case "span":
+            case "strong":
+            case "strike":
+            case "sub":
+            case "sup":
+            case "table":
+            case "tt":
+            case "u":
+            case "ul":
+            case "var":
+                do {
+                    stack.pop();
+                    current = stack.top;
+                } while(current.namespaceURI !== HTML_NAMESPACE &&
+                        !isMathmlTextIntegrationPoint(current) &&
+                        !isHTMLIntegrationPoint(current));
+
+                insertToken(t, value, arg3, arg4);  // reprocess
+                return;
+            }
+
+            // Any other start tag case goes here
+            current = stack.top;
+            if (current.namespaceURI === MATHML_NAMESPACE) {
+                adjustMathMLAttributes(arg3);
+            }
+            else if (current.namespaceURI === SVG_NAMESPACE) {
+                value = adjustSVGTagName(value);
+                adjustSVGAttributes(arg3);
+            }
+            adjustForeignAttributes(arg3)
+
+            insertForeignElement(value, arg3, current.namespaceURI);
+            if (arg4) // the self-closing flag
+                stack.pop();
+            return;
+
+        case ENDTAG:
+            current = stack.top;
+            if (value === "script" &&
+                current.namespaceURI === SVG_NAMESPACE &&
+                current.localName === "script") {
+
+                stack.pop();
+
+                // XXX
+                // Deal with SVG scripts here
+            }
+            else {
+                // The any other end tag case
+                var i = stack.elements.length-1;
+                var node = stack.elements[i];
+                while(true) {
+                    if (node.localName.toLowerCase() === value) {
+                        stack.popElement(node);
+                        break;
+                    }
+                    var node = stack.elements[--i];
+                    if (node.namespaceURI == HTML_NAMESPACE)
+                        break;
+                }
+                // Now process the end tag as non-foreign
+                // XXX:
+                // This is what the algorithm says to do, but it seems
+                // to me that after the first break in the loop above,
+                // the stack has already been popped and the end tag handled...
+                insertionMode(t, value, arg3, arg4);
+            }
+            return;
+        }
+    }
+
 
     /*
      * parsing code for character references
@@ -5112,7 +5394,7 @@ function HTMLParser(domimpl) {
     // When a character reference maps to more than one character, should
     // I return an array, or should I push the extra character back to
     // the scanner? Right now I'm just returing a single int or an array of ints
-    function parseCharRef(s) {
+    function parseCharRef(s, isattr) {
         var len = s.length;
         var rv;
         if (len === 0) return null;  // No character reference matched
@@ -5142,8 +5424,11 @@ function HTMLParser(domimpl) {
                 codepoint = 0xFFFD;
             }
 
-            // XXX: do I have to take precautions to with 0xFFFF as EOF here?
-            return codepoint;
+            if (codepoint <= 0xFFFF) return codepoint;
+
+            codepoint = codepoint - 0x10000;
+            return [0xD800 + (codepoint >> 10), 
+                    0xDC00 + (codepoint & 0x03FF)];
         }
         else {                           // Named character reference
             // We have to be able to parse some named char refs even when
@@ -5161,17 +5446,29 @@ function HTMLParser(domimpl) {
                 }
             }
 
-            // If it didn't end with a semicolon, or didn't match using
-            // the semicolon, then see if we can still match something
+            // If it didn't end with a semicolon, see if we can match 
+            // everything but the terminating character
             len--;  // Ignore whatever the terminating character is
-            if (len > 6) len = 6; // Maximum possible match length
-            while(len >= 2) {
-                rv = namedCharRefsNoSemi[s.substring(0, len)];
-                if (rv !== undefined) {
-                    consume(len);
-                    return rv;
-                }
+            rv = namedCharRefsNoSemi[s.substring(0, len)];
+            if (rv !== undefined) {
+                consume(len);
+                return rv;
+            }
+            
+            // If it still didn't match, and we're not parsing a
+            // character reference in an attribute value, then try 
+            // matching shorter substrings.
+            if (!isattr) {
                 len--;
+                if (len > 6) len = 6; // Maximum possible match length
+                while(len >= 2) {
+                    rv = namedCharRefsNoSemi[s.substring(0, len)];
+                    if (rv !== undefined) {
+                        consume(len);
+                        return rv;
+                    }
+                    len--;
+                }
             }
 
             // Couldn't find any match

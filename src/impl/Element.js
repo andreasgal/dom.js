@@ -157,6 +157,11 @@ defineLazyProperty(impl, "Element", function() {
         clone: constant(function clone() {
             var e;
 
+            // XXX: 
+            // Modify this to use the constructor directly or 
+            // avoid error checking in some other way. In case we try
+            // to clone an invalid node that the parser inserted.
+            // 
             if (this.namespaceURI !== HTML_NAMESPACE || this.prefix)
                 e = this.ownerDocument.createElementNS(this.namespaceURI,
                                                        this.tagName);
@@ -165,7 +170,10 @@ defineLazyProperty(impl, "Element", function() {
 
             for(var i = 0, n = this._numattrs; i < n; i++) {
                 var a = this._attr(i);
-                e.setAttributeNS(a.namespaceURI, a.name, a.value);
+                // Use _ version of the function to avoid error checking
+                // in case we're cloning an attribute that is invalid but
+                // was inserted by the parser.
+                e._setAttributeNS(a.namespaceURI, a.name, a.value);
             }
 
             return e;
@@ -333,11 +341,8 @@ defineLazyProperty(impl, "Element", function() {
             return key in this._attrsByLName;
         }),
 
-        setAttribute: constant(function setAttribute(qname, value) {
-            if (!isValidName(qname)) InvalidCharacterError();
-            if (this.isHTML) qname = toLowerCase(qname);
-            if (substring(qname, 0, 5) === "xmlns") NamespaceError();
-
+        // Set the attribute without error checking. The parser uses this.
+        _setAttribute: constant(function _setAttribute(qname, value) {
             // XXX: the spec says that this next search should be done 
             // on the local name, but I think that is an error.
             // email pending on www-dom about it.
@@ -353,12 +358,18 @@ defineLazyProperty(impl, "Element", function() {
             // The Attr.value setter method handles mutation events, etc.
             attr.value = value;
         }),
+
+        // Check for errors, and then set the attribute
+        setAttribute: constant(function setAttribute(qname, value) {
+            if (!isValidName(qname)) InvalidCharacterError();
+            if (this.isHTML) qname = toLowerCase(qname);
+            if (substring(qname, 0, 5) === "xmlns") NamespaceError();
+            this._setAttribute(qname, value);
+        }),
         
 
-        setAttributeNS: constant(function setAttributeNS(ns, qname, value) {
-            if (!isValidName(qname)) InvalidCharacterError();
-            if (!isValidQName(qname)) NamespaceError();
-
+        // The version with no error checking used by the parser
+        _setAttributeNS: constant(function _setAttributeNS(ns, qname, value) {
             var pos = S.indexOf(qname, ":"), prefix, lname;
             if (pos === -1) {
                 prefix = null;
@@ -371,14 +382,6 @@ defineLazyProperty(impl, "Element", function() {
 
             var key = ns + "|" + lname;
             if (ns === "") ns = null;
-
-            if ((prefix !== null && ns === null) ||
-                (prefix === "xml" && ns !== XML_NAMESPACE) ||
-                ((qname === "xmlns" || prefix === "xmlns") &&
-                 (ns !== XMLNS_NAMESPACE)) ||
-                (ns === XMLNS_NAMESPACE && 
-                 !(qname === "xmlns" || prefix === "xmlns")))
-                NamespaceError();
 
             var attr = this._attrsByLName[key];
             if (!attr) {
@@ -404,6 +407,26 @@ defineLazyProperty(impl, "Element", function() {
                 }
             }
             attr.value = value; // Automatically sends mutation event
+        }),
+
+        // Do error checking then call _setAttributeNS
+        setAttributeNS: constant(function setAttributeNS(ns, qname, value) {
+            if (!isValidName(qname)) InvalidCharacterError();
+            if (!isValidQName(qname)) NamespaceError();
+
+            var pos = S.indexOf(qname, ":");
+            var prefix = (pos === -1) ? null : substring(qname, 0, pos);
+            if (ns === "") ns = null;
+
+            if ((prefix !== null && ns === null) ||
+                (prefix === "xml" && ns !== XML_NAMESPACE) ||
+                ((qname === "xmlns" || prefix === "xmlns") &&
+                 (ns !== XMLNS_NAMESPACE)) ||
+                (ns === XMLNS_NAMESPACE && 
+                 !(qname === "xmlns" || prefix === "xmlns")))
+                NamespaceError();
+
+            this._setAttributeNS(ns, qname, value);
         }),
 
         removeAttribute: constant(function removeAttribute(qname) {
