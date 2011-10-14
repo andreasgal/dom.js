@@ -96,11 +96,15 @@ function serialize(n, prefix) {
 
     // XXX: what order are they in? Sort alphabetically?
     if (n.attributes && n.attributes.length) {
+        var attrs = [];
         for(var i = 0; i < n.attributes.length; i++) {
             var a = n.attributes[i];
             var value = a.value || "";
-            s += "|" + prefix + "  " + a.name + '="' + value + '"\n';
+            attrs.push("|" + prefix + "  " + a.name + '="' + value + '"\n');
         }
+
+        attrs.sort();
+        s += attrs.join("");
     }
 
     if (n.nodeType !== Node.DOCUMENT_NODE) prefix += "  ";

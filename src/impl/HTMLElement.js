@@ -1308,3 +1308,26 @@ defineLazyProperty(impl, "HTMLTableHeaderCellElement", function() {
     return HTMLTableHeaderCellElement;
 });
 
+defineLazyProperty(impl, "HTMLFrameSetElement", function() {
+    function HTMLFrameSetElement(doc, localName, prefix) {
+        impl.HTMLElement.call(this, doc, localName, prefix);
+    }
+
+    HTMLFrameSetElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLFrameSetElement"),
+    });
+
+    return HTMLFrameSetElement;
+});
+
+defineLazyProperty(impl, "HTMLFrameElement", function() {
+    function HTMLFrameElement(doc, localName, prefix) {
+        impl.HTMLElement.call(this, doc, localName, prefix);
+    }
+
+    HTMLFrameElement.prototype = O.create(impl.HTMLElement.prototype, {
+        _idlName: constant("HTMLFrameElement"),
+    });
+
+    return HTMLFrameElement;
+});

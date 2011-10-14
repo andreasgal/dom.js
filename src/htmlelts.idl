@@ -539,8 +539,12 @@ interface HTMLFormElement : HTMLElement {
 
   readonly attribute HTMLFormControlsCollection elements;
   readonly attribute long length;
-  caller getter any (in unsigned long index);
-  caller getter any (in DOMString name);
+
+  // XXX temporarily comment out these getter functions since
+  // they require a proxy that is NYI. If they're not commented, out
+  // I can't even create a <form> element.
+  //  caller getter any (in unsigned long index);
+  //  caller getter any (in DOMString name);
 
   void submit();
   void reset();
@@ -665,12 +669,16 @@ interface HTMLSelectElement : HTMLElement {
 
   readonly attribute HTMLOptionsCollection options;
            attribute unsigned long length;
-  getter any item(in unsigned long index);
+  // XXX Temporarily comment out this getter since the
+  // proxy it requires is NYI and without the proxy, I can't even call 
+  // document.createElement("select")
+  //  getter any item(in unsigned long index);
   any namedItem(in DOMString name);
   void add(in HTMLElement element, in optional HTMLElement? before);
   void add(in HTMLElement element, in long before);
   void remove(in long index);
-  setter creator void (in unsigned long index, in HTMLOptionElement option);
+  // XXX: also commenting out this setter
+  //  setter creator void (in unsigned long index, in HTMLOptionElement option);
 
   readonly attribute HTMLCollection selectedOptions;
            attribute long selectedIndex;
@@ -836,3 +844,40 @@ interface Function {
   any call(in any... arguments);
 };
 
+
+interface HTMLFrameSetElement : HTMLElement {
+           attribute DOMString cols;
+           attribute DOMString rows;
+  [TreatNonCallableAsNull] attribute Function? onafterprint;
+  [TreatNonCallableAsNull] attribute Function? onbeforeprint;
+  [TreatNonCallableAsNull] attribute Function? onbeforeunload;
+  [TreatNonCallableAsNull] attribute Function? onblur;
+  [TreatNonCallableAsNull] attribute Function? onerror;
+  [TreatNonCallableAsNull] attribute Function? onfocus;
+  [TreatNonCallableAsNull] attribute Function? onhashchange;
+  [TreatNonCallableAsNull] attribute Function? onload;
+  [TreatNonCallableAsNull] attribute Function? onmessage;
+  [TreatNonCallableAsNull] attribute Function? onoffline;
+  [TreatNonCallableAsNull] attribute Function? ononline;
+  [TreatNonCallableAsNull] attribute Function? onpagehide;
+  [TreatNonCallableAsNull] attribute Function? onpageshow;
+  [TreatNonCallableAsNull] attribute Function? onpopstate;
+  [TreatNonCallableAsNull] attribute Function? onresize;
+  [TreatNonCallableAsNull] attribute Function? onscroll;
+  [TreatNonCallableAsNull] attribute Function? onstorage;
+  [TreatNonCallableAsNull] attribute Function? onunload;
+};
+
+interface HTMLFrameElement : HTMLElement {
+           attribute DOMString name;
+           attribute DOMString scrolling;
+           attribute DOMString src;
+           attribute DOMString frameBorder;
+           attribute DOMString longDesc;
+           attribute boolean noResize;
+  readonly attribute Document? contentDocument;
+  readonly attribute WindowProxy? contentWindow;
+
+  [TreatNullAs=EmptyString] attribute DOMString marginHeight;
+  [TreatNullAs=EmptyString] attribute DOMString marginWidth;
+};

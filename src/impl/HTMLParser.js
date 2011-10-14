@@ -4112,17 +4112,17 @@ function HTMLParser(domimpl) {
                     }
                     if (!hasnameattr) attrs.push(["name", "isindex"]);
                     
+                    // This default prompt presumably needs localization.
+                    // There space after the colon in this prompt is required
+                    // by the html5lib test cases
+                    if (!prompt)
+                        prompt = "This is a searchable index. " +
+                          "Enter search keywords: ";
+
                     insertionMode(TAG, "form", actionAttribute);
                     insertionMode(TAG, "hr", null);
                     insertionMode(TAG, "label", null);
-
-                    // Now inefficiently output the label one char at a time
-                    // The default prompt presumably needs localization.
-                    if (!prompt)
-                        prompt="This is a searchable index. Enter search keywords:";
-                    for(var i = 0, n = prompt.length; i < n; i++)
-                        emitChar(prompt.charCodeAt(i));
-
+                    insertionMode(TEXT, prompt);
                     insertionMode(TAG, "input", attrs);
                     insertionMode(ENDTAG, "label");
                     insertionMode(TAG, "hr", null);

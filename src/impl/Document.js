@@ -89,6 +89,8 @@ defineLazyProperty(impl, "Document", function() {
         "figure": "HTMLElement",
         "footer": "HTMLElement",
         "form": "HTMLFormElement",
+        "frame": "HTMLFrameElement",
+        "frameset": "HTMLFrameSetElement",
         "h1": "HTMLHeadingElement",
         "h2": "HTMLHeadingElement",
         "h3": "HTMLHeadingElement",
