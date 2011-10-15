@@ -31,7 +31,7 @@ function runTestFile(filename) {
             return;
         }
 
-        var match = s.match(/^(?:#data\n)?((.|\n|\r)*)\n#errors\n((.|\n)*)#document\n((.|\n)*)/);
+        var match = s.match(/^(?:#data\n)?((.|\n|\r)*)\n#errors\n((.|\n)*)#document\n((.|\n|\r)*)/);
         if (match) {
             var input = match[1];
             var expected = match[5];
@@ -143,7 +143,32 @@ function serialize(n, prefix) {
     return s;
 }
 
+
 function report() {
+    function print() {
+        for(var i = 0; i < arguments.length; i++) {
+            if (i > 0) putstr(" ");
+            var s = String(arguments[i]);
+            for(var j = 0; j < s.length; j++) {
+                var c = s[j];
+                var codepoint = s.charCodeAt(j);
+                if (codepoint >= 0x20 && codepoint < 0x7f || codepoint === 0xa) {
+                    putstr(c);
+                }
+                else {
+                    putstr("\\");
+                    var cp = codepoint.toString(16);
+                    if (cp.length == 1) cp = "0" + cp;
+                    if (cp.length == 2) putstr("x");
+                    else putstr("u");
+                    if (cp.length == 3) cp = "0" + cp;
+                    for(var k = 0; k < cp.length; k++) putstr(cp[k]);
+                }
+            }
+        }
+        putstr("\n");
+    }
+
     if (numpassed === numtests) {
         print("All", numtests, "tests passed.");
     }

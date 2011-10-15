@@ -61,6 +61,7 @@ function HTMLParser(domimpl) {
     // the parser as a single string.
     // XXX: would this be faster with a typed Uint16Array?
     var textrun = [];
+    var textIncludesNUL = false;
     var ignore_linefeed = false;
 
 
@@ -302,7 +303,10 @@ function HTMLParser(domimpl) {
         return true;
     }
 
-    function emitChar(c) { push(textrun, c); }
+    function emitChar(c) {
+        push(textrun, c);
+        if (c === 0) textIncludesNUL = true;
+    }
     function emitChars(buf) { pushAll(textrun, buf); }
 
     function flushText() {
@@ -317,6 +321,7 @@ function HTMLParser(domimpl) {
             }
 
             insertToken(TEXT, s);
+            textIncludesNUL = false;
         }
         ignore_linefeed = false;
     }
@@ -347,7 +352,9 @@ function HTMLParser(domimpl) {
     function emitSelfClosingTag() {
         flushText(); 
         if (is_end_tag) insertToken(ENDTAG, buf2str(tagnamebuf), null, true);
-        else insertToken(TAG, buf2str(tagnamebuf), attributes, true);
+        else {
+            insertToken(TAG, buf2str(tagnamebuf), attributes, true);
+        }
     }
     function emitComment() {
         flushText();
@@ -643,6 +650,11 @@ function HTMLParser(domimpl) {
             tokenizerState = tag_open_state;
             break; 
         case 0x0000: //  NULL 
+            // Usually null characters emitted by the tokenizer will be
+            // ignored by the tree builder, but sometimes they'll be 
+            // converted to \uFFFD.  I don't want to have the search ever
+            // string emitted to replace NULs, so I'll set a flag
+            // if I've emitted a NUL.  See emitChar()
             emitChar(c);
             break; 
         case EOF: 
@@ -3643,7 +3655,10 @@ function HTMLParser(domimpl) {
 
     var nonWS = /[^\x09\x0A\x0C\x0D\x20]/;
     var allNonWS = /[^\x09\x0A\x0C\x0D\x20]/g;  // like above, with g flag
+    var nonWSnonNUL = /[^\x00\x09\x0A\x0C\x0D\x20]/; // don't allow NUL either
     var leadingWS = /^[\x09\x0A\x0C\x0D\x20]+/;
+    var NULchars = /\x00/g;
+
     function trimLeadingWS(s) {
         // Can I be more efficient than this?
         return s.replace(leadingWS, "");  
@@ -3709,7 +3724,7 @@ function HTMLParser(domimpl) {
             return;
         case TAG:
             if (value === "html") {
-                elt = doc.createElement(value);
+                elt = createHTMLElt(value, arg3);
                 stack.push(elt);
                 doc.appendChild(elt);
                 // XXX: handle application cache here
@@ -3729,7 +3744,7 @@ function HTMLParser(domimpl) {
         }
 
         // Anything that didn't get handled above is handled like this:
-        elt = doc.createElement("html");
+        elt = createHTMLElt("html", null);
         stack.push(elt);
         doc.appendChild(elt);
         // XXX: handle application cache here
@@ -3748,7 +3763,7 @@ function HTMLParser(domimpl) {
             /* ignore the token */
             return;
         case COMMENT:
-            stack.top.appendChild(doc.createComment(value));
+            insertComment(value);
             return;
         case TAG:
             switch(value) {
@@ -3776,7 +3791,7 @@ function HTMLParser(domimpl) {
 
         // If not handled explicitly above
         before_head_mode(TAG, "head", null);  // create a head tag
-        insertionMode(t, value, arg3);       // then try again with this token
+        insertionMode(t, value, arg3, arg4);  // then try again with this token
     }
 
     function in_head_mode(t, value, arg3, arg4) {
@@ -3884,7 +3899,7 @@ function HTMLParser(domimpl) {
         case TAG:
             switch(value) {
             case "html":
-                in_body_mode(t, value, arg3);
+                in_body_mode(t, value, arg3, arg4);
                 return;
             case "basefont":
             case "bgsound":
@@ -3936,7 +3951,7 @@ function HTMLParser(domimpl) {
         case TAG:
             switch(value) {
             case "html":
-                in_body_mode(t, value, arg3);
+                in_body_mode(t, value, arg3, arg4);
                 return;
             case "body":
                 insertHTMLElement(value, arg3);
@@ -3986,6 +4001,10 @@ function HTMLParser(domimpl) {
         var body, i, node;
         switch(t) {
         case TEXT:
+            if (textIncludesNUL) {
+                value = value.replace(NULchars, "");
+                if (value.length === 0) return;
+            }
             if (frameset_ok && nonWS.test(value))  // If any non-space characters
                 frameset_ok = false;
             afe.reconstruct();
@@ -4088,7 +4107,7 @@ function HTMLParser(domimpl) {
                 for(i = stack.elements.length-1; i >= 0; i--) {
                     node = stack.elements[i];
                     if (node instanceof impl.HTMLLIElement) {
-                        in_body_mode(ENDTAG, "li", null);
+                        in_body_mode(ENDTAG, "li");
                         break;
                     }
                     if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
@@ -4104,7 +4123,7 @@ function HTMLParser(domimpl) {
                 for(i = stack.elements.length-1; i >= 0; i--) {
                     node = stack.elements[i];
                     if (isA(node, dddtSet)) {
-                        in_body_mode(ENDTAG, node.localName, null);
+                        in_body_mode(ENDTAG, node.localName);
                         break;
                     }
                     if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
@@ -4122,8 +4141,8 @@ function HTMLParser(domimpl) {
                 
             case "button":
                 if (stack.inScope("button")) {
-                    in_body_mode(ENDTAG, "button", null);
-                    insertionMode(t, value, arg3);
+                    in_body_mode(ENDTAG, "button");
+                    insertionMode(t, value, arg3, arg4);
                 }
                 else {
                     afe.reconstruct();
@@ -4173,6 +4192,7 @@ function HTMLParser(domimpl) {
                 afe.reconstruct();
                 insertHTMLElement(value,arg3);
                 afe.insertMarker();
+                frameset_ok = false;
                 return;
 
             case "table":
@@ -4220,7 +4240,7 @@ function HTMLParser(domimpl) {
                 return;
 
             case "image":
-                in_body_mode(TAG, "img", arg3);
+                in_body_mode(TAG, "img", arg3, arg4);
                 return;
 
             case "isindex":
@@ -4640,6 +4660,10 @@ function HTMLParser(domimpl) {
 
     function in_table_text_mode(t, value, arg3, arg4) {
         if (t === TEXT) {
+            if (textIncludesNUL) {
+                value = value.replace(NULchars, "");
+                if (value.length === 0) return;
+            }
             pending_table_text.push(value);
         }
         else {
@@ -4956,10 +4980,10 @@ function HTMLParser(domimpl) {
     function in_select_mode(t, value, arg3, arg4) {
         switch(t) {
         case TEXT:
-            // XXX: I'm assuming here that the text will never include \u0000
-            // But the spec does have a special case for those characters:
-            // I'm supposed to ignore them (here and in other modes as well)
-            // I don't think the tokenizer will ever emit them, but check.
+            if (textIncludesNUL) {
+                value = value.replace(NULchars, "");
+                if (value.length === 0) return;
+            }
             insertText(value);
             return;
         case COMMENT:
@@ -5264,8 +5288,12 @@ function HTMLParser(domimpl) {
 
         switch(t) {
         case TEXT:
-            if (frameset_ok && nonWS.test(value)) // If any non-space characters
+            // If any non-space, non-nul characters
+            if (frameset_ok && nonWSnonNUL.test(value))
                 frameset_ok = false;
+            if (textIncludesNUL) {
+                value = value.replace(NULchars, "\uFFFD");
+            }
             insertText(value);
             return;
         case COMMENT:
