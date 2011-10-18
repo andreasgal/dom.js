@@ -4,7 +4,439 @@
 // all text has been appended, and it will return a Document (?) or
 // DocumentFragment (?)
 //
-function HTMLParser(domimpl) {
+// Pass an element as the fragmentContext to do innerHTML parsing for the 
+// element.  To do innerHTML parsing on a document, pass null. 
+// To do regular document parsing, omit the argument completely.
+//
+function HTMLParser(fragmentContext) {
+    var ElementStack = (function() {
+        function ElementStack() {
+            this.elements = [];
+            this.top = null;  // stack.top is the "current node" in the spec
+        }
+        
+        ElementStack.prototype.toString = function(e) {
+            return "STACK: " + 
+                this.elements.map(function(e) {return e.localName;}).join("-");
+        }
+
+        ElementStack.prototype.push = function(e) {
+            push(this.elements, e);
+            this.top = e;
+        };
+
+        ElementStack.prototype.pop = function(e) {
+            pop(this.elements);
+            this.top = this.elements[this.elements.length-1];
+        };
+
+        // Pop elements off the stack up to and including the first 
+        // element with the specified (HTML) tagname
+        ElementStack.prototype.popTag = function(tag) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var e = this.elements[i];
+                if (e.namespaceURI !== HTML_NAMESPACE) continue;
+                if (e.localName === tag) break;
+            }
+            this.elements.length = i;
+            this.top = this.elements[i-1];
+        };
+
+        // Pop elements off the stack up to and including the first 
+        // element that is an instance of the specified type
+        ElementStack.prototype.popElementType = function(type) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                if (this.elements[i] instanceof type) break;
+            }
+            this.elements.length = i;
+            this.top = this.elements[i-1];
+        };
+
+        // Pop elements off the stack up to and including the element e.
+        // Note that this is very different from removeElement()
+        // This requires that e is on the stack.
+        ElementStack.prototype.popElement = function(e) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                if (this.elements[i] === e) break;
+            }
+            this.elements.length = i;
+            this.top = this.elements[i-1];
+        };
+
+        // Remove a specific element from the stack.
+        // Do nothing if the element is not on the stack
+        ElementStack.prototype.removeElement = function(e) {
+            if (this.top === e) this.pop();
+            else {
+                var idx = A.lastIndexOf(this.elements, e);
+                if (idx !== -1)
+                    splice(this.elements, idx, 1);
+            }
+        };
+
+        // Pop elements off the stack until (but not including) the first one
+        // that is a member of the specified set
+        // Use for operations like "clear to table context"
+        ElementStack.prototype.popUntil = function(set) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                if (isA(this.elements[i], set)) break;
+            }
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+        ElementStack.prototype.clearToContext = function(type) {
+            // Note that we don't loop to 0. Never pop the <html> elt off.
+            for(var i = this.elements.length-1; i > 0; i--) {
+                if (this.elements[i] instanceof type) break;
+            }
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+
+        ElementStack.prototype.clearToTableContext = function() {
+            // Note that we don't loop to 0. Never pop the <html> elt off.
+            for(var i = this.elements.length-1; i > 0; i--) {
+                if (this.elements[i] instanceof impl.HTMLTableElement) break;
+            }
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+        ElementStack.prototype.clearToTableBodyContext = function() {
+            // Note that we don't loop to 0. Never pop the <html> elt off.
+            for(var i = this.elements.length-1; i > 0; i--) {
+                if (this.elements[i] instanceof impl.HTMLTableSectionElement)
+                    break;
+            }
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+        ElementStack.prototype.contains = function(elt) {
+            return A.lastIndexOf(this.elements, elt) !== -1;
+        };
+
+        ElementStack.prototype.inSpecificScope = function(tag, set) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var elt = this.elements[i];
+                var ns = elt.namespaceURI;
+                var localname = elt.localName;
+                if (ns === HTML_NAMESPACE && localname === tag) return true;
+                var tags = set[ns];
+                if (tags && localname in tags) return false;
+            }
+            return false;
+        };
+
+        // Like the above, but for a specific element, not a tagname
+        ElementStack.prototype.elementInSpecificScope = function(target, set) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var elt = this.elements[i];
+                if (elt === target) return true;
+                var tags = set[elt.namespaceURI];
+                if (tags && elt.localName in tags) return false;
+            }
+            return false;
+        };
+
+        // Like the above, but for an element interface, not a tagname
+        ElementStack.prototype.elementTypeInSpecificScope = function(target, set) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var elt = this.elements[i];
+                if (elt instanceof target) return true;
+                var tags = set[elt.namespaceURI];
+                if (tags && elt.localName in tags) return false;
+            }
+            return false;
+        };
+
+        ElementStack.prototype.inScope = function(tag) {
+            return this.inSpecificScope(tag, inScopeSet);
+        };
+
+        ElementStack.prototype.elementInScope = function(e) {
+            return this.elementInSpecificScope(e, inScopeSet);
+        };
+
+        ElementStack.prototype.elementTypeInScope = function(type) {
+            return this.elementTypeInSpecificScope(type, inScopeSet);
+        };
+
+        ElementStack.prototype.inButtonScope = function(tag) {
+            return this.inSpecificScope(tag, inButtonScopeSet);
+        };
+
+        ElementStack.prototype.inListItemScope = function(tag) {
+            return this.inSpecificScope(tag, inListItemScopeSet);
+        };
+
+        ElementStack.prototype.inTableScope = function(tag) {
+            return this.inSpecificScope(tag, inTableScopeSet);
+        };
+
+        ElementStack.prototype.inSelectScope = function(tag) {
+            // Can't implement this one with inSpecificScope, since it involves
+            // a set defined by inverting another set. So implement manually.
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var elt = this.elements[i];
+                if (elt.namespaceURI !== HTML_NAMESPACE) return false;
+                var localname = elt.localName;
+                if (localname === tag) return true;
+                if (localname !== "optgroup" && localname !== "option")
+                    return false;
+            }
+            return false;
+        };
+
+        ElementStack.prototype.generateImpliedEndTags = function(butnot) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var e = this.elements[i];
+                if (butnot && e.localName === butnot) break;
+                if (!isA(this.elements[i], impliedEndTagsSet)) break;
+            }
+
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+
+        var tagToMode = {
+            select: in_select_mode,
+            tr: in_row_mode,
+            tbody: in_table_body_mode,
+            tfoot: in_table_body_mode,
+            thead: in_table_body_mode,
+            caption: in_caption_mode,
+            colgroup: in_column_group_mode,
+            table: in_table_mode,
+            head: in_body_mode,  // not in_head!
+            body: in_body_mode,
+            frameset: in_frameset_mode,
+            html: before_head_mode
+        };
+
+        ElementStack.prototype.resetInsertionMode = function() {
+            var last = false;
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var node = this.elements[i];
+                if (i === 0) {
+                    last = true;
+                    node = fragmentContext;
+                }
+                if (node.namespaceURI === HTML_NAMESPACE) {
+                    var tag = node.localName;
+                    if (tag in tagToMode) {
+                        insertionMode = tagToMode[tag];
+                        return;
+                    }
+                    if (!last && (tag === "td" || tag === "th")) {
+                        insertionMode = in_cell_mode;
+                        return;
+                    }
+                }
+                if (last) {
+                    insertionMode = in_body_mode;
+                    return;
+                }
+            }
+        };
+
+
+        var inScopeSet = {};
+        inScopeSet[HTML_NAMESPACE]= {
+            "applet":true,
+            "caption":true,
+            "html":true,
+            "table":true,
+            "td":true,
+            "th":true,
+            "marquee":true,
+            "object":true
+        };
+        inScopeSet[MATHML_NAMESPACE] = {
+            "mi":true,
+            "mo":true,
+            "mn":true,
+            "ms":true,
+            "mtext":true,
+            "annotation-xml":true
+        };
+        inScopeSet[SVG_NAMESPACE] = {
+            "foreignObject":true,
+            "desc":true,
+            "title":true
+        };
+
+        var inListItemScopeSet = Object.create(inScopeSet);
+        inListItemScopeSet[HTML_NAMESPACE] =
+            Object.create(inScopeSet[HTML_NAMESPACE]);
+        inListItemScopeSet[HTML_NAMESPACE].ol = true;
+        inListItemScopeSet[HTML_NAMESPACE].ul = true;
+
+        var inButtonScopeSet = Object.create(inScopeSet);
+        inButtonScopeSet[HTML_NAMESPACE] =
+            Object.create(inScopeSet[HTML_NAMESPACE]);
+        inButtonScopeSet[HTML_NAMESPACE].button = true;
+
+        var inTableScopeSet = {};
+        inTableScopeSet[HTML_NAMESPACE] = {
+            "html":true,
+            "table":true
+        };
+
+        // The set of elements for select scope is the everything *except* these
+        var invertedSelectScopeSet = {};
+        invertedSelectScopeSet[HTML_NAMESPACE] = {
+            "optgroup":true,
+            "option":true
+        };
+
+        return ElementStack;
+    }());
+
+    var ActiveFormattingElements = (function() {
+        function ActiveFormattingElements() {
+            this.list = [];
+        }
+
+        ActiveFormattingElements.prototype.MARKER = { localName: "|" };
+
+        // For debugging
+        ActiveFormattingElements.prototype.toString = function() {
+            return "AFE: " +
+                this.list.map(function(e) { return e.localName; }).join("-");
+        }
+
+        ActiveFormattingElements.prototype.insertMarker = function() {
+            push(this.list, this.MARKER);
+        };
+
+        ActiveFormattingElements.prototype.push = function(elt) {
+            // Scan backwards: if there are already 3 copies of this element before
+            // we encounter a marker, then drop the last one
+            var count = 0;
+            for(var i = this.list.length-1; i >= 0; i--) {
+                if (this.list[i] === this.MARKER) break;
+                if (equal(elt, this.list[i])) {  // equal() is defined below
+                    count++;
+                    if (count === 3) {
+                        splice(this.list, i, 1);
+                        break;
+                    }
+                }
+            }
+
+            // Now push the element onto the list
+            push(this.list, elt);
+
+            // This function defines equality of two elements.
+            // It is different than Node.isEqualNode() because
+            // it doesn't check the namespace prefix, only the namespace.
+            // And it also doesn't check children.
+            function equal(a, b) {
+                if (a.localName !== b.localName ||
+                    a.namespaceURI !== b.namespaceURI) return false;
+                if (a._numattrs !== b._numattrs) return false;
+                for(var i = 0, n = a._numattrs; i < n; i++) {
+                    var aa = a._attr(i);
+                    if (aa.namespaceURI) {
+                        if (!b.hasAttributeNS(aa.namespaceURI, aa.localName))
+                            return false;
+                        if (b.getAttributeNS(aa.namespaceURI,aa.localName) !== aa.value)
+                            return false;
+                    }
+                    else {
+                        if (!b.hasAttribute(aa.localName))
+                            return false;
+                        if (b.getAttribute(aa.localName) !== aa.value)
+                            return false;
+                    }
+                }
+
+                return true;
+            }
+        };
+
+        ActiveFormattingElements.prototype.reconstruct = function() {
+            if (this.list.length === 0) return;
+            var entry = this.list[this.list.length-1];
+            // If the last is a marker , do nothing
+            if (entry === this.MARKER) return;
+            // Or if it is an open element, do nothing
+            if (A.lastIndexOf(stack.elements, entry) !== -1) return;
+
+            // Loop backward through the list until we find a marker or an
+            // open element, and then move forward one from there.
+            for(var i = this.list.length-2; i >= 0; i--) {
+                entry = this.list[i];
+                if (entry === this.MARKER) break;
+                if (A.lastIndexOf(stack.elements, entry) !== -1) break;
+            }
+
+            // Now loop forward, starting from the element after the current one,
+            // recreating formatting elements and pushing them back onto the
+            // list of open elements
+            for(i = i+1; i < this.list.length; i++) {
+                entry = this.list[i];
+                var newelt = entry.cloneNode(false); // shallow clone
+                //            stack.top.appendChild(newelt);
+                //            stack.push(newelt);
+                insertElement(newelt);
+                this.list[i] = newelt;
+            }
+        };
+
+        ActiveFormattingElements.prototype.clearToMarker = function() {
+            for(var i = this.list.length-1; i >= 0; i--) {
+                if (this.list[i] === this.MARKER) break;
+            }
+            this.list.length = (i < 0) ? 0 : i;
+        };
+
+        // Find and return the last element with the specified tag between the
+        // end of the list and the last marker on the list.
+        // Used when parsing <a> in_body()
+        ActiveFormattingElements.prototype.findElementByTag = function(tag) {
+            for(var i = this.list.length-1; i >= 0; i--) {
+                var elt = this.list[i];
+                if (elt === this.MARKER) break;
+                if (elt.namespaceURI === HTML_NAMESPACE &&
+                    elt.localName === tag) 
+                    return elt;
+            }
+            return null;
+        };
+
+        ActiveFormattingElements.prototype.contains = function(e) {
+            var idx = A.lastIndexOf(this.list, e);
+            return idx !== -1;
+        };
+
+        // Find the element e in the list and remove it
+        // Used when parsing <a> in_body()
+        ActiveFormattingElements.prototype.remove = function(e) {
+            var idx = A.lastIndexOf(this.list, e);
+            if (idx !== -1) splice(this.list, idx, 1);
+        };
+
+        // Find element a in the list and replace it with element b
+        ActiveFormattingElements.prototype.replace = function(a, b) {
+            var idx = A.lastIndexOf(this.list, a);
+            if (idx !== -1) this.list[idx] = b;
+        };
+
+        // Find a in the list and insert b after it
+        ActiveFormattingElements.prototype.insertAfter = function(a,b) {
+            var idx = A.lastIndexOf(this.list, a);
+            if (idx !== -1) splice(this.list, idx, 0, b);
+        };
+
+        return ActiveFormattingElements;
+    }());
+
+
     var BOF = 0xFEFF;
     var CR = 0x000D;
     var LF = 0x000A;
@@ -17,8 +449,6 @@ function HTMLParser(domimpl) {
     var COMMENT = 4;
     var DOCTYPE = 5;
 
-    var doc = new impl.Document(true);
-
     // Scanner state
     var chars = null;       
     var numchars = 0;     // Length of chars
@@ -30,7 +460,7 @@ function HTMLParser(domimpl) {
     var tokenizerState = data_state;
     var savedTokenizerStates = [];
     var tagnamebuf = [];
-    var lasttagbuf;  // holds the target end tag for text states
+    var lasttagbuf = [];  // holds the target end tag for text states
     var tempbuf = [];
     var attrnamebuf = [];
     var attrvaluebuf = [];
@@ -42,8 +472,7 @@ function HTMLParser(domimpl) {
     var is_end_tag = false;
 
     // Tree builder state
-    var fragment = false;        // Are we parsing a fragment?
-    var fragmentContext = null;  // If so, this is the context element
+    var fragment = (fragmentContext!==undefined);// Fragment parsing algorithm?
     var script_nesting_level = 0;
     var parser_pause_flag = false;
     var insertionMode = initial_mode;
@@ -56,6 +485,7 @@ function HTMLParser(domimpl) {
     var frameset_ok = true;
     var force_quirks = false;
     var pending_table_text;
+    var text_integration_mode; // XXX a spec bug workaround?
 
     // A single run of characters, buffered up to be sent to
     // the parser as a single string.
@@ -64,6 +494,48 @@ function HTMLParser(domimpl) {
     var textIncludesNUL = false;
     var ignore_linefeed = false;
 
+    var doc = new impl.Document(true);
+
+    if (fragmentContext) {
+        if (fragmentContext.ownerDocument._quirks)
+            doc._quirks = true;
+        if (fragmentContext.ownerDocument._limitedQuirks)
+            doc._limitedQuirks = true;
+
+        // Set the initial tokenizer state
+        if (fragmentContext.namespaceURI === HTML_NAMESPACE) {
+            switch(fragmentContext.localName) {
+            case "title":
+            case "textarea":
+                tokenizerState = rcdata_state;
+                break;
+            case "style":
+            case "xmp":
+            case "iframe":
+            case "noembed":
+            case "noframes":
+            case "script":
+            case "plaintext":
+                tokenizerState = plaintext_state;
+                break;
+            case "noscript":
+                if (scripting_enabled)
+                    tokenizerState = plaintext_state;
+            }
+        }
+
+        var root = doc.createElement("html");
+        doc.appendChild(root);
+        stack.push(root);
+        stack.resetInsertionMode();
+
+        for(var e = fragmentContext; e !== null; e = e.parentElement) {
+            if (e instanceof impl.HTMLFormElement) {
+                form_element_pointer = e;
+                break;
+            }
+        }
+    }
 
     /*
      * Scanner functions
@@ -146,6 +618,44 @@ function HTMLParser(domimpl) {
                     /* falls through */
                 default:
                     tokenizerState(codepoint);
+
+                    /*
+                    // Deal with unpaired surrogates
+                    if (codepoint < 0xD800 || codepoint > 0xDFFF) {
+                        tokenizerState(codepoint);
+                    }
+                    else {
+                        if (codepoint >= 0xDC00) {
+                            // Second part of a pair without the first part
+                            // emit the replacement character
+                            tokenizerState(0xFFFD);
+                        }
+                        else {
+                            // If we don't have enough chars to know
+                            // whether this is a valid pair, wait for more
+                            if (nextchar === numchars) {
+                                nextchar--;
+                                return;
+                            }
+                            next = chars.charCodeAt(nextchar);
+                            if (next >= 0xDC00 && next <= 0xDFFF) {
+                                // valid surrogate pair: emit both chars
+                                // (but only if the tokenizer state doesn't
+                                // change after emitting the first)
+                                var currentState = tokenizerState;
+                                tokenizerState(codepoint);
+                                if (tokenizerState === currentState) {
+                                    nextchar++;
+                                    tokenizerState(next);
+                                }
+                            }
+                            else {
+                                // unpaired surrogate, emit replacement
+                                tokenizerState(0xFFFD);
+                            }
+                        }
+                    }
+                    */
                     break;
                 }
                 break;
@@ -413,6 +923,7 @@ function HTMLParser(domimpl) {
     // or using the insertForeignToken() method.
     function insertToken(t, value, arg3, arg4) {
         var current = stack.top;
+
         if (!current || current.namespaceURI === HTML_NAMESPACE) {
             // This is the common case
             insertionMode(t, value, arg3, arg4);
@@ -433,7 +944,12 @@ function HTMLParser(domimpl) {
                      current.namespaceURI === MATHML_NAMESPACE &&
                      current.localName === "annotation-xml") ||
                     isHTMLIntegrationPoint(current)) {
+
+                    // XXX: the text_integration_mode stuff is an 
+                    // attempted bug workaround of mine
+                    text_integration_mode = true;
                     insertionMode(t, value, arg3, arg4);
+                    text_integration_mode = false;
                 }
                 // Otherwise it is foreign content
                 else {
@@ -2611,14 +3127,19 @@ function HTMLParser(domimpl) {
 
     function cdata_section_state(c, lookahead, eof) {
         var len = lookahead.length;
+        var output;
         if (eof) {
             consume(len-1); // leave the EOF in the scanner
-            emitCharString(lookahead.substring(0, len-1)); // don't emit the EOF
+            output = lookahead.substring(0, len-1); // don't include the EOF
         }
         else {
             consume(len);
-            emitCharString(lookahead.substring(0,len-3)); // don't emit the ]]>
+            output = lookahead.substring(0,len-3); // don't emit the ]]>
         }
+
+        // XXX: the replace call isn't in the spec, but is required by the tests
+        if (output.length > 0) 
+            emitCharString(output.replace(/\u0000/g,"\uFFFD"));
 
         tokenizerState = data_state;
     }
@@ -2628,419 +3149,6 @@ function HTMLParser(domimpl) {
     /*
      * Tree builder utilities and insertion modes
      */
-
-    function ActiveFormattingElements() {
-        this.list = [];
-    }
-
-    ActiveFormattingElements.prototype.MARKER = { localName: "|" };
-
-    // For debugging
-    ActiveFormattingElements.prototype.toString = function() {
-        return "AFE: " +
-            this.list.map(function(e) { return e.localName; }).join("-");
-    }
-
-    ActiveFormattingElements.prototype.insertMarker = function() {
-        push(this.list, this.MARKER);
-    };
-
-    ActiveFormattingElements.prototype.push = function(elt) {
-        // Scan backwards: if there are already 3 copies of this element before
-        // we encounter a marker, then drop the last one
-        var count = 0;
-        for(var i = this.list.length-1; i >= 0; i--) {
-            if (this.list[i] === this.MARKER) break;
-            if (equal(elt, this.list[i])) {  // equal() is defined below
-                count++;
-                if (count === 3) {
-                    splice(this.list, i, 1);
-                    break;
-                }
-            }
-        }
-
-        // Now push the element onto the list
-        push(this.list, elt);
-
-        // This function defines equality of two elements.
-        // It is different than Node.isEqualNode() because
-        // it doesn't check the namespace prefix, only the namespace.
-        // And it also doesn't check children.
-        function equal(a, b) {
-            if (a.localName !== b.localName ||
-                a.namespaceURI !== b.namespaceURI) return false;
-            if (a._numattrs !== b._numattrs) return false;
-            for(var i = 0, n = a._numattrs; i < n; i++) {
-                var aa = a._attr(i);
-                if (!b.hasAttributeNS(aa.namespaceURI, aa.localName))
-                    return false;
-                if (b.getAttributeNS(aa.namespaceURI,aa.localName) !== aa.value)
-                    return false;
-            }
-
-            return true;
-        }
-    };
-
-    ActiveFormattingElements.prototype.reconstruct = function() {
-        if (this.list.length === 0) return;
-        var entry = this.list[this.list.length-1];
-        // If the last is a marker , do nothing
-        if (entry === this.MARKER) return;
-        // Or if it is an open element, do nothing
-        if (A.lastIndexOf(stack.elements, entry) !== -1) return;
-
-        // Loop backward through the list until we find a marker or an
-        // open element, and then move forward one from there.
-        for(var i = this.list.length-2; i >= 0; i--) {
-            entry = this.list[i];
-            if (entry === this.MARKER) break;
-            if (A.lastIndexOf(stack.elements, entry) !== -1) break;
-        }
-
-        // Now loop forward, starting from the element after the current one,
-        // recreating formatting elements and pushing them back onto the
-        // list of open elements
-        for(i = i+1; i < this.list.length; i++) {
-            entry = this.list[i];
-            var newelt = entry.cloneNode(false); // shallow clone
-//            stack.top.appendChild(newelt);
-//            stack.push(newelt);
-            insertElement(newelt);
-            this.list[i] = newelt;
-        }
-    };
-
-    ActiveFormattingElements.prototype.clearToMarker = function() {
-        for(var i = this.list.length-1; i >= 0; i--) {
-            if (this.list[i] === this.MARKER) break;
-        }
-        this.list.length = (i < 0) ? 0 : i;
-    };
-
-    // Find and return the last element with the specified tag between the
-    // end of the list and the last marker on the list.
-    // Used when parsing <a> in_body()
-    ActiveFormattingElements.prototype.findElementByTag = function(tag) {
-        for(var i = this.list.length-1; i >= 0; i--) {
-            var elt = this.list[i];
-            if (elt === this.MARKER) break;
-            if (elt.namespaceURI === HTML_NAMESPACE &&
-                elt.localName === tag) 
-                return elt;
-        }
-        return null;
-    };
-
-    ActiveFormattingElements.prototype.contains = function(e) {
-        var idx = A.lastIndexOf(this.list, e);
-        return idx !== -1;
-    };
-
-    // Find the element e in the list and remove it
-    // Used when parsing <a> in_body()
-    ActiveFormattingElements.prototype.remove = function(e) {
-        var idx = A.lastIndexOf(this.list, e);
-        if (idx !== -1) splice(this.list, idx, 1);
-    };
-
-    // Find element a in the list and replace it with element b
-    ActiveFormattingElements.prototype.replace = function(a, b) {
-        var idx = A.lastIndexOf(this.list, a);
-        if (idx !== -1) this.list[idx] = b;
-    };
-
-    // Find a in the list and insert b after it
-    ActiveFormattingElements.prototype.insertAfter = function(a,b) {
-        var idx = A.lastIndexOf(this.list, a);
-        if (idx !== -1) splice(this.list, idx, 0, b);
-    };
-
-    function ElementStack() {
-        this.elements = [];
-        this.top = null;  // stack.top is the "current node" in the spec
-    }
-
-    (function() {
-        ElementStack.prototype.toString = function(e) {
-            return "STACK: " + 
-                this.elements.map(function(e) {return e.localName;}).join("-");
-        }
-
-        ElementStack.prototype.push = function(e) {
-            push(this.elements, e);
-            this.top = e;
-        };
-
-        ElementStack.prototype.pop = function(e) {
-            pop(this.elements);
-            this.top = this.elements[this.elements.length-1];
-        };
-
-        // Pop elements off the stack up to and including the first 
-        // element with the specified (HTML) tagname
-        ElementStack.prototype.popTag = function(tag) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var e = this.elements[i];
-                if (e.namespaceURI !== HTML_NAMESPACE) continue;
-                if (e.localName === tag) break;
-            }
-            this.elements.length = i;
-            this.top = this.elements[i-1];
-        };
-
-        // Pop elements off the stack up to and including the first 
-        // element that is an instance of the specified type
-        ElementStack.prototype.popElementType = function(type) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                if (this.elements[i] instanceof type) break;
-            }
-            this.elements.length = i;
-            this.top = this.elements[i-1];
-        };
-
-        // Pop elements off the stack up to and including the element e.
-        // Note that this is very different from removeElement()
-        // This requires that e is on the stack.
-        ElementStack.prototype.popElement = function(e) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                if (this.elements[i] === e) break;
-            }
-            this.elements.length = i;
-            this.top = this.elements[i-1];
-        };
-
-        // Remove a specific element from the stack.
-        // Do nothing if the element is not on the stack
-        ElementStack.prototype.removeElement = function(e) {
-            if (this.top === e) this.pop();
-            else {
-                var idx = A.lastIndexOf(this.elements, e);
-                if (idx !== -1)
-                    splice(this.elements, idx, 1);
-            }
-        };
-
-        // Pop elements off the stack until (but not including) the first one
-        // that is a member of the specified set
-        // Use for operations like "clear to table context"
-        ElementStack.prototype.popUntil = function(set) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                if (isA(this.elements[i], set)) break;
-            }
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
-        ElementStack.prototype.clearToContext = function(type) {
-            // Note that we don't loop to 0. Never pop the <html> elt off.
-            for(var i = this.elements.length-1; i > 0; i--) {
-                if (this.elements[i] instanceof type) break;
-            }
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
-
-        ElementStack.prototype.clearToTableContext = function() {
-            // Note that we don't loop to 0. Never pop the <html> elt off.
-            for(var i = this.elements.length-1; i > 0; i--) {
-                if (this.elements[i] instanceof impl.HTMLTableElement) break;
-            }
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
-        ElementStack.prototype.clearToTableBodyContext = function() {
-            // Note that we don't loop to 0. Never pop the <html> elt off.
-            for(var i = this.elements.length-1; i > 0; i--) {
-                if (this.elements[i] instanceof impl.HTMLTableSectionElement)
-                    break;
-            }
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
-        ElementStack.prototype.contains = function(elt) {
-            return A.lastIndexOf(this.elements, elt) !== -1;
-        };
-
-        ElementStack.prototype.inSpecificScope = function(tag, set) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var elt = this.elements[i];
-                var ns = elt.namespaceURI;
-                var localname = elt.localName;
-                if (ns === HTML_NAMESPACE && localname === tag) return true;
-                var tags = set[ns];
-                if (tags && localname in tags) return false;
-            }
-            return false;
-        };
-
-        // Like the above, but for a specific element, not a tagname
-        ElementStack.prototype.elementInSpecificScope = function(target, set) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var elt = this.elements[i];
-                if (elt === target) return true;
-                var tags = set[elt.namespaceURI];
-                if (tags && elt.localName in tags) return false;
-            }
-            return false;
-        };
-
-        // Like the above, but for an element interface, not a tagname
-        ElementStack.prototype.elementTypeInSpecificScope = function(target, set) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var elt = this.elements[i];
-                if (elt instanceof target) return true;
-                var tags = set[elt.namespaceURI];
-                if (tags && elt.localName in tags) return false;
-            }
-            return false;
-        };
-
-        ElementStack.prototype.inScope = function(tag) {
-            return this.inSpecificScope(tag, inScopeSet);
-        };
-
-        ElementStack.prototype.elementInScope = function(e) {
-            return this.elementInSpecificScope(e, inScopeSet);
-        };
-
-        ElementStack.prototype.elementTypeInScope = function(type) {
-            return this.elementTypeInSpecificScope(type, inScopeSet);
-        };
-
-        ElementStack.prototype.inButtonScope = function(tag) {
-            return this.inSpecificScope(tag, inButtonScopeSet);
-        };
-
-        ElementStack.prototype.inListItemScope = function(tag) {
-            return this.inSpecificScope(tag, inListItemScopeSet);
-        };
-
-        ElementStack.prototype.inTableScope = function(tag) {
-            return this.inSpecificScope(tag, inTableScopeSet);
-        };
-
-        ElementStack.prototype.inSelectScope = function(tag) {
-            // Can't implement this one with inSpecificScope, since it involves
-            // a set defined by inverting another set. So implement manually.
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var elt = this.elements[i];
-                if (elt.namespaceURI !== HTML_NAMESPACE) return false;
-                var localname = elt.localName;
-                if (localname === tag) return true;
-                if (localname !== "optgroup" && localname !== "option")
-                    return false;
-            }
-            return false;
-        };
-
-        ElementStack.prototype.generateImpliedEndTags = function(butnot) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var e = this.elements[i];
-                if (butnot && e.localName === butnot) break;
-                if (!isA(this.elements[i], impliedEndTagsSet)) break;
-            }
-
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
-
-        var tagToMode = {
-            select: in_select_mode,
-            tr: in_row_mode,
-            tbody: in_table_body_mode,
-            tfoot: in_table_body_mode,
-            thead: in_table_body_mode,
-            caption: in_caption_mode,
-            colgroup: in_column_group_mode,
-            table: in_table_mode,
-            head: in_body_mode,  // not in_head!
-            body: in_body_mode,
-            frameset: in_frameset_mode,
-            html: before_head_mode
-        };
-
-        ElementStack.prototype.resetInsertionMode = function() {
-            var last = false;
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var node = this.elements[i];
-                if (i === 0) {
-                    last = true;
-                    node = fragmentContext;
-                }
-                if (node.namespaceURI === HTML_NAMESPACE) {
-                    var tag = node.localName;
-                    if (tag in tagToMode) {
-                        insertionMode = tagToMode[tag];
-                        return;
-                    }
-                    if (!last && (tag === "td" || tag === "th")) {
-                        insertionMode = in_cell_mode;
-                        return;
-                    }
-                }
-                if (last) {
-                    insertionMode = in_body_mode;
-                    return;
-                }
-            }
-        };
-
-
-        var inScopeSet = {};
-        inScopeSet[HTML_NAMESPACE]= {
-            "applet":true,
-            "caption":true,
-            "html":true,
-            "table":true,
-            "td":true,
-            "th":true,
-            "marquee":true,
-            "object":true
-        };
-        inScopeSet[MATHML_NAMESPACE] = {
-            "mi":true,
-            "mo":true,
-            "mn":true,
-            "ms":true,
-            "mtext":true,
-            "annotation-xml":true
-        };
-        inScopeSet[SVG_NAMESPACE] = {
-            "foreignObject":true,
-            "desc":true,
-            "title":true
-        };
-
-        var inListItemScopeSet = Object.create(inScopeSet);
-        inListItemScopeSet[HTML_NAMESPACE] =
-            Object.create(inScopeSet[HTML_NAMESPACE]);
-        inListItemScopeSet[HTML_NAMESPACE].ol = true;
-        inListItemScopeSet[HTML_NAMESPACE].ul = true;
-
-        var inButtonScopeSet = Object.create(inScopeSet);
-        inButtonScopeSet[HTML_NAMESPACE] =
-            Object.create(inScopeSet[HTML_NAMESPACE]);
-        inButtonScopeSet[HTML_NAMESPACE].button = true;
-
-        var inTableScopeSet = {};
-        inTableScopeSet[HTML_NAMESPACE] = {
-            "html":true,
-            "table":true
-        };
-
-        // The set of elements for select scope is the everything *except* these
-        var invertedSelectScopeSet = {};
-        invertedSelectScopeSet[HTML_NAMESPACE] = {
-            "optgroup":true,
-            "option":true
-        };
-    }());
 
     /*
      * The tree builder insertion modes
@@ -3734,6 +3842,7 @@ function HTMLParser(domimpl) {
             break;
         case ENDTAG:
             switch(value) {
+            case "html":
             case "head":
             case "body":
             case "br":
@@ -4549,17 +4658,24 @@ function HTMLParser(domimpl) {
     function in_table_mode(t, value, arg3, arg4) {
         function getTypeAttr(attrs) {
             for(var i = 0, n = attrs.length; i < n; i++) {
-                if (attrs[i][0] === "type") return attrs[i][1];
+                if (attrs[i][0] === "type") return attrs[i][1].toLowerCase();
             }
             return null;
         }
 
         switch(t) {
         case TEXT:
-            pending_table_text = [];
-            originalInsertionMode = insertionMode;
-            insertionMode = in_table_text_mode;
-            insertionMode(t, value, arg3, arg4);
+            // XXX the text_integration_mode stuff is 
+            // just a hack I made up
+            if (text_integration_mode) {
+                in_body_mode(t, value, arg3, arg4) 
+            }
+            else {
+                pending_table_text = [];
+                originalInsertionMode = insertionMode;
+                insertionMode = in_table_text_mode;
+                insertionMode(t, value, arg3, arg4);
+            }
             return;
         case COMMENT: 
             insertComment(value);
@@ -4641,7 +4757,6 @@ function HTMLParser(domimpl) {
             case "thead":
             case "tr":
                 return;
-                
             }
 
             break;
@@ -5266,6 +5381,7 @@ function HTMLParser(domimpl) {
 
 
     // 13.2.5.5 The rules for parsing tokens in foreign content
+    //
     // This is like one of the insertion modes above, but is 
     // invoked somewhat differently when the current token is not HTML.
     // See the insertToken() function.
@@ -5393,21 +5509,19 @@ function HTMLParser(domimpl) {
                 // The any other end tag case
                 var i = stack.elements.length-1;
                 var node = stack.elements[i];
-                while(true) {
+                for(;;) {
                     if (node.localName.toLowerCase() === value) {
                         stack.popElement(node);
                         break;
                     }
-                    var node = stack.elements[--i];
-                    if (node.namespaceURI == HTML_NAMESPACE)
-                        break;
+                    node = stack.elements[--i];
+                    // If non-html, keep looping
+                    if (node.namespaceURI !== HTML_NAMESPACE)
+                        continue;
+                    // Otherwise process the end tag as html
+                    insertionMode(t, value, arg3, arg4);
+                    break;
                 }
-                // Now process the end tag as non-foreign
-                // XXX:
-                // This is what the algorithm says to do, but it seems
-                // to me that after the first break in the loop above,
-                // the stack has already been popped and the end tag handled...
-                insertionMode(t, value, arg3, arg4);
             }
             return;
         }
@@ -7785,6 +7899,98 @@ function HTMLParser(domimpl) {
             scannerAppend(s, true);
             scanChars();
             return wrap(doc);
+        },
+
+        // This is a hook for testing the tokenizer. It has to be here 
+        // because the tokenizer details are all hidden away within the closure.
+        // It should return an array of tokens generated while parsing the
+        // input string.  
+        // XXX: comment this out in production code
+        testTokenizer: function(input, initialState, lastStartTag, charbychar) {
+            var tokens = [];
+
+            switch(initialState) {
+            case "PCDATA state":
+                tokenizerState = data_state;
+                break;
+            case "RCDATA state":
+                tokenizerState = rcdata_state;
+                break;
+            case "RAWTEXT state":
+                tokenizerState = rawtext_state;
+                break;
+            case "PLAINTEXT state":
+                tokenizerState = plaintext_state;
+                break;
+            }
+
+            if (lastStartTag) {
+                lasttagbuf = [];
+                for(var i = 0; i < lastStartTag.length; i++)
+                    lasttagbuf[i] = lastStartTag.charCodeAt(i);
+            }
+
+            insertToken = function(t, value, arg3, arg4) {
+                switch(t) {
+                case TEXT:
+                    if (tokens.length > 0 &&
+                        tokens[tokens.length-1][0] === "Character") {
+                        tokens[tokens.length-1][1] += value;
+                    }
+                    else tokens.push(["Character", value]);
+                    break;
+                case COMMENT:
+                    tokens.push(["Comment", value]);
+                    break;
+                case DOCTYPE:
+                    tokens.push(["DOCTYPE", value,
+                                 arg3 === undefined ? null : arg3,
+                                 arg4 === undefined ? null : arg4,
+                                 !force_quirks]);
+                    break;
+                case TAG:
+                    var attrs = {};
+                    for(var i = 0; i < arg3.length; i++) {
+                        // XXX: does attribute order matter?
+                        var a = arg3[i];
+                        if (a.length === 1) {
+                            attrs[a[0]] = "";
+                        }
+                        else {
+                            attrs[a[0]] = a[1];
+                        }
+                    }
+                    var token = ["StartTag", value, attrs];
+                    if (arg4) token.push(true);
+                    tokens.push(token);
+                    break;
+                case ENDTAG:
+                    tokens.push(["EndTag", value]);
+                    break;
+                case EOF:
+                    break;
+                }
+            }
+
+            if (!charbychar) { 
+                this.end(input);
+            }
+            else {
+                for(var i = 0; i < input.length; i++) {
+                    this.append(input[i]);
+                }
+                this.end();
+            }
+            return tokens;
         }
     };
+}
+
+HTMLParser.parseFragment = function(context, html) {
+    var parser = HTMLParser(context);
+    var doc = parser.end(html);
+    var root = context ? doc.firstChild : doc;
+    while(root.hasChildNodes()) {
+        context.appendChild(root.firstChild);
+    }
 }

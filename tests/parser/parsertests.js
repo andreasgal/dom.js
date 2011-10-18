@@ -25,31 +25,53 @@ function runTestFile(filename) {
 
     // Run a single test described by the string s
     function runTest(s, n) {
-        // Ignore innerHTML tests for now
-        if (s.match(/\n#document-fragment\n/)) {
-//            print("Skipping fragment test");
-            return;
-        }
-
-        var match = s.match(/^(?:#data\n)?((.|\n|\r)*)\n#errors\n((.|\n)*)#document\n((.|\n|\r)*)/);
+        var match = s.match(/^(?:#data\n)?((.|\n|\r)*)#errors\n((.|\n)*?)(#document-fragment\n(.*)\n)?#document\n((.|\n|\r)*)/);
         if (match) {
             var input = match[1];
-            var expected = match[5];
-            test(input, expected, filename, n);
+            // strip trailing newline
+            if (input.length > 0 && input[input.length-1] === "\n")
+                input = input.substring(0, input.length-1); 
+            var context = match[6];
+            var expected = match[7];
+            // Run the tests twice, once the whole string at a time
+            // and once just one character at a time.  (But if there is a 
+            // context then skip the character-at-a-time test)
+            test(input, context, expected, filename, n, false);
+            if (!context) test(input, context, expected, filename, n, true);
         }
         else {
-            print("ERROR: Can't parse test", n, "in file", filename);
+            print("ERROR: Can't parse test", n, "in file", filename, s);
         }
     }
 }
 
-function test(input, expected, filename, testnum) {
+function test(input, context, expected, filename, testnum, charbychar) {
     numtests++;
     try {
-        var parser = HTMLParser();
-        var doc = parser.end(input);
-        var output = serialize(doc, " ");
-    
+        var output;
+        if (context) {
+            var root = document.createElement(context);
+            HTMLParser.parseFragment(root, input);
+            output = "";
+            for(var i = 0; i < root.childNodes.length; i++) {
+                var c = root.childNodes[i];
+                output += serialize(c, " ");
+            }
+        }
+        else {
+            var parser = HTMLParser();
+            var doc;
+            if (charbychar) {
+                for(var i = 0; i < input.length; i++) {
+                    parser.append(input[i]);
+                }
+                doc = parser.end();
+            }
+            else {
+                doc = parser.end(input);
+            }
+            output = serialize(doc, " ");
+        }
         if (output === expected) {
             numpassed++;
             putstr('.');
@@ -60,8 +82,10 @@ function test(input, expected, filename, testnum) {
                 filename: filename,
                 testnum: testnum,
                 input: input,
+                context: context,
                 output: output,
-                expected: expected
+                expected: expected,
+                charbychar: charbychar
             });
 /*
             print("FAIL: test", testnum, "in file", filename);
@@ -76,8 +100,10 @@ function test(input, expected, filename, testnum) {
         failures.push({
             filename: filename,
             input: input,
+            context: context,
             testnum: testnum,
-            exception: e
+            exception: e,
+            charbychar: charbychar
         });
     }
 }
@@ -183,6 +209,9 @@ function report() {
                 print("----------");
                 print(f.filename, "test #" + f.testnum);
                 print("Input:", f.input);
+                if (f.context) print("Context", f.context);
+                if (f.charbychar)
+                    print("One character at a time");
                 print("Aborted with:",
                       f.exception.name + ": " + f.exception.message,
                       "at", f.exception.fileName + ":" +f.exception.lineNumber);
@@ -198,6 +227,9 @@ function report() {
             print("----------");
             print(f.filename, "test #" + f.testnum);
             print("Input:", f.input);
+            if (f.context) print("Context", f.context);
+            if (f.charbychar)
+                print("One character at a time");
             print("Got:");
             print(f.output);
             print("Expected:");
