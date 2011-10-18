@@ -498,7 +498,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
     var ignore_linefeed = false;
 
     var doc = new impl.Document(true);
-    if (mutationHander) doc.mutationHandler = mutationHandler;
+    if (mutationHandler) doc.mutationHandler = mutationHandler;
 
     if (fragmentContext) {
         if (fragmentContext.ownerDocument._quirks)

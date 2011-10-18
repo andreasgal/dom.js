@@ -1,4 +1,4 @@
-load("dom.js");
+load("../../dom.js");
 
 const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
 const MATHML_NAMESPACE = "http://www.w3.org/1998/Math/MathML";
@@ -51,7 +51,7 @@ function test(input, context, expected, filename, testnum, charbychar) {
         var output;
         if (context) {
             var root = document.createElement(context);
-            HTMLParser.parseFragment(root, input);
+            document.implementation.mozHTMLParser.parseFragment(root, input);
             output = "";
             for(var i = 0; i < root.childNodes.length; i++) {
                 var c = root.childNodes[i];
@@ -59,7 +59,7 @@ function test(input, context, expected, filename, testnum, charbychar) {
             }
         }
         else {
-            var parser = HTMLParser();
+            var parser = document.implementation.mozHTMLParser();
             var doc;
             if (charbychar) {
                 for(var i = 0; i < input.length; i++) {

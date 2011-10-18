@@ -1,4 +1,4 @@
-load("dom.js");
+load("../../dom.js");
 
 var numtests = 0;
 var numpassed = 0;
@@ -79,7 +79,7 @@ function test(t, n, charbychar) {
         try {
             numtests++;
             var initialState = states[s];
-            var parser = HTMLParser();
+            var parser = document.implementation.mozHTMLParser();
             var output = JSON.stringify(parser.testTokenizer(input,
                                                              initialState,
                                                              lasttag,
