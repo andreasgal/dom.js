@@ -51,7 +51,7 @@ function test(input, context, expected, filename, testnum, charbychar) {
         var output;
         if (context) {
             var root = document.createElement(context);
-            document.implementation.mozHTMLParser.parseFragment(root, input);
+            root.innerHTML = input;
             output = "";
             for(var i = 0; i < root.childNodes.length; i++) {
                 var c = root.childNodes[i];

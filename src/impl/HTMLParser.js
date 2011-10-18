@@ -6,10 +6,12 @@
 // If you want mutation events for the document that is being created,
 // pass a mutationHandler as the first argument.
 //
+// XXX: for internal use only:
 // Pass an element as the fragmentContext to do innerHTML parsing for the 
 // element.  To do innerHTML parsing on a document, pass null. Otherwise,
-// emit the 2nd argument. See HTMLParser.parseFragment() which does this
-// for us.
+// emit the 2nd argument. See HTMLElement.innerHTML which does this
+// for us. (Note that if you pass a context element, the end() method will
+// return an unwrapped document instead of a wrapped one.)
 //
 function HTMLParser(mutationHandler, fragmentContext) {
     var ElementStack = (function() {
@@ -7902,7 +7904,10 @@ function HTMLParser(mutationHandler, fragmentContext) {
             s = s || "";
             scannerAppend(s, true);
             scanChars();
-            return wrap(doc);
+            // For the fragment case, return the document unwrapped.
+            // Otherwise, return a wrapped document
+            if (fragment) return doc;
+            else return wrap(doc);
         },
 
         // This is a hook for testing the tokenizer. It has to be here 
@@ -7988,13 +7993,4 @@ function HTMLParser(mutationHandler, fragmentContext) {
             return tokens;
         }
     };
-}
-
-HTMLParser.parseFragment = function(context, html) {
-    var parser = HTMLParser(null, context);
-    var doc = parser.end(html);
-    var root = context ? doc.firstChild : doc;
-    while(root.hasChildNodes()) {
-        context.appendChild(root.firstChild);
-    }
 }

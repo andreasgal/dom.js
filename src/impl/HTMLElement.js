@@ -230,6 +230,24 @@ defineLazyProperty(impl, "HTMLElement", function() {
 
     HTMLElement.prototype = O.create(impl.Element.prototype, {
         _idlName: constant("HTMLElement"),
+        innerHTML: attribute(function() {
+            return "reading innerHTML is not yet implemented";
+        },
+        function(v) {
+            var parser = this.ownerDocument.implementation.mozHTMLParser(null,
+                                                                         this);
+            var tmpdoc = parser.end(v);
+            var root = tmpdoc.firstChild;
+
+            // Remove any existing children of this node
+            while(this.hasChildNodes())
+                this.removeChild(this.firstChild);
+
+            // Now copy newly parsed children from the root to this node
+            while(root.hasChildNodes()) {
+                this.appendChild(root.firstChild);
+            }
+        }),
     });
 
     impl.Element.reflectStringAttribute(HTMLElement, "title");
