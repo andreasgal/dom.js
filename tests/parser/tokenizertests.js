@@ -1,4 +1,4 @@
-load("../../dom.js");
+load("dom.js");
 
 var numtests = 0;
 var numpassed = 0;

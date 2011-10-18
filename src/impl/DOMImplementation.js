@@ -27,7 +27,6 @@ defineLazyProperty(impl, "DOMImplementation", function() {
             return (f && f[version]) || false;
         },
         
-
         createDocumentType: function createDocumentType(qualifiedName,
                                                         publicId, systemId) {
             if (!isValidName(qualifiedName)) InvalidCharacterError();
@@ -83,6 +82,8 @@ defineLazyProperty(impl, "DOMImplementation", function() {
         mozGetInputMutationHandler: function(doc) {
             nyi();
         },
+
+        mozHTMLParser: HTMLParser,
     };
 
     return DOMImplementation;

@@ -3,5 +3,3 @@ defineLazyProperty(global, "document", function() {
     return wrap(new impl.DOMImplementation().createHTMLDocument(""),
                idl.Document);
 });
-
-global.HTMLParser = HTMLParser;

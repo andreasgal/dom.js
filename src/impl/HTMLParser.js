@@ -1,14 +1,17 @@
-// XXX: will have to add arguments for fragment parsing, I think.
-// To use the returned HTMLParser object, append text to it with append()
-// Insert text (from document.write()) with insert(). Call end() when
-// all text has been appended, and it will return a Document (?) or
-// DocumentFragment (?)
+// This is a factory function (not a constructor) that returns a
+// parser object.  The returned object has append() and end() methods.
+// Append text to it with append(). Call end() when all text has been
+// appended, and it will return a new Document.
+//
+// If you want mutation events for the document that is being created,
+// pass a mutationHandler as the first argument.
 //
 // Pass an element as the fragmentContext to do innerHTML parsing for the 
-// element.  To do innerHTML parsing on a document, pass null. 
-// To do regular document parsing, omit the argument completely.
+// element.  To do innerHTML parsing on a document, pass null. Otherwise,
+// emit the 2nd argument. See HTMLParser.parseFragment() which does this
+// for us.
 //
-function HTMLParser(fragmentContext) {
+function HTMLParser(mutationHandler, fragmentContext) {
     var ElementStack = (function() {
         function ElementStack() {
             this.elements = [];
@@ -437,7 +440,7 @@ function HTMLParser(fragmentContext) {
     }());
 
 
-    var BOF = 0xFEFF;
+    var BOM = 0xFEFF;
     var CR = 0x000D;
     var LF = 0x000A;
 
@@ -495,6 +498,7 @@ function HTMLParser(fragmentContext) {
     var ignore_linefeed = false;
 
     var doc = new impl.Document(true);
+    if (mutationHander) doc.mutationHandler = mutationHandler;
 
     if (fragmentContext) {
         if (fragmentContext.ownerDocument._quirks)
@@ -559,8 +563,8 @@ function HTMLParser(fragmentContext) {
         if (chars === null) { // If this is the first text appended
             chars = s;
             numchars = chars.length;
-            // Skip BOF on first appended string
-            if (chars.charCodeAt(0) === BOF) nextchar = 1;
+            // Skip Byte Order Mark on first appended string
+            if (chars.charCodeAt(0) === BOM) nextchar = 1;
             else nextchar = 0;
         }
         else {
@@ -2599,7 +2603,7 @@ function HTMLParser(fragmentContext) {
             emitComment();
             pushback();
             tokenizerState = data_state;
-            break; /* For security reasons: otherwise, hostile user could put a <script> in a comment e.g. in a blog comment and then DOS the server so that the end tag isn't read, and then the commented <script> tag would be treated as live code */ 
+            break; /* For security reasons: otherwise, hostile user could put a script in a comment e.g. in a blog comment and then DOS the server so that the end tag isn't read, and then the commented script tag would be treated as live code */ 
         default: 
             appendChar(commentbuf, 0x002D);
             appendChar(commentbuf, 0x002D);
@@ -3653,7 +3657,7 @@ function HTMLParser(fragmentContext) {
         return true;
     }
 
-    // We do this when we get </script> in in_text_mode
+    // We do this when we get /script in in_text_mode
     function handleScriptEnd() {
         // XXX:
         // This is just a stub implementation right now and doesn't run scripts.
@@ -4489,7 +4493,7 @@ function HTMLParser(fragmentContext) {
             }
 
             // Handle any other start tag here
-            // (and also <noscript> tags when scripting is disabled)
+            // (and also noscript tags when scripting is disabled)
             afe.reconstruct();
             insertHTMLElement(value,arg3);
             return;
@@ -7987,7 +7991,7 @@ function HTMLParser(fragmentContext) {
 }
 
 HTMLParser.parseFragment = function(context, html) {
-    var parser = HTMLParser(context);
+    var parser = HTMLParser(null, context);
     var doc = parser.end(html);
     var root = context ? doc.firstChild : doc;
     while(root.hasChildNodes()) {

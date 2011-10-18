@@ -286,6 +286,7 @@ interface DOMImplementation {
   void mozSetOutputMutationHandler(Document doc, MozMutationHandler handler);
   // Return a handler that a parser can call to build up the document
   MozMutationHandler mozGetInputMutationHandler(Document doc);
+  readonly attribute Function mozHTMLParser;
 };
 
 // Non-standard callback function type
