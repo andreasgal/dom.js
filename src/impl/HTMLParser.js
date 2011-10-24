@@ -988,13 +988,17 @@ function HTMLParser(mutationHandler, fragmentContext) {
         }
     }
 
-    function createHTMLElt(name, attrs) {
+    function createHTMLElt(name, attrs, insert) {
         // Create the element this way, rather than with 
         // doc.createElement because createElement() does error
         // checking on the element name that we need to avoid here.
         var interfaceName = tagNameToInterfaceName[name] ||
             "HTMLUnknownElement";
         var elt = new impl[interfaceName](doc, name, null);
+
+        if (insert) {
+            insertElement(elt);
+        }
 
         if (attrs) {
             for(var i = 0, n = attrs.length; i < n; i++) {
@@ -1015,9 +1019,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
     var foster_parent_mode = false;
 
     function insertHTMLElement(name, attrs) {
-        var elt = createHTMLElt(name, attrs);
-        insertElement(elt);
-
+        var elt = createHTMLElt(name, attrs, true);
         // XXX
         // If this is a form element, set its form attribute property
 

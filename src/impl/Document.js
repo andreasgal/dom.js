@@ -311,7 +311,8 @@ defineLazyProperty(impl, "Document", function() {
         referrer: attribute(nyi),
         cookie: attribute(nyi, nyi),
         lastModified: attribute(nyi),
-        readyState: attribute(nyi),
+        // XXX Temporary hack
+        readyState: attribute(function() { return "complete" }),
         title: attribute(nyi, nyi),
         dir:  attribute(nyi, nyi),
         // Return the first <body> child of the document element.
@@ -389,7 +390,6 @@ defineLazyProperty(impl, "Document", function() {
                 addId(attr.value, attr.ownerElement);
             }
             */
-          
             if (this.mutationHandler) {
                 this.mutationHandler({
                     type: MUTATE_ATTR,
