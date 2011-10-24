@@ -3143,9 +3143,11 @@ function HTMLParser(mutationHandler, fragmentContext) {
             output = lookahead.substring(0,len-3); // don't emit the ]]>
         }
 
-        // XXX: the replace call isn't in the spec, but is required by the tests
-        if (output.length > 0) 
-            emitCharString(output.replace(/\u0000/g,"\uFFFD"));
+        if (output.length > 0) {
+            if (output.indexOf("\u0000") !== -1) 
+                textIncludesNUL = true;
+            emitCharString(output);
+        }
 
         tokenizerState = data_state;
     }
