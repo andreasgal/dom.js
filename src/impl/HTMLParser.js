@@ -303,7 +303,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     var ActiveFormattingElements = (function() {
         function ActiveFormattingElements() {
-            this.list = [];
+             this.list = [];
         }
 
         ActiveFormattingElements.prototype.MARKER = { localName: "|" };
@@ -402,7 +402,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
         // Find and return the last element with the specified tag between the
         // end of the list and the last marker on the list.
-        // Used when parsing <a> in_body()
+        // Used when parsing <a> in_body_mode()
         ActiveFormattingElements.prototype.findElementByTag = function(tag) {
             for(var i = this.list.length-1; i >= 0; i--) {
                 var elt = this.list[i];
@@ -465,7 +465,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
     var tokenizerState = data_state;
     var savedTokenizerStates = [];
     var tagnamebuf = [];
-    var lasttagbuf = [];  // holds the target end tag for text states
+    var lasttagname = "";  // holds the target end tag for text states
     var tempbuf = [];
     var attrnamebuf = [];
     var attrvaluebuf = [];
@@ -770,6 +770,40 @@ function HTMLParser(mutationHandler, fragmentContext) {
         }
     }
 
+    // Shortcut for simple attributes
+    function handleSimpleAttribute() {
+        SIMPLEATTR.lastIndex = nextchar-1;
+        var match = SIMPLEATTR.exec(chars);
+        if (!match) return false;
+        
+        var name = match[1];
+        var value = match[2];
+        var len = value.length;
+        switch(value[0]) {
+        case '"':
+        case "'":
+            value = value.substring(1, len-1);
+            nextchar += (match[0].length-1);
+            tokenizerState = after_attribute_value_quoted_state;            
+            break;
+        default:
+            tokenizerState = before_attribute_name_state;
+            nextchar += (match[0].length-1);
+            value = value.substring(0, len-1);
+            break;
+        }
+
+        // Make sure there isn't already an attribute with this name
+        // If there is, ignore this one.
+        for(var i = 0; i < attributes.length; i++) {
+            if (attributes[i][0] === name) return true;
+        }
+
+        push(attributes, [name, value]);
+        return true;
+    }
+
+
     function pushState() { push(savedTokenizerStates, tokenizerState); }
     function popState() { tokenizerState = pop(savedTokenizerStates); }
     function beginTagName() {
@@ -795,6 +829,21 @@ function HTMLParser(mutationHandler, fragmentContext) {
     function beginDoctypePublicId() { doctypepublicbuf = []; }
     function beginDoctypeSystemId() { doctypesystembuf = []; }
     function appendChar(buf, char) { push(buf, char); }
+/*
+ * This doesn't seem to be a useful optimization
+ *
+    function appendCharsWhile(buf, pattern) {
+        pattern.lastIndex = nextchar-1;
+        var match = pattern.exec(chars)[0];
+        if (!match) return false;
+        var len = match.length;
+        nextchar += len - 1;
+        for(var i = 0; i < len; i++)
+            push(buf, match.charCodeAt(i));
+        return true;
+    }
+*/
+
     function forcequirks() { force_quirks = true; }
     function cdataAllowed() {
         return stack.top &&
@@ -807,23 +856,17 @@ function HTMLParser(mutationHandler, fragmentContext) {
     // emits a LF. This should never be called twice from a tokenizer
     // state.  And its shouldn't be called from a state that uses
     // lookahead, either.
-    function pushback() { nextchar--; }
+//    function pushback() { nextchar--; }
 
-    // Return true if the codepoints in the specified buffer match those
-    // in lasttagbuf
+    // Return true if the codepoints in the specified buffer match the
+    // characters of lasttagname
     function appropriateEndTag(buf) {
-        if (buf.length !== lasttagbuf.length) return false;
+        if (buf.length !== lasttagname.length) return false;
         for(var i = 0, n = buf.length; i < n; i++) {
-            if (buf[i] !== lasttagbuf[i]) return false;
+            if (buf[i] !== lasttagname.charCodeAt(i)) return false;
         }
         return true;
     }
-
-    function emitChar(c) {
-        push(textrun, c);
-        if (c === 0) textIncludesNUL = true;
-    }
-    function emitChars(buf) { pushAll(textrun, buf); }
 
     function flushText() {
         if (textrun.length > 0) {
@@ -842,6 +885,17 @@ function HTMLParser(mutationHandler, fragmentContext) {
         ignore_linefeed = false;
     }
 
+    // emit a string of chars that match a regexp
+    // Returns false if no chars matched.
+    function emitCharsWhile(pattern) {
+        pattern.lastIndex = nextchar-1;
+        var match = pattern.exec(chars)[0];
+        if (!match) return false;
+        emitCharString(match);
+        nextchar += match.length - 1;
+        return true;
+    }
+
     // This is used by CDATA sections 
     function emitCharString(s) {
         if (textrun.length > 0) flushText();
@@ -856,32 +910,49 @@ function HTMLParser(mutationHandler, fragmentContext) {
     }
 
     function emitTag() {
-        flushText();
+//        flushText();
         if (is_end_tag) insertToken(ENDTAG, buf2str(tagnamebuf));
         else {
             // Remember the last open tag we emitted
-            lasttagbuf = tagnamebuf;
-            tagnamebuf = [];
-            insertToken(TAG, buf2str(lasttagbuf), attributes);
+            var tagname = buf2str(tagnamebuf);
+            tagnamebuf.length = 0;
+            lasttagname = tagname;
+            insertToken(TAG, tagname, attributes);
         }
     }
+
+    var NOATTRS = [];
+
+    // A shortcut: look ahead and if this is a open or close tag in lowercase
+    // with no spaces and no attributes, just emit it now
+    function emitSimpleTag() {
+        SIMPLETAG.lastIndex = nextchar;
+        var match = SIMPLETAG.exec(chars);
+        if (!match) return false;
+        var tagname = match[2];
+        var endtag = match[1];
+//        if (!tagname) return false;
+        if (endtag) {
+            nextchar += (tagname.length+2);
+            insertToken(ENDTAG, tagname);
+        }
+        else {
+            nextchar += (tagname.length+1);
+            lasttagname = tagname;
+            insertToken(TAG, tagname, NOATTRS);
+        }
+        return true;
+    }
+
+
     function emitSelfClosingTag() {
-        flushText(); 
+//        flushText(); 
         if (is_end_tag) insertToken(ENDTAG, buf2str(tagnamebuf), null, true);
         else {
             insertToken(TAG, buf2str(tagnamebuf), attributes, true);
         }
     }
-    function emitComment() {
-        flushText();
-        insertToken(COMMENT, buf2str(commentbuf));
-    }
-    function emitCommentString(s) {
-        flushText();
-        insertToken(COMMENT, s);
-    }
     function emitDoctype() {
-        flushText();
         insertToken(DOCTYPE,
                buf2str(doctypenamebuf), 
                doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined,
@@ -928,6 +999,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
     // Insert a token, either using the current insertionMode (for HTML stuff)
     // or using the insertForeignToken() method.
     function insertToken(t, value, arg3, arg4) {
+        flushText();
         var current = stack.top;
 
         if (!current || current.namespaceURI === HTML_NAMESPACE) {
@@ -1165,27 +1237,46 @@ function HTMLParser(mutationHandler, fragmentContext) {
     // Like the above, but for named char refs, the last char can't be =
     var ATTRCHARREF = /#[0-9]+[^0-9]|#[xX][0-9a-fA-F]+[^0-9a-fA-F]|[a-zA-Z][a-zA-Z0-9]*[^=a-zA-Z0-9]/y;
 
+    var DATATEXT = /[^&<\r\u0000\uffff]*/g;
+    var RAWTEXT = /[^<\r\u0000\uffff]*/g;
+    var PLAINTEXT = /[^\r\u0000\uffff]*/g;
+    var SIMPLETAG = /(\/)?([a-z]+)>/gy;
+    var SIMPLEATTR = /([a-z]+) *= *('[^'&\r\u0000]*'|"[^"&\r\u0000]*"|[^&> \t\n\r\f\u0000][ \t\n\f])/gy;
+
+//    var DBLQUOTEATTRVAL = /[^"&\r\u0000\uffff]*/g;
+//    var SINGLEQUOTEATTRVAL = /[^'&\r\u0000\uffff]*/g;
+//    var UNQUOTEDATTRVAL = /[^ \t\f\n\r&>\u0000\uffff]*/g;
+//    var TAGNAMECHARS = /[a-z]*/g;
+
+
     function data_state(c) {
         switch(c) {
-        case 0x0026: //  AMPERSAND (&) 
+        case 0x0026: //  AMPERSAND 
             tokenizerState = character_reference_in_data_state;
             break; 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
+            if (emitSimpleTag()) // Shortcut for <p>, <dl>, </div> etc.
+                break;
             tokenizerState = tag_open_state;
             break; 
         case 0x0000: //  NULL 
             // Usually null characters emitted by the tokenizer will be
             // ignored by the tree builder, but sometimes they'll be 
-            // converted to \uFFFD.  I don't want to have the search ever
+            // converted to \uFFFD.  I don't want to have the search every
             // string emitted to replace NULs, so I'll set a flag
-            // if I've emitted a NUL.  See emitChar()
-            emitChar(c);
+            // if I've emitted a NUL.
+            push(textrun,c);
+            textIncludesNUL = true;
             break; 
         case EOF: 
             emitEOF();
             break; 
         default: 
-            emitChar(c);
+            // push(textrun,c);
+            // Instead of just pushing a single character and then
+            // coming back to the very same place, lookahead and
+            // emit everything we can at once.
+            emitCharsWhile(DATATEXT) || push(textrun, c);
             break; 
         }
     }
@@ -1193,11 +1284,11 @@ function HTMLParser(mutationHandler, fragmentContext) {
     function character_reference_in_data_state(c, lookahead, eof) {
         var char = parseCharRef(lookahead, false);
         if (char !== null) {
-            if (typeof char === "number") emitChar(char);
-            else emitChars(char);  // An array of characters
+            if (typeof char === "number") push(textrun,char);
+            else pushAll(textrun, char);  // An array of characters
         }
         else
-            emitChar(0x0026); // AMPERSAND;
+            push(textrun,0x0026); // AMPERSAND;
 
         tokenizerState = data_state;
     }
@@ -1206,20 +1297,21 @@ function HTMLParser(mutationHandler, fragmentContext) {
     function rcdata_state(c) {
         // Save the open tag so we can find a matching close tag
         switch(c) {
-        case 0x0026: //  AMPERSAND (&) 
+        case 0x0026: //  AMPERSAND 
             tokenizerState = character_reference_in_rcdata_state;
             break; 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
             tokenizerState = rcdata_less_than_sign_state;
             break; 
         case 0x0000: //  NULL 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+            textIncludesNUL = true;
             break; 
         case EOF: 
             emitEOF();
             break; 
         default: 
-            emitChar(c);
+            push(textrun,c);
             break; 
         }
     }
@@ -1227,11 +1319,11 @@ function HTMLParser(mutationHandler, fragmentContext) {
     function character_reference_in_rcdata_state(c, lookahead, eof) {
         var char = parseCharRef(lookahead, false);
         if (char !== null) {
-            if (typeof char === "number") emitChar(char);
-            else emitChars(char);  // An array of characters
+            if (typeof char === "number") push(textrun,char);
+            else pushAll(textrun, char);  // An array of characters
         }
         else
-            emitChar(0x0026); // AMPERSAND;
+            push(textrun,0x0026); // AMPERSAND;
 
         tokenizerState = rcdata_state;
     }
@@ -1239,34 +1331,34 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function rawtext_state(c) {
         switch(c) {
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
             tokenizerState = rawtext_less_than_sign_state;
             break; 
         case 0x0000: //  NULL 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
             break; 
         case EOF: 
             emitEOF();
             break; 
         default: 
-            emitChar(c);
+            emitCharsWhile(RAWTEXT) || push(textrun, c);
             break; 
         }
     }
 
     function script_data_state(c) {
         switch(c) {
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
             tokenizerState = script_data_less_than_sign_state;
             break; 
         case 0x0000: //  NULL 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
             break; 
         case EOF: 
             emitEOF();
             break; 
         default: 
-            emitChar(c);
+            emitCharsWhile(RAWTEXT) || push(textrun, c);
             break; 
         }
     }
@@ -1274,23 +1366,23 @@ function HTMLParser(mutationHandler, fragmentContext) {
     function plaintext_state(c) {
         switch(c) {
         case 0x0000: //  NULL 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
             break; 
         case EOF: 
             emitEOF();
             break; 
         default: 
-            emitChar(c);
+            emitCharsWhile(PLAINTEXT) || push(textrun, c);
             break; 
         }
     }
 
     function tag_open_state(c) {
         switch(c) {
-        case 0x0021: //  EXCLAMATION MARK (!) 
+        case 0x0021: //  EXCLAMATION MARK 
             tokenizerState = markup_declaration_open_state;
             break; 
-        case 0x002F: //  SOLIDUS (/) 
+        case 0x002F: //  SOLIDUS 
             tokenizerState = end_tag_open_state;
             break; 
         case 0x0041:  // [A-Z]
@@ -1312,13 +1404,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
             appendChar(tagnamebuf, c);
             tokenizerState = tag_name_state; 
             break; 
-        case 0x003F: //  QUESTION MARK (?) 
-            pushback();
+        case 0x003F: //  QUESTION MARK 
+            nextchar--;  // pushback
             tokenizerState = bogus_comment_state;
             break; 
         default: 
-            emitChar(0x003C); // LESS-THAN SIGN
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         }
@@ -1345,17 +1437,17 @@ function HTMLParser(mutationHandler, fragmentContext) {
             appendChar(tagnamebuf, c);
             tokenizerState = tag_name_state; 
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state;
             break; 
         case EOF: 
-            emitChar(0x003C); // LESS-THAN SIGN
-            emitChar(0x002F); // SOLIDUS
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x002F); // SOLIDUS
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = bogus_comment_state;
             break; 
         }
@@ -1369,10 +1461,10 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             tokenizerState = before_attribute_name_state;
             break; 
-        case 0x002F: //  SOLIDUS (/) 
+        case 0x002F: //  SOLIDUS
             tokenizerState = self_closing_start_tag_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
             emitTag();
             break; 
@@ -1382,31 +1474,31 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
         case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
         case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-
             appendChar(tagnamebuf, c + 0x0020);
             break; 
         case 0x0000: //  NULL 
             appendChar(tagnamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
             appendChar(tagnamebuf, c);
+            // appendCharsWhile(tagnamebuf, TAGNAMECHARS) || appendChar(tagnamebuf, c);
             break; 
         }
     }
 
     function rcdata_less_than_sign_state(c) {
     /* identical to the RAWTEXT less-than sign state, except s/RAWTEXT/RCDATA/g */
-        if (c === 0x002F) {  //  SOLIDUS (/)
+        if (c === 0x002F) {  //  SOLIDUS
             beginTempBuf();
             tokenizerState = rcdata_end_tag_open_state;
         }
         else {
-            emitChar(0x003C); // LESS-THAN SIGN
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            nextchar--;  // pushback
             tokenizerState = rcdata_state;
         }
     }
@@ -1437,9 +1529,9 @@ function HTMLParser(mutationHandler, fragmentContext) {
             tokenizerState = rcdata_end_tag_name_state; 
             break; 
         default: 
-            emitChar(0x003C); // LESS-THAN SIGN
-            emitChar(0x002F); // SOLIDUS 
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x002F); // SOLIDUS 
+            nextchar--;  // pushback
             tokenizerState = rcdata_state;
             break; 
         }
@@ -1457,13 +1549,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
                 return;
             }
             break;
-        case 0x002F: //  SOLIDUS (/)
+        case 0x002F: //  SOLIDUS 
             if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = self_closing_start_tag_state;
                 return;
             }
             break;
-        case 0x003E: //  GREATER-THAN SIGN (>)
+        case 0x003E: //  GREATER-THAN SIGN 
             if (appropriateEndTag(tagnamebuf)) {
                 emitTag();
                 tokenizerState = data_state;
@@ -1497,23 +1589,23 @@ function HTMLParser(mutationHandler, fragmentContext) {
         // If we don't return in one of the cases above, then this was not 
         // an appropriately matching close tag, so back out by emitting all
         // the characters as text
-        emitChar(0x003C); // LESS-THAN SIGN
-        emitChar(0x002F); // SOLIDUS
-        emitChars(tempbuf);
-        pushback();
+        push(textrun,0x003C); // LESS-THAN SIGN
+        push(textrun,0x002F); // SOLIDUS
+        pushAll(textrun, tempbuf);
+        nextchar--;  // pushback
         tokenizerState = rcdata_state;
     }
 
     function rawtext_less_than_sign_state(c) {
      /* identical to the RCDATA less-than sign state, except s/RCDATA/RAWTEXT/g 
 */    
-        if (c === 0x002F) { //  SOLIDUS (/)
+        if (c === 0x002F) { //  SOLIDUS 
             beginTempBuf();
             tokenizerState = rawtext_end_tag_open_state;
         }
         else {
-            emitChar(0x003C); // LESS-THAN SIGN
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            nextchar--;  // pushback
             tokenizerState = rawtext_state;
         }
     }
@@ -1544,9 +1636,9 @@ function HTMLParser(mutationHandler, fragmentContext) {
             tokenizerState = rawtext_end_tag_name_state; 
             break; 
         default: 
-            emitChar(0x003C); // LESS-THAN SIGN
-            emitChar(0x002F); // SOLIDUS 
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x002F); // SOLIDUS 
+            nextchar--;  // pushback
             tokenizerState = rawtext_state;
             break; 
         }
@@ -1564,13 +1656,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
                 return;
             }
             break;
-        case 0x002F: //  SOLIDUS (/)
+        case 0x002F: //  SOLIDUS 
             if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = self_closing_start_tag_state;
                 return;
             }
             break;
-        case 0x003E: //  GREATER-THAN SIGN (>)
+        case 0x003E: //  GREATER-THAN SIGN 
             if (appropriateEndTag(tagnamebuf)) {
                 emitTag();
                 tokenizerState = data_state;
@@ -1602,27 +1694,27 @@ function HTMLParser(mutationHandler, fragmentContext) {
         // If we don't return in one of the cases above, then this was not 
         // an appropriately matching close tag, so back out by emitting all
         // the characters as text
-        emitChar(0x003C); // LESS-THAN SIGN
-        emitChar(0x002F); // SOLIDUS
-        emitChars(tempbuf);
-        pushback();
+        push(textrun,0x003C); // LESS-THAN SIGN
+        push(textrun,0x002F); // SOLIDUS
+        pushAll(textrun,tempbuf);
+        nextchar--;  // pushback
         tokenizerState = rawtext_state;
     }
 
     function script_data_less_than_sign_state(c) {
         switch(c) {
-        case 0x002F: //  SOLIDUS (/) 
+        case 0x002F: //  SOLIDUS  
             beginTempBuf();
             tokenizerState = script_data_end_tag_open_state;
             break; 
-        case 0x0021: //  EXCLAMATION MARK (!) 
+        case 0x0021: //  EXCLAMATION MARK 
             tokenizerState = script_data_escape_start_state; 
-            emitChar(0x003C); // LESS-THAN SIGN
-            emitChar(0x0021); // EXCLAMATION MARK
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x0021); // EXCLAMATION MARK
             break; 
         default: 
-            emitChar(0x003C); // LESS-THAN SIGN
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            nextchar--;  // pushback
             tokenizerState = script_data_state;
             break; 
         }
@@ -1654,9 +1746,9 @@ function HTMLParser(mutationHandler, fragmentContext) {
             tokenizerState = script_data_end_tag_name_state; 
             break; 
         default: 
-            emitChar(0x003C); // LESS-THAN SIGN
-            emitChar(0x002F); // SOLIDUS 
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x002F); // SOLIDUS 
+            nextchar--;  // pushback
             tokenizerState = script_data_state;
             break; 
         }
@@ -1674,13 +1766,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
                 return;
             }
             break;
-        case 0x002F: //  SOLIDUS (/)
+        case 0x002F: //  SOLIDUS 
             if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = self_closing_start_tag_state;
                 return;
             }
             break;
-        case 0x003E: //  GREATER-THAN SIGN (>)
+        case 0x003E: //  GREATER-THAN SIGN 
             if (appropriateEndTag(tagnamebuf)) {
                 emitTag();
                 tokenizerState = data_state;
@@ -1714,111 +1806,111 @@ function HTMLParser(mutationHandler, fragmentContext) {
         // If we don't return in one of the cases above, then this was not 
         // an appropriately matching close tag, so back out by emitting all
         // the characters as text
-        emitChar(0x003C); // LESS-THAN SIGN
-        emitChar(0x002F); // SOLIDUS
-        emitChars(tempbuf);
-        pushback();
+        push(textrun,0x003C); // LESS-THAN SIGN
+        push(textrun,0x002F); // SOLIDUS
+        pushAll(textrun,tempbuf);
+        nextchar--;  // pushback
         tokenizerState = script_data_state;
     }
 
     function script_data_escape_start_state(c) {
-        if (c === 0x002D) { //  HYPHEN-MINUS (-) 
+        if (c === 0x002D) { //  HYPHEN-MINUS 
             tokenizerState = script_data_escape_start_dash_state; 
-            emitChar(0x002D); // HYPHEN-MINUS
+            push(textrun,0x002D); // HYPHEN-MINUS
         }
         else {
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = script_data_state;
         }
     }
 
     function script_data_escape_start_dash_state(c) {
-        if (c === 0x002D) { //  HYPHEN-MINUS (-) 
+        if (c === 0x002D) { //  HYPHEN-MINUS 
             tokenizerState = script_data_escaped_dash_dash_state; 
-            emitChar(0x002D); // HYPHEN-MINUS
+            push(textrun,0x002D); // HYPHEN-MINUS
         }
         else {
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = script_data_state;
         }
     }
 
     function script_data_escaped_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        case 0x002D: //  HYPHEN-MINUS 
             tokenizerState = script_data_escaped_dash_state; 
-            emitChar(0x002D); // HYPHEN-MINUS
+            push(textrun,0x002D); // HYPHEN-MINUS
             break; 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
             tokenizerState = script_data_escaped_less_than_sign_state;
             break; 
         case 0x0000: //  NULL 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
-            emitChar(c);
+            push(textrun,c);
             break; 
         }
     }
 
     function script_data_escaped_dash_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        case 0x002D: //  HYPHEN-MINUS 
             tokenizerState = script_data_escaped_dash_dash_state; 
-            emitChar(0x002D); // HYPHEN-MINUS
+            push(textrun,0x002D); // HYPHEN-MINUS
             break; 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
             tokenizerState = script_data_escaped_less_than_sign_state;
             break; 
         case 0x0000: //  NULL 
             tokenizerState = script_data_escaped_state; 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
             tokenizerState = script_data_escaped_state; 
-            emitChar(c);
+            push(textrun,c);
             break; 
         }
     }
 
     function script_data_escaped_dash_dash_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
-            emitChar(0x002D); // HYPHEN-MINUS
+        case 0x002D: //  HYPHEN-MINUS 
+            push(textrun,0x002D); // HYPHEN-MINUS
             break; 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
             tokenizerState = script_data_escaped_less_than_sign_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = script_data_state; 
-            emitChar(0x003E); // GREATER-THAN SIGN
+            push(textrun,0x003E); // GREATER-THAN SIGN
             break; 
         case 0x0000: //  NULL 
             tokenizerState = script_data_escaped_state; 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
             tokenizerState = script_data_escaped_state; 
-            emitChar(c);
+            push(textrun,c);
             break; 
         }
     }
 
     function script_data_escaped_less_than_sign_state(c) {
         switch(c) {
-        case 0x002F: //  SOLIDUS (/) 
+        case 0x002F: //  SOLIDUS  
             beginTempBuf();
             tokenizerState = script_data_escaped_end_tag_open_state;
             break; 
@@ -1831,8 +1923,8 @@ function HTMLParser(mutationHandler, fragmentContext) {
             beginTempBuf();
             appendChar(tempbuf, c + 0x0020); 
             tokenizerState = script_data_double_escape_start_state; 
-            emitChar(0x003C); // LESS-THAN SIGN
-            emitChar(c);
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,c);
             break; 
         case 0x0061:  // [a-z]
         case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
@@ -1843,12 +1935,12 @@ function HTMLParser(mutationHandler, fragmentContext) {
             beginTempBuf();
             appendChar(tempbuf, c); 
             tokenizerState = script_data_double_escape_start_state; 
-            emitChar(0x003C); // LESS-THAN SIGN
-            emitChar(c);
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,c);
             break; 
         default: 
-            emitChar(0x003C); // LESS-THAN SIGN
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            nextchar--;  // pushback
             tokenizerState = script_data_escaped_state;
             break; 
         }
@@ -1879,9 +1971,9 @@ function HTMLParser(mutationHandler, fragmentContext) {
             tokenizerState = script_data_escaped_end_tag_name_state; 
             break; 
         default: 
-            emitChar(0x003C); // LESS-THAN SIGN
-            emitChar(0x002F); // SOLIDUS 
-            pushback();
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x002F); // SOLIDUS 
+            nextchar--;  // pushback
             tokenizerState = script_data_escaped_state;
             break; 
         }
@@ -1898,13 +1990,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
                 return;
             }
             break; 
-        case 0x002F: //  SOLIDUS (/) 
+        case 0x002F: //  SOLIDUS  
             if (appropriateEndTag(tagnamebuf)) {
                 tokenizerState = self_closing_start_tag_state; 
                 return;
             }
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             if (appropriateEndTag(tagnamebuf)) {
                 emitTag();
                 tokenizerState = data_state; 
@@ -1935,10 +2027,10 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
         // We get here in the default case, and if the closing tagname
         // is not an appropriate tagname.
-        emitChar(0x003C); // LESS-THAN SIGN
-        emitChar(0x002F); // SOLIDUS 
-        emitChars(tempbuf);
-        pushback();
+        push(textrun,0x003C); // LESS-THAN SIGN
+        push(textrun,0x002F); // SOLIDUS 
+        pushAll(textrun,tempbuf);
+        nextchar--;  // pushback
         tokenizerState = script_data_escaped_state;
     }
 
@@ -1948,15 +2040,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x000A: //  LINE FEED (LF) 
         case 0x000C: //  FORM FEED (FF) 
         case 0x0020: //  SPACE 
-        case 0x002F: //  SOLIDUS (/) 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x002F: //  SOLIDUS  
+        case 0x003E: //  GREATER-THAN SIGN  
             if (buf2str(tempbuf) === "script") {
                 tokenizerState = script_data_double_escaped_state;
             }
             else {
                 tokenizerState = script_data_escaped_state; 
             }
-            emitChar(c);
+            push(textrun,c);
             break; 
         case 0x0041:  // [A-Z]
         case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
@@ -1965,7 +2057,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
         case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
             appendChar(tempbuf, c + 0x0020); 
-            emitChar(c);
+            push(textrun,c);
             break; 
         case 0x0061:  // [a-z]
         case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
@@ -1974,10 +2066,10 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
         case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
             appendChar(tempbuf, c); 
-            emitChar(c);
+            push(textrun,c);
             break; 
         default: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = script_data_escaped_state;
             break; 
         }
@@ -1985,88 +2077,88 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function script_data_double_escaped_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        case 0x002D: //  HYPHEN-MINUS 
             tokenizerState = script_data_double_escaped_dash_state; 
-            emitChar(0x002D); // HYPHEN-MINUS
+            push(textrun,0x002D); // HYPHEN-MINUS
             break; 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
             tokenizerState = script_data_double_escaped_less_than_sign_state; 
-            emitChar(0x003C); // LESS-THAN SIGN
+            push(textrun,0x003C); // LESS-THAN SIGN
             break; 
         case 0x0000: //  NULL 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
-            emitChar(c);
+            push(textrun,c);
             break; 
         }
     }
 
     function script_data_double_escaped_dash_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        case 0x002D: //  HYPHEN-MINUS 
             tokenizerState = script_data_double_escaped_dash_dash_state; 
-            emitChar(0x002D); // HYPHEN-MINUS
+            push(textrun,0x002D); // HYPHEN-MINUS
             break; 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
             tokenizerState = script_data_double_escaped_less_than_sign_state; 
-            emitChar(0x003C); // LESS-THAN SIGN
+            push(textrun,0x003C); // LESS-THAN SIGN
             break; 
         case 0x0000: //  NULL 
             tokenizerState = script_data_double_escaped_state; 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
             tokenizerState = script_data_double_escaped_state; 
-            emitChar(c);
+            push(textrun,c);
             break; 
         }
     }
 
     function script_data_double_escaped_dash_dash_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
-            emitChar(0x002D); // HYPHEN-MINUS
+        case 0x002D: //  HYPHEN-MINUS 
+            push(textrun,0x002D); // HYPHEN-MINUS
             break; 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x003C: //  LESS-THAN SIGN 
             tokenizerState = script_data_double_escaped_less_than_sign_state; 
-            emitChar(0x003C); // LESS-THAN SIGN
+            push(textrun,0x003C); // LESS-THAN SIGN
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = script_data_state; 
-            emitChar(0x003E); // GREATER-THAN SIGN
+            push(textrun,0x003E); // GREATER-THAN SIGN
             break; 
         case 0x0000: //  NULL 
             tokenizerState = script_data_double_escaped_state; 
-            emitChar(0xFFFD); // REPLACEMENT CHARACTER
+            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
             tokenizerState = script_data_double_escaped_state; 
-            emitChar(c);
+            push(textrun,c);
             break; 
         }
     }
 
     function script_data_double_escaped_less_than_sign_state(c) {
-        if (c === 0x002F) { //  SOLIDUS (/) 
+        if (c === 0x002F) { //  SOLIDUS  
             beginTempBuf();
             tokenizerState = script_data_double_escape_end_state; 
-            emitChar(0x002F); // SOLIDUS
+            push(textrun,0x002F); // SOLIDUS
         }
         else {
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = script_data_double_escaped_state;
         }
     }
@@ -2077,15 +2169,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x000A: //  LINE FEED (LF) 
         case 0x000C: //  FORM FEED (FF) 
         case 0x0020: //  SPACE 
-        case 0x002F: //  SOLIDUS (/) 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x002F: //  SOLIDUS  
+        case 0x003E: //  GREATER-THAN SIGN  
             if (buf2str(tempbuf) === "script") {
                 tokenizerState = script_data_escaped_state;
             }
             else {
                 tokenizerState = script_data_double_escaped_state; 
             }
-            emitChar(c);
+            push(textrun,c);
             break; 
         case 0x0041:  // [A-Z]
         case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
@@ -2094,7 +2186,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
         case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
             appendChar(tempbuf, c + 0x0020); 
-            emitChar(c);
+            push(textrun,c);
             break; 
         case 0x0061:  // [a-z]
         case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
@@ -2103,10 +2195,10 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
         case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
             appendChar(tempbuf, c); 
-            emitChar(c);
+            push(textrun,c);
             break; 
         default: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = script_data_double_escaped_state;
             break; 
         }
@@ -2120,10 +2212,10 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             /* Ignore the character. */
             break; 
-        case 0x002F: //  SOLIDUS (/) 
+        case 0x002F: //  SOLIDUS  
             tokenizerState = self_closing_start_tag_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
             emitTag();
             break; 
@@ -2143,15 +2235,16 @@ function HTMLParser(mutationHandler, fragmentContext) {
             tokenizerState = attribute_name_state;
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
-        case 0x0027: //  APOSTROPHE (') 
-        case 0x003C: //  LESS-THAN SIGN (<) 
-        case 0x003D: //  EQUALS SIGN (=) 
+        case 0x0022: //  QUOTATION MARK  
+        case 0x0027: //  APOSTROPHE  
+        case 0x003C: //  LESS-THAN SIGN 
+        case 0x003D: //  EQUALS SIGN 
             /* falls through */
         default: 
+            if (handleSimpleAttribute()) break;
             beginAttrName();
             appendChar(attrnamebuf, c);
             tokenizerState = attribute_name_state;
@@ -2167,15 +2260,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             tokenizerState = after_attribute_name_state;
             break; 
-        case 0x002F: //  SOLIDUS (/) 
+        case 0x002F: //  SOLIDUS  
             addAttribute(attrnamebuf);
             tokenizerState = self_closing_start_tag_state;
             break; 
-        case 0x003D: //  EQUALS SIGN (=) 
+        case 0x003D: //  EQUALS SIGN 
             beginAttrValue();
             tokenizerState = before_attribute_value_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             addAttribute(attrnamebuf);
             tokenizerState = data_state; 
             emitTag();
@@ -2192,12 +2285,12 @@ function HTMLParser(mutationHandler, fragmentContext) {
             appendChar(attrnamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
-        case 0x0027: //  APOSTROPHE (') 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x0022: //  QUOTATION MARK  
+        case 0x0027: //  APOSTROPHE  
+        case 0x003C: //  LESS-THAN SIGN 
             /* falls through */
         default: 
             appendChar(attrnamebuf, c);
@@ -2214,15 +2307,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             /* Ignore the character. */
             break; 
-        case 0x002F: //  SOLIDUS (/) 
+        case 0x002F: //  SOLIDUS  
             addAttribute(attrnamebuf);
             tokenizerState = self_closing_start_tag_state;
             break; 
-        case 0x003D: //  EQUALS SIGN (=) 
+        case 0x003D: //  EQUALS SIGN 
             beginAttrValue();
             tokenizerState = before_attribute_value_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
             addAttribute(attrnamebuf);
             emitTag();
@@ -2245,12 +2338,12 @@ function HTMLParser(mutationHandler, fragmentContext) {
             tokenizerState = attribute_name_state;
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
-        case 0x0027: //  APOSTROPHE (') 
-        case 0x003C: //  LESS-THAN SIGN (<) 
+        case 0x0022: //  QUOTATION MARK  
+        case 0x0027: //  APOSTROPHE  
+        case 0x003C: //  LESS-THAN SIGN 
             /* falls through */
         default: 
             addAttribute(attrnamebuf);
@@ -2269,32 +2362,32 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             /* Ignore the character. */
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             tokenizerState = attribute_value_double_quoted_state;
             break; 
-        case 0x0026: //  AMPERSAND (&)
-            pushback();
+        case 0x0026: //  AMPERSAND
+            nextchar--;  // pushback
             tokenizerState = attribute_value_unquoted_state;
             break; 
-        case 0x0027: //  APOSTROPHE (') 
+        case 0x0027: //  APOSTROPHE  
             tokenizerState = attribute_value_single_quoted_state;
             break; 
         case 0x0000: //  NULL 
             appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */); 
             tokenizerState = attribute_value_unquoted_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             addAttribute(attrnamebuf);
             emitTag();
             tokenizerState = data_state; 
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
-        case 0x003C: //  LESS-THAN SIGN (<) 
-        case 0x003D: //  EQUALS SIGN (=) 
-        case 0x0060: //  GRAVE ACCENT (`) 
+        case 0x003C: //  LESS-THAN SIGN 
+        case 0x003D: //  EQUALS SIGN 
+        case 0x0060: //  GRAVE ACCENT 
             /* falls through */
         default: 
             appendChar(attrvaluebuf, c); 
@@ -2305,11 +2398,11 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function attribute_value_double_quoted_state(c) {
         switch(c) {
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             addAttribute(attrnamebuf, attrvaluebuf);
             tokenizerState = after_attribute_value_quoted_state;
             break; 
-        case 0x0026: //  AMPERSAND (&) 
+        case 0x0026: //  AMPERSAND 
             pushState();
             tokenizerState = character_reference_in_attribute_value_state;
             break; 
@@ -2317,22 +2410,23 @@ function HTMLParser(mutationHandler, fragmentContext) {
             appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
             appendChar(attrvaluebuf, c);
+            // appendCharsWhile(attrvaluebuf, DBLQUOTEATTRVAL);
             break; 
         }
     }
 
     function attribute_value_single_quoted_state(c) {
         switch(c) {
-        case 0x0027: //  APOSTROPHE (') 
+        case 0x0027: //  APOSTROPHE  
             addAttribute(attrnamebuf, attrvaluebuf);
             tokenizerState = after_attribute_value_quoted_state;
             break; 
-        case 0x0026: //  AMPERSAND (&) 
+        case 0x0026: //  AMPERSAND 
             pushState();
             tokenizerState = character_reference_in_attribute_value_state;
             break; 
@@ -2340,11 +2434,12 @@ function HTMLParser(mutationHandler, fragmentContext) {
             appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
             appendChar(attrvaluebuf, c);
+            // appendCharsWhile(attrvaluebuf, SINGLEQUOTEATTRVAL);
             break; 
         }
     }
@@ -2358,11 +2453,11 @@ function HTMLParser(mutationHandler, fragmentContext) {
             addAttribute(attrnamebuf, attrvaluebuf);
             tokenizerState = before_attribute_name_state;
             break; 
-        case 0x0026: //  AMPERSAND (&) 
+        case 0x0026: //  AMPERSAND 
             pushState();
             tokenizerState = character_reference_in_attribute_value_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             addAttribute(attrnamebuf, attrvaluebuf);
             tokenizerState = data_state; 
             emitTag();
@@ -2371,17 +2466,18 @@ function HTMLParser(mutationHandler, fragmentContext) {
             appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
-        case 0x0027: //  APOSTROPHE (') 
-        case 0x003C: //  LESS-THAN SIGN (<) 
-        case 0x003D: //  EQUALS SIGN (=) 
-        case 0x0060: //  GRAVE ACCENT (`) 
+        case 0x0022: //  QUOTATION MARK  
+        case 0x0027: //  APOSTROPHE  
+        case 0x003C: //  LESS-THAN SIGN 
+        case 0x003D: //  EQUALS SIGN 
+        case 0x0060: //  GRAVE ACCENT 
             /* falls through */
         default: 
             appendChar(attrvaluebuf, c);
+            // appendCharsWhile(attrvaluebuf, UNQUOTEDATTRVAL);
             break; 
         }
     }
@@ -2414,19 +2510,19 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             tokenizerState = before_attribute_name_state;
             break; 
-        case 0x002F: //  SOLIDUS (/) 
+        case 0x002F: //  SOLIDUS  
             tokenizerState = self_closing_start_tag_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
             emitTag();
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = before_attribute_name_state;
             break; 
         }
@@ -2434,17 +2530,17 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function self_closing_start_tag_state(c) {
         switch(c) {
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             // Set the <i>self-closing flag</i> of the current tag token. 
             tokenizerState = data_state; 
             emitSelfClosingTag(true); 
             break; 
         case EOF: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = before_attribute_name_state;
             break; 
         }
@@ -2460,9 +2556,8 @@ function HTMLParser(mutationHandler, fragmentContext) {
             consume(len);
         }
 
-        emitCommentString(lookahead
-                          .substring(0,len-1)
-                          .replace(/\u0000/g,"\uFFFD"));
+        insertToken(COMMENT,
+                    lookahead.substring(0,len-1).replace(/\u0000/g,"\uFFFD"));
 
         tokenizerState = data_state;
     }
@@ -2493,20 +2588,20 @@ function HTMLParser(mutationHandler, fragmentContext) {
     function comment_start_state(c) {
         beginComment();
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        case 0x002D: //  HYPHEN-MINUS 
             tokenizerState = comment_start_dash_state;
             break; 
         case 0x0000: //  NULL 
             appendChar(commentbuf, 0xFFFD /* REPLACEMENT CHARACTER */); 
             tokenizerState = comment_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
-            emitComment();
+            insertToken(COMMENT, buf2str(commentbuf));
             break; /* see comment in comment end state */ 
         case EOF: 
-            emitComment();
-            pushback();
+            insertToken(COMMENT, buf2str(commentbuf));
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -2518,25 +2613,25 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function comment_start_dash_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-)
+        case 0x002D: //  HYPHEN-MINUS
             tokenizerState = comment_end_state;
             break; 
         case 0x0000: //  NULL 
-            appendChar(commentbuf, 0x002D /* HYPHEN-MINUS  (-)*/);
+            appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
             appendChar(commentbuf, 0xFFFD);
             tokenizerState = comment_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
-            emitComment();
+            insertToken(COMMENT, buf2str(commentbuf));
             break; 
         case EOF: 
-            emitComment();
-            pushback();
+            insertToken(COMMENT, buf2str(commentbuf));
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; /* see comment in comment end state */ 
         default: 
-            appendChar(commentbuf, 0x002D /* HYPHEN-MINUS  (-)*/);
+            appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
             appendChar(commentbuf, c);
             tokenizerState = comment_state;
             break; 
@@ -2545,15 +2640,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function comment_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        case 0x002D: //  HYPHEN-MINUS 
             tokenizerState = comment_end_dash_state;
             break; 
         case 0x0000: //  NULL 
             appendChar(commentbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
         case EOF: 
-            emitComment();
-            pushback();
+            insertToken(COMMENT, buf2str(commentbuf));
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; /* see comment in comment end state */ 
         default: 
@@ -2564,7 +2659,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function comment_end_dash_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        case 0x002D: //  HYPHEN-MINUS 
             tokenizerState = comment_end_state;
             break; 
         case 0x0000: //  NULL 
@@ -2573,8 +2668,8 @@ function HTMLParser(mutationHandler, fragmentContext) {
             tokenizerState = comment_state;
             break; 
         case EOF: 
-            emitComment();
-            pushback();
+            insertToken(COMMENT, buf2str(commentbuf));
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; /* see comment in comment end state */ 
         default: 
@@ -2587,9 +2682,9 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function comment_end_state(c) {
         switch(c) {
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
-            emitComment();
+            insertToken(COMMENT, buf2str(commentbuf));
             break; 
         case 0x0000: //  NULL 
             appendChar(commentbuf, 0x002D);
@@ -2597,15 +2692,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
             appendChar(commentbuf, 0xFFFD);
             tokenizerState = comment_state;
             break; 
-        case 0x0021: //  EXCLAMATION MARK (!) 
+        case 0x0021: //  EXCLAMATION MARK 
             tokenizerState = comment_end_bang_state;
             break; 
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        case 0x002D: //  HYPHEN-MINUS 
             appendChar(commentbuf, 0x002D);
             break; 
         case EOF: 
-            emitComment();
-            pushback();
+            insertToken(COMMENT, buf2str(commentbuf));
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; /* For security reasons: otherwise, hostile user could put a script in a comment e.g. in a blog comment and then DOS the server so that the end tag isn't read, and then the commented script tag would be treated as live code */ 
         default: 
@@ -2619,15 +2714,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function comment_end_bang_state(c) {
         switch(c) {
-        case 0x002D: //  HYPHEN-MINUS (-) 
+        case 0x002D: //  HYPHEN-MINUS 
             appendChar(commentbuf, 0x002D);
             appendChar(commentbuf, 0x002D);
             appendChar(commentbuf, 0x0021);
             tokenizerState = comment_end_dash_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state;
-            emitComment();
+            insertToken(COMMENT, buf2str(commentbuf));
             break; 
         case 0x0000: //  NULL 
             appendChar(commentbuf, 0x002D);
@@ -2637,8 +2732,8 @@ function HTMLParser(mutationHandler, fragmentContext) {
             tokenizerState = comment_state;
             break; 
         case EOF: 
-            emitComment();
-            pushback();
+            insertToken(COMMENT, buf2str(commentbuf));
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; /* see comment in comment end state */ 
         default: 
@@ -2663,11 +2758,11 @@ function HTMLParser(mutationHandler, fragmentContext) {
             beginDoctype();
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = before_doctype_name_state;
             break; 
         }
@@ -2696,7 +2791,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
             appendChar(doctypenamebuf, 0xFFFD);
             tokenizerState = doctype_name_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             beginDoctype();
             tokenizerState = data_state;
             forcequirks();
@@ -2706,7 +2801,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
             beginDoctype();
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -2725,7 +2820,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             tokenizerState = after_doctype_name_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
             emitDoctype();
             break; 
@@ -2743,7 +2838,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -2761,7 +2856,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
             /* Ignore the character. */
             consume(1);
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state;
             consume(1);
             emitDoctype();
@@ -2769,7 +2864,6 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            // pushback(); No need to pushback since we didn't consume
             tokenizerState = data_state;
             break; 
         default:  
@@ -2799,15 +2893,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             tokenizerState = before_doctype_public_identifier_state;
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             beginDoctypePublicId();
             tokenizerState = doctype_public_identifier_double_quoted_state;
             break; 
-        case 0x0027: //  APOSTROPHE (') 
+        case 0x0027: //  APOSTROPHE  
             beginDoctypePublicId();
             tokenizerState = doctype_public_identifier_single_quoted_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             forcequirks();
             tokenizerState = data_state; 
             emitDoctype();
@@ -2815,7 +2909,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -2833,15 +2927,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             /* Ignore the character. */
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             beginDoctypePublicId();
             tokenizerState = doctype_public_identifier_double_quoted_state;
             break; 
-        case 0x0027: //  APOSTROPHE (') 
+        case 0x0027: //  APOSTROPHE  
             beginDoctypePublicId();
             tokenizerState = doctype_public_identifier_single_quoted_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             forcequirks();
             tokenizerState = data_state; 
             emitDoctype();
@@ -2849,7 +2943,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -2861,13 +2955,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function doctype_public_identifier_double_quoted_state(c) {
         switch(c) {
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             tokenizerState = after_doctype_public_identifier_state;
             break; 
         case 0x0000: //  NULL 
             appendChar(doctypepublicbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             forcequirks();
             tokenizerState = data_state; 
             emitDoctype();
@@ -2875,7 +2969,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -2886,13 +2980,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function doctype_public_identifier_single_quoted_state(c) {
         switch(c) {
-        case 0x0027: //  APOSTROPHE (') 
+        case 0x0027: //  APOSTROPHE  
             tokenizerState = after_doctype_public_identifier_state;
             break; 
         case 0x0000: //  NULL 
             appendChar(doctypepublicbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             forcequirks();
             tokenizerState = data_state;
             emitDoctype();
@@ -2900,7 +2994,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -2917,22 +3011,22 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             tokenizerState = between_doctype_public_and_system_identifiers_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
             emitDoctype();
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             beginDoctypeSystemId();
             tokenizerState = doctype_system_identifier_double_quoted_state;
             break; 
-        case 0x0027: //  APOSTROPHE (') 
+        case 0x0027: //  APOSTROPHE  
             beginDoctypeSystemId();
             tokenizerState = doctype_system_identifier_single_quoted_state;
             break; 
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -2949,22 +3043,22 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x000C: //  FORM FEED (FF)
         case 0x0020: //  SPACE Ignore the character.
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
             emitDoctype();
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             beginDoctypeSystemId();
             tokenizerState = doctype_system_identifier_double_quoted_state;
             break; 
-        case 0x0027: //  APOSTROPHE (') 
+        case 0x0027: //  APOSTROPHE  
             beginDoctypeSystemId();
             tokenizerState = doctype_system_identifier_single_quoted_state;
             break; 
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -2982,15 +3076,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             tokenizerState = before_doctype_system_identifier_state;
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             beginDoctypeSystemId();
             tokenizerState = doctype_system_identifier_double_quoted_state;
             break; 
-        case 0x0027: //  APOSTROPHE (') 
+        case 0x0027: //  APOSTROPHE  
             beginDoctypeSystemId();
             tokenizerState = doctype_system_identifier_single_quoted_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             forcequirks();
             tokenizerState = data_state; 
             emitDoctype();
@@ -2998,7 +3092,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -3015,15 +3109,15 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x000C: //  FORM FEED (FF) 
         case 0x0020: //  SPACE Ignore the character.
             break; 
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             beginDoctypeSystemId();
             tokenizerState = doctype_system_identifier_double_quoted_state;
             break; 
-        case 0x0027: //  APOSTROPHE (')
+        case 0x0027: //  APOSTROPHE 
             beginDoctypeSystemId();
             tokenizerState = doctype_system_identifier_single_quoted_state;
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             forcequirks();
             tokenizerState = data_state;
             emitDoctype();
@@ -3031,7 +3125,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -3043,13 +3137,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function doctype_system_identifier_double_quoted_state(c) {
         switch(c) {
-        case 0x0022: //  QUOTATION MARK (") 
+        case 0x0022: //  QUOTATION MARK  
             tokenizerState = after_doctype_system_identifier_state;
             break; 
         case 0x0000: //  NULL 
             appendChar(doctypesystembuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             forcequirks();
             tokenizerState = data_state;
             emitDoctype();
@@ -3057,7 +3151,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -3068,13 +3162,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function doctype_system_identifier_single_quoted_state(c) {
         switch(c) {
-        case 0x0027: //  APOSTROPHE (') 
+        case 0x0027: //  APOSTROPHE  
             tokenizerState = after_doctype_system_identifier_state;
             break; 
         case 0x0000: //  NULL 
             appendChar(doctypesystembuf, 0xFFFD /* REPLACEMENT CHARACTER */);
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             forcequirks();
             tokenizerState = data_state;
             emitDoctype();
@@ -3082,7 +3176,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -3099,14 +3193,14 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case 0x0020: //  SPACE 
             /* Ignore the character. */
             break; 
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state;
             emitDoctype();
             break; 
         case EOF: 
             forcequirks();
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -3118,13 +3212,13 @@ function HTMLParser(mutationHandler, fragmentContext) {
 
     function bogus_doctype_state(c) {
         switch(c) {
-        case 0x003E: //  GREATER-THAN SIGN (>) 
+        case 0x003E: //  GREATER-THAN SIGN  
             tokenizerState = data_state; 
             emitDoctype();
             break; 
         case EOF: 
             emitDoctype();
-            pushback();
+            nextchar--;  // pushback
             tokenizerState = data_state;
             break; 
         default: 
@@ -4882,7 +4976,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         case TAG:
             switch(value) {
             case "html":
-                in_body(t, value, arg3, arg4);
+                in_body_mode(t, value, arg3, arg4);
                 return;
             case "col":
                 insertHTMLElement(value, arg3);
@@ -7938,12 +8032,11 @@ function HTMLParser(mutationHandler, fragmentContext) {
             }
 
             if (lastStartTag) {
-                lasttagbuf = [];
-                for(var i = 0; i < lastStartTag.length; i++)
-                    lasttagbuf[i] = lastStartTag.charCodeAt(i);
+                lasttagname = lastStartTag;
             }
 
             insertToken = function(t, value, arg3, arg4) {
+                flushText();
                 switch(t) {
                 case TEXT:
                     if (tokens.length > 0 &&
