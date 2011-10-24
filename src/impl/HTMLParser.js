@@ -1,18 +1,95 @@
-// This is a factory function (not a constructor) that returns a
-// parser object.  The returned object has append() and end() methods.
-// Append text to it with append(). Call end() when all text has been
-// appended, and it will return a new Document.
-//
-// If you want mutation events for the document that is being created,
-// pass a mutationHandler as the first argument.
-//
-// XXX: for internal use only:
-// Pass an element as the fragmentContext to do innerHTML parsing for the 
-// element.  To do innerHTML parsing on a document, pass null. Otherwise,
-// emit the 2nd argument. See HTMLElement.innerHTML which does this
-// for us. (Note that if you pass a context element, the end() method will
-// return an unwrapped document instead of a wrapped one.)
-//
+/*
+
+This file contains an implementation of the HTML parsing algorithm.
+The algorithm and the implementation are complex because HTML defines
+the parser output for all possible invalid inputs.
+
+Usage:
+
+It defines a single HTMLParser() function, which dom.js exposes
+publicly as document.implementation.mozHTMLParser(). This is a
+factory function, not a constructor. 
+
+When you call document.implementation.mozHTMLParser(), it returns an
+object that has append() and end() methods. To parse HTML text, pass it
+(in one or more chunks) to the append() method.  When all the text has
+been passed, call the end() method, or pass the final chunk of text to end(). 
+end() returns a new Document object that holds the parsed representation
+of the your text.
+
+If you want mutation events for the document that is being created,
+pass a mutationHandler as the first argument. This is just like the 
+mutation handler you'd use with
+document.implementation.mozSetOutputMutationHandler().
+
+The second argument is optional and is for internal use only.
+Pass an element as the fragmentContext to do innerHTML parsing for the 
+element.  To do innerHTML parsing on a document, pass null. Otherwise,
+omit the 2nd argument. See HTMLElement.innerHTML for an example.
+for us. (Note that if you pass a context element, the end() method will
+return an unwrapped document instead of a wrapped one.)
+
+Implementation details:
+
+The parser implementation is contained within a single HTMLParser
+factory function that holds all the parser state as local variables.
+There are three tightly coupled stages: a scanner, a tokenizer and a
+tree builder, but in a (possibly misguided) attempt at efficiency, the
+stages are not implemented as separate classes: everything shares
+state and is (mostly) implemented in imperative (rather than OO)
+style.
+
+Two important parts of the HTML parsing algorithm do have their own
+classes.  These are the element stack and the list of active
+formatting elements.  Those two classes come first in the code below,
+but aren't actually all that interesting.
+
+The stages of the parser work like this: When the client code calls
+the parser's append() method, the specified string is passed to the
+scanner.  The scanner loops through that string and passes characters
+(sometimes one at a time, sometimes in chunks) to the tokenizer stage.
+The tokenizer groups the characters into tokens: tags, endtags, runs
+of text, comments, doctype declarations, and the end-of-file (EOF)
+token.  These tokens are then passed to the tree building stage via
+the insertToken() function.  The tree building stage builds up the
+document tree.
+
+The important parts of the scanner stage are scannerAppend(),
+scannerInsert(), and scanChars().
+
+The tokenizer stage is a finite state machine.  Each state is
+implemented as a function with a name that ends in "_state".  The
+initial state is data_state(). The current tokenizer state is stored
+in the variable tokenizerState.  Most state functions expect a single
+integer argument which represents a single UTF-16 codepoint.  Some
+states want more characters and set a lookahead property on
+themselves.  The scanChars() function in the scanner checks for this
+lookahead property.  If it doesn't exist, then scanChars() just passes
+the next input character to the current tokenizer state function.
+Otherwise, scanChars() looks ahead (a given # of characters, or for a
+matching string, or for a matching regexp) and passes a string of
+characters to the current tokenizer state function.
+
+When a tokenizer state function has consumed a complete token, it
+emits that token, by calling insertToken(), or by calling a utility
+function that itself calls insertToken().  These tokens are passed to
+the tree building stage, which is also a state machine.  Like the
+tokenizer, the tree building states are implemented as functions, and
+these functions have names that end with _mode (because the HTML spec
+refers to them as insertion modes). The current insertion mode is held
+by the insertionMode variable.  Each insertion mode function takes up
+to 4 arguments.  The first is a token type, represented by the
+constants TAG, ENDTAG, TEXT, COMMENT, DOCTYPE and EOF.  The second
+argument is the value of the token: the text or comment, or tagname or
+doctype.  For tags, the 3rd argument is an array of attributes.  For
+DOCTYPES it is the optional public id.  For tags, the 4th argument is
+true if the tag is self-closing. For doctypes, the 4th argument is
+the optional system id.
+
+As a shortcut, certain states of the tokenizer use regular expressions
+to look ahead in the scanner's input buffer for runs of text, simple
+tags and attributes.
+*/
 function HTMLParser(mutationHandler, fragmentContext) {
     var ElementStack = (function() {
         function ElementStack() {
@@ -562,6 +639,20 @@ function HTMLParser(mutationHandler, fragmentContext) {
             input_complete = true;  // Makes scanChars() send EOF
         }
 
+
+/*
+        if (s) {
+            s = s.replace(/[\uD800-\uDBFF](?=[^\uDC00-\uDFFF])/g, 
+                                  "\uFFFD");
+            
+            s = s.replace(/([^\uD800-\uDBFF])[\uDC00-\uDFFF]/g, 
+                          function(s,firstchar) {
+                              return firstchar + "\uFFFD";
+                          });
+        }
+*/
+
+
         if (chars === null) { // If this is the first text appended
             chars = s;
             numchars = chars.length;
@@ -574,7 +665,6 @@ function HTMLParser(mutationHandler, fragmentContext) {
             numchars = chars.length;
             nextchar = 0;
         }
-
     }
 
     // Insert characters into the input stream.
@@ -625,7 +715,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
                 default:
                     tokenizerState(codepoint);
 
-                    /*
+/*
                     // Deal with unpaired surrogates
                     if (codepoint < 0xD800 || codepoint > 0xDFFF) {
                         tokenizerState(codepoint);
@@ -661,7 +751,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
                             }
                         }
                     }
-                    */
+*/
                     break;
                 }
                 break;
@@ -1272,7 +1362,6 @@ function HTMLParser(mutationHandler, fragmentContext) {
             emitEOF();
             break; 
         default: 
-            // push(textrun,c);
             // Instead of just pushing a single character and then
             // coming back to the very same place, lookahead and
             // emit everything we can at once.

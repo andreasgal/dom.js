@@ -46,7 +46,7 @@ function test(t, n, charbychar) {
 
     // If the input is has double escaped characters, fix them
     if (t.doubleEscaped) {
-        input = input.replace(/\\u(....)/, function(s, digits) {
+        input = input.replace(/\\u(....)/g, function(s, digits) {
             return String.fromCharCode(parseInt(digits, 16))
         });
     }
@@ -68,12 +68,13 @@ function test(t, n, charbychar) {
     }
 
     expected = JSON.stringify(expected);
+    
     if (t.doubleEscaped) {
-        expected = expected.replace(/\\u(....)/, function(s, digits) {
+        expected = expected.replace(/\\\\u(....)/g, function(s, digits) {
             return String.fromCharCode(parseInt(digits, 16))
         });
     }
-    
+
     // Run the test once for each initial state 
     for(var s = 0; s < states.length; s++) {
         try {
