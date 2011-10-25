@@ -1,152 +1,106 @@
 /*
-
-This file contains an implementation of the HTML parsing algorithm.
-The algorithm and the implementation are complex because HTML defines
-the parser output for all possible invalid inputs.
-
-Usage:
-
-It defines a single HTMLParser() function, which dom.js exposes
-publicly as document.implementation.mozHTMLParser(). This is a
-factory function, not a constructor. 
-
-When you call document.implementation.mozHTMLParser(), it returns an
-object that has append() and end() methods. To parse HTML text, pass it
-(in one or more chunks) to the append() method.  When all the text has
-been passed, call the end() method, or pass the final chunk of text to end(). 
-end() returns a new Document object that holds the parsed representation
-of the your text.
-
-If you want mutation events for the document that is being created,
-pass a mutationHandler as the first argument. This is just like the 
-mutation handler you'd use with
-document.implementation.mozSetOutputMutationHandler().
-
-The second argument is optional and is for internal use only.
-Pass an element as the fragmentContext to do innerHTML parsing for the 
-element.  To do innerHTML parsing on a document, pass null. Otherwise,
-omit the 2nd argument. See HTMLElement.innerHTML for an example.
-for us. (Note that if you pass a context element, the end() method will
-return an unwrapped document instead of a wrapped one.)
-
-Implementation details:
-
-The parser implementation is contained within a single HTMLParser
-factory function that holds all the parser state as local variables.
-There are three tightly coupled stages: a scanner, a tokenizer and a
-tree builder, but in a (possibly misguided) attempt at efficiency, the
-stages are not implemented as separate classes: everything shares
-state and is (mostly) implemented in imperative (rather than OO)
-style.
-
-Two important parts of the HTML parsing algorithm do have their own
-classes.  These are the element stack and the list of active
-formatting elements.  Those two classes define various utility methods
-required by the spec, but aren't actually all that interesting.
-
-The stages of the parser work like this: When the client code calls
-the parser's append() method, the specified string is passed to the
-scanner.  The scanner loops through that string and passes characters
-(sometimes one at a time, sometimes in chunks) to the tokenizer stage.
-The tokenizer groups the characters into tokens: tags, endtags, runs
-of text, comments, doctype declarations, and the end-of-file (EOF)
-token.  These tokens are then passed to the tree building stage via
-the insertToken() function.  The tree building stage builds up the
-document tree.
-
-The important parts of the scanner stage are scannerAppend(),
-scannerInsert(), and scanChars().
-
-The tokenizer stage is a finite state machine.  Each state is
-implemented as a function with a name that ends in "_state".  The
-initial state is data_state(). The current tokenizer state is stored
-in the variable tokenizer.  Most state functions expect a single
-integer argument which represents a single UTF-16 codepoint.  Some
-states want more characters and set a lookahead property on
-themselves.  The scanChars() function in the scanner checks for this
-lookahead property.  If it doesn't exist, then scanChars() just passes
-the next input character to the current tokenizer state function.
-Otherwise, scanChars() looks ahead (a given # of characters, or for a
-matching string, or for a matching regexp) and passes a string of
-characters to the current tokenizer state function.
-
-When a tokenizer state function has consumed a complete token, it
-emits that token, by calling insertToken(), or by calling a utility
-function that itself calls insertToken().  These tokens are passed to
-the tree building stage, which is also a state machine.  Like the
-tokenizer, the tree building states are implemented as functions, and
-these functions have names that end with _mode (because the HTML spec
-refers to them as insertion modes). The current insertion mode is held
-by the parser variable.  Each insertion mode function takes up
-to 4 arguments.  The first is a token type, represented by the
-constants TAG, ENDTAG, TEXT, COMMENT, DOCTYPE and EOF.  The second
-argument is the value of the token: the text or comment, or tagname or
-doctype.  For tags, the 3rd argument is an array of attributes.  For
-DOCTYPES it is the optional public id.  For tags, the 4th argument is
-true if the tag is self-closing. For doctypes, the 4th argument is
-the optional system id.
-
-As a shortcut, certain states of the tokenizer use regular expressions
-to look ahead in the scanner's input buffer for runs of text, simple
-tags and attributes.
-
-The code below begins with thousands of lines of data required by the parser. 
-Most of these are lists of named character attributes (mostly for MathML).
-Other items declared in this data prolog include regular expressions used
-by the tokenizer and the parser, tag name sets, and various mappings of
-one value to another.
-*/
-function HTMLParser(mutationHandler, fragmentContext) {
-    /***
-     * These are the parser's state variables
-     */
-
-    // Scanner state
-    var chars = null;       
-    var numchars = 0;     // Length of chars
-    var nextchar = 0;     // Index of next char 
-    var input_complete = false; // Becomes true when end() called.
-
-    // Tokenizer state
-    var tokenizer = data_state;     // Current tokenizer state
-    var savedTokenizerStates = [];  // Stack of saved states
-    var tagnamebuf = [];
-    var lasttagname = "";  // holds the target end tag for text states
-    var tempbuf = [];
-    var attrnamebuf = [];
-    var attrvaluebuf = [];
-    var commentbuf = [];
-    var doctypenamebuf = [];
-    var doctypepublicbuf = [];
-    var doctypesystembuf = [];
-    var attributes = [];
-    var is_end_tag = false;
-
-    // Tree builder state
-    var parser = initial_mode;                    // Current insertion mode
-    var originalInsertionMode = null;             // A saved insertion mode
-    var stack = new ElementStack();               // Stack of open elements
-    var afe = new ActiveFormattingElements();     // For mis-nested stuff
-    var fragment = (fragmentContext!==undefined); // Are we parsing innerHTML?
-    var script_nesting_level = 0;
-    var parser_pause_flag = false;
-    var head_element_pointer = null;
-    var form_element_pointer = null;
-    var scripting_enabled = true;  // XXX Do we ever set this false?
-    var frameset_ok = true;
-    var force_quirks = false;
-    var pending_table_text;
-    var text_integration_mode;     // XXX a spec bug workaround?
-
-    // A single run of characters, buffered up to be sent to
-    // the parser as a single string.
-    var textrun = [];
-    var textIncludesNUL = false;
-    var ignore_linefeed = false;
-
-    // This is the document we'll be building up
-    var doc = new impl.Document(true);
-
+ * This file contains an implementation of the HTML parsing algorithm.
+ * The algorithm and the implementation are complex because HTML
+ * explicitly defines how the parser should behave for all possible
+ * valid and invalid inputs.
+ * 
+ * Usage:
+ * 
+ * The file defines a single HTMLParser() function, which dom.js exposes
+ * publicly as document.implementation.mozHTMLParser(). This is a
+ * factory function, not a constructor. 
+ * 
+ * When you call document.implementation.mozHTMLParser(), it returns
+ * an object that has append() and end() methods. To parse HTML text,
+ * pass the text (in one or more chunks) to the append() method.  When
+ * all the text has been passed, call the end() method, or pass the
+ * final chunk of text to end(). end() returns a new Document object
+ * that holds the parsed representation of the html text.
+ * 
+ * If you want mutation events for the document that is being created,
+ * pass a mutationHandler as the first argument to mozHTMLParser(). This
+ * is just like the mutation handler you'd use with
+ * document.implementation.mozSetOutputMutationHandler().
+ * 
+ * The second argument is optional and is for internal use only.  Pass an
+ * element as the fragmentContext to do innerHTML parsing for the
+ * element.  To do innerHTML parsing on a document, pass null. Otherwise,
+ * omit the 2nd argument. See HTMLElement.innerHTML for an example.  Note
+ * that if you pass a context element, the end() method will return an
+ * unwrapped document instead of a wrapped one.
+ * 
+ * Implementation details:
+ * 
+ * This is a long file of almost 7000 lines. It is structured as one
+ * big function nested within another big function.  The outer
+ * function defines a bunch of constant data and utility functions
+ * that use that data. The outer function also defines and returns the
+ * inner function. This inner function is the HTMLParser factory
+ * function that implements the parser and holds all the parser state
+ * as local variables.  The HTMLParser function is quite big because
+ * it defines many nested functions that use those local variables.
+ * 
+ * There are three tightly coupled parser stages: a scanner, a
+ * tokenizer and a tree builder. In a (possibly misguided) attempt at
+ * efficiency, the stages are not implemented as separate classes:
+ * everything shares state and is (mostly) implemented in imperative
+ * (rather than OO) style.
+ * 
+ * Two important parts of the HTML parsing algorithm do have their own
+ * classes.  These are the element stack and the list of active
+ * formatting elements.  Those two classes define various utility methods
+ * required by the spec, but aren't actually all that interesting.
+ * 
+ * The stages of the parser work like this: When the client code calls
+ * the parser's append() method, the specified string is passed to the
+ * scanner.  The scanner loops through that string and passes characters
+ * (sometimes one at a time, sometimes in chunks) to the tokenizer stage.
+ * The tokenizer groups the characters into tokens: tags, endtags, runs
+ * of text, comments, doctype declarations, and the end-of-file (EOF)
+ * token.  These tokens are then passed to the tree building stage via
+ * the insertToken() function.  The tree building stage builds up the
+ * document tree.
+ * 
+ * The important parts of the scanner stage are scannerAppend(),
+ * scannerInsert(), and scanChars().
+ * 
+ * The tokenizer stage is a finite state machine.  Each state is
+ * implemented as a function with a name that ends in "_state".  The
+ * initial state is data_state(). The current tokenizer state is stored
+ * in the variable 'tokenizer'.  Most state functions expect a single
+ * integer argument which represents a single UTF-16 codepoint.  Some
+ * states want more characters and set a lookahead property on
+ * themselves.  The scanChars() function in the scanner checks for this
+ * lookahead property.  If it doesn't exist, then scanChars() just passes
+ * the next input character to the current tokenizer state function.
+ * Otherwise, scanChars() looks ahead (a given # of characters, or for a
+ * matching string, or for a matching regexp) and passes a string of
+ * characters to the current tokenizer state function.
+ * 
+ * As a shortcut, certain states of the tokenizer use regular expressions
+ * to look ahead in the scanner's input buffer for runs of text, simple
+ * tags and attributes.  For well-formed input, these shortcuts skip a
+ * lot of state transitions and speed things up a bit.
+ * 
+ * When a tokenizer state function has consumed a complete token, it
+ * emits that token, by calling insertToken(), or by calling a utility
+ * function that itself calls insertToken().  These tokens are passed to
+ * the tree building stage, which is also a state machine.  Like the
+ * tokenizer, the tree building states are implemented as functions, and
+ * these functions have names that end with _mode (because the HTML spec
+ * refers to them as insertion modes). The current insertion mode is held
+ * by the 'parser' variable.  Each insertion mode function takes up to 4
+ * arguments.  The first is a token type, represented by the constants
+ * TAG, ENDTAG, TEXT, COMMENT, DOCTYPE and EOF.  The second argument is
+ * the value of the token: the text or comment data, or tagname or
+ * doctype.  For tags, the 3rd argument is an array of attributes.  For
+ * DOCTYPES it is the optional public id.  For tags, the 4th argument is
+ * true if the tag is self-closing. For doctypes, the 4th argument is the
+ * optional system id.
+ * 
+ * Search for "***" to find the major sub-divisions in the code.
+ */
+const HTMLParser = (function() {
 
     /***
      * Data prolog.  Lots of constants declared here, including some
@@ -159,6 +113,9 @@ function HTMLParser(mutationHandler, fragmentContext) {
     const ENDTAG = 3;
     const COMMENT = 4;
     const DOCTYPE = 5;
+
+    // A re-usable empty array
+    const NOATTRS = Object.freeze([]);
 
     // These DTD public ids put the browser in quirks mode
     const quirkyPublicIds = /^HTML$|^-\/\/W3O\/\/DTD W3 HTML Strict 3\.0\/\/EN\/\/$|^-\/W3C\/DTD HTML 4\.0 Transitional\/EN$|^\+\/\/Silmaril\/\/dtd html Pro v0r11 19970101\/\/|^-\/\/AdvaSoft Ltd\/\/DTD HTML 3\.0 asWedit \+ extensions\/\/|^-\/\/AS\/\/DTD HTML 3\.0 asWedit \+ extensions\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Level 1\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Level 2\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Strict Level 1\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Strict Level 2\/\/|^-\/\/IETF\/\/DTD HTML 2\.0 Strict\/\/|^-\/\/IETF\/\/DTD HTML 2\.0\/\/|^-\/\/IETF\/\/DTD HTML 2\.1E\/\/|^-\/\/IETF\/\/DTD HTML 3\.0\/\/|^-\/\/IETF\/\/DTD HTML 3\.2 Final\/\/|^-\/\/IETF\/\/DTD HTML 3\.2\/\/|^-\/\/IETF\/\/DTD HTML 3\/\/|^-\/\/IETF\/\/DTD HTML Level 0\/\/|^-\/\/IETF\/\/DTD HTML Level 1\/\/|^-\/\/IETF\/\/DTD HTML Level 2\/\/|^-\/\/IETF\/\/DTD HTML Level 3\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 0\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 1\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 2\/\/|^-\/\/IETF\/\/DTD HTML Strict Level 3\/\/|^-\/\/IETF\/\/DTD HTML Strict\/\/|^-\/\/IETF\/\/DTD HTML\/\/|^-\/\/Metrius\/\/DTD Metrius Presentational\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 2\.0 HTML Strict\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 2\.0 HTML\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 2\.0 Tables\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 3\.0 HTML Strict\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 3\.0 HTML\/\/|^-\/\/Microsoft\/\/DTD Internet Explorer 3\.0 Tables\/\/|^-\/\/Netscape Comm\. Corp\.\/\/DTD HTML\/\/|^-\/\/Netscape Comm\. Corp\.\/\/DTD Strict HTML\/\/|^-\/\/O'Reilly and Associates\/\/DTD HTML 2\.0\/\/|^-\/\/O'Reilly and Associates\/\/DTD HTML Extended 1\.0\/\/|^-\/\/O'Reilly and Associates\/\/DTD HTML Extended Relaxed 1\.0\/\/|^-\/\/SoftQuad Software\/\/DTD HoTMetaL PRO 6\.0::19990601::extensions to HTML 4\.0\/\/|^-\/\/SoftQuad\/\/DTD HoTMetaL PRO 4\.0::19971010::extensions to HTML 4\.0\/\/|^-\/\/Spyglass\/\/DTD HTML 2\.0 Extended\/\/|^-\/\/SQ\/\/DTD HTML 2\.0 HoTMetaL \+ extensions\/\/|^-\/\/Sun Microsystems Corp\.\/\/DTD HotJava HTML\/\/|^-\/\/Sun Microsystems Corp\.\/\/DTD HotJava Strict HTML\/\/|^-\/\/W3C\/\/DTD HTML 3 1995-03-24\/\/|^-\/\/W3C\/\/DTD HTML 3\.2 Draft\/\/|^-\/\/W3C\/\/DTD HTML 3\.2 Final\/\/|^-\/\/W3C\/\/DTD HTML 3\.2\/\/|^-\/\/W3C\/\/DTD HTML 3\.2S Draft\/\/|^-\/\/W3C\/\/DTD HTML 4\.0 Frameset\/\/|^-\/\/W3C\/\/DTD HTML 4\.0 Transitional\/\/|^-\/\/W3C\/\/DTD HTML Experimental 19960712\/\/|^-\/\/W3C\/\/DTD HTML Experimental 970421\/\/|^-\/\/W3C\/\/DTD W3 HTML\/\/|^-\/\/W3O\/\/DTD W3 HTML 3\.0\/\/|^-\/\/WebTechs\/\/DTD Mozilla HTML 2\.0\/\/|^-\/\/WebTechs\/\/DTD Mozilla HTML\/\//i;
@@ -203,28 +160,33 @@ function HTMLParser(mutationHandler, fragmentContext) {
         "mi":true, "mo":true, "mn":true, "ms":true,
         "mtext":true, "annotation-xml":true
     };
+    Object.freeze(specialSet);
 
     // The set of address, div, and p HTML tags
     const addressdivpSet = {};
-     addressdivpSet[HTML_NAMESPACE] = {
+    addressdivpSet[HTML_NAMESPACE] = {
         "address":true, "div":true, "p":true
     };
+    Object.freeze(addressdivpSet);
 
     const dddtSet = {};
     dddtSet[HTML_NAMESPACE] = {
         "dd":true, "dt":true
     };
+    Object.freeze(dddtSet);
 
     const tablesectionrowSet = {};
     tablesectionrowSet[HTML_NAMESPACE] = {
         "table":true, "thead":true, "tbody":true, "tfoot":true, "tr":true
     };
+    Object.freeze(tablesectionrowSet);
 
     const impliedEndTagsSet = {};
     impliedEndTagsSet[HTML_NAMESPACE] = {
         "dd": true, "dt": true, "li": true, "option": true,
         "optgroup": true, "p": true, "rp": true, "rt": true
     };
+    Object.freeze(impliedEndTagsSet);
 
     const inScopeSet = {};
     inScopeSet[HTML_NAMESPACE]= {
@@ -250,153 +212,128 @@ function HTMLParser(mutationHandler, fragmentContext) {
         Object.create(inScopeSet[HTML_NAMESPACE]);
     inButtonScopeSet[HTML_NAMESPACE].button = true;
 
+    Object.freeze(inScopeSet);
+    Object.freeze(inListItemScopeSet);
+    Object.freeze(inButtonScopeSet);
+
     const inTableScopeSet = {};
     inTableScopeSet[HTML_NAMESPACE] = {
         "html":true, "table":true
     };
+    Object.freeze(inTableScopeSet);
 
     // The set of elements for select scope is the everything *except* these
     const invertedSelectScopeSet = {};
     invertedSelectScopeSet[HTML_NAMESPACE] = {
         "optgroup":true, "option":true
     };
+    Object.freeze(invertedSelectScopeSet);
 
-    // Used by ElementStack.prototype.resetInsertionMode()
-    const tagToMode = {
-        select: in_select_mode,
-        tr: in_row_mode,
-        tbody: in_table_body_mode,
-        tfoot: in_table_body_mode,
-        thead: in_table_body_mode,
-        caption: in_caption_mode,
-        colgroup: in_column_group_mode,
-        table: in_table_mode,
-        head: in_body_mode,  // not in_head!
-        body: in_body_mode,
-        frameset: in_frameset_mode,
-        html: before_head_mode
+    const mathmlTextIntegrationPointSet = {};
+    mathmlTextIntegrationPointSet[MATHML_NAMESPACE] = {
+        mi: true,
+        mo: true,
+        mn: true,
+        ms: true,
+        mtext: true
     };
+    Object.freeze(mathmlTextIntegrationPointSet);
+
+    const htmlIntegrationPointSet = {};
+    htmlIntegrationPointSet[SVG_NAMESPACE] = {
+        foreignObject: true,
+        desc: true,
+        title: true
+    };
+    Object.freeze(htmlIntegrationPointSet);
+
+    const foreignAttributes = Object.freeze({
+        "xlink:actuate": XLINK_NAMESPACE, "xlink:arcrole": XLINK_NAMESPACE,
+        "xlink:href":    XLINK_NAMESPACE, "xlink:role":    XLINK_NAMESPACE,
+        "xlink:show":    XLINK_NAMESPACE, "xlink:title":   XLINK_NAMESPACE,
+        "xlink:type":    XLINK_NAMESPACE, "xml:base":      XML_NAMESPACE,
+        "xml:lang":      XML_NAMESPACE,   "xml:space":     XML_NAMESPACE,
+        "xmlns":         XMLNS_NAMESPACE, "xmlns:xlink":   XMLNS_NAMESPACE
+    });
+
 
     // Lowercase to mixed case mapping for SVG attributes and tagnames
-    const svgAttrAdjustments = {
-        attributename: "attributeName",
-        attributetype: "attributeType",
-        basefrequency: "baseFrequency",
-        baseprofile: "baseProfile",
-        calcmode: "calcMode",
-        clippathunits: "clipPathUnits",
+    const svgAttrAdjustments = Object.freeze({
+        attributename: "attributeName", attributetype: "attributeType",
+        basefrequency: "baseFrequency", baseprofile: "baseProfile",
+        calcmode: "calcMode", clippathunits: "clipPathUnits",
         contentscripttype: "contentScriptType",
         contentstyletype: "contentStyleType",
         diffuseconstant: "diffuseConstant",
         edgemode: "edgeMode",
         externalresourcesrequired: "externalResourcesRequired",
-        filterres: "filterRes",
-        filterunits: "filterUnits",
-        glyphref: "glyphRef",
-        gradienttransform: "gradientTransform",
-        gradientunits: "gradientUnits",
-        kernelmatrix: "kernelMatrix",
-        kernelunitlength: "kernelUnitLength",
-        keypoints: "keyPoints",
-        keysplines: "keySplines",
-        keytimes: "keyTimes",
-        lengthadjust: "lengthAdjust",
-        limitingconeangle: "limitingConeAngle",
-        markerheight: "markerHeight",
-        markerunits: "markerUnits",
-        markerwidth: "markerWidth",
-        maskcontentunits: "maskContentUnits",
-        maskunits: "maskUnits",
-        numoctaves: "numOctaves",
-        pathlength: "pathLength",
-        patterncontentunits: "patternContentUnits",
-        patterntransform: "patternTransform",
-        patternunits: "patternUnits",
-        pointsatx: "pointsAtX",
-        pointsaty: "pointsAtY",
-        pointsatz: "pointsAtZ",
-        preservealpha: "preserveAlpha",
+        filterres: "filterRes", filterunits: "filterUnits",
+        glyphref: "glyphRef", gradienttransform: "gradientTransform",
+        gradientunits: "gradientUnits", kernelmatrix: "kernelMatrix",
+        kernelunitlength: "kernelUnitLength", keypoints: "keyPoints",
+        keysplines: "keySplines", keytimes: "keyTimes",
+        lengthadjust: "lengthAdjust", limitingconeangle: "limitingConeAngle",
+        markerheight: "markerHeight", markerunits: "markerUnits",
+        markerwidth: "markerWidth", maskcontentunits: "maskContentUnits",
+        maskunits: "maskUnits", numoctaves: "numOctaves",
+        pathlength: "pathLength", patterncontentunits: "patternContentUnits",
+        patterntransform: "patternTransform", patternunits: "patternUnits",
+        pointsatx: "pointsAtX", pointsaty: "pointsAtY",
+        pointsatz: "pointsAtZ", preservealpha: "preserveAlpha",
         preserveaspectratio: "preserveAspectRatio",
-        primitiveunits: "primitiveUnits",
-        refx: "refX",
-        refy: "refY",
-        repeatcount: "repeatCount",
-        repeatdur: "repeatDur",
-        requiredextensions: "requiredExtensions",
+        primitiveunits: "primitiveUnits", refx: "refX",
+        refy: "refY", repeatcount: "repeatCount",
+        repeatdur: "repeatDur", requiredextensions: "requiredExtensions",
         requiredfeatures: "requiredFeatures",
         specularconstant: "specularConstant",
-        specularexponent: "specularExponent",
-        spreadmethod: "spreadMethod",
-        startoffset: "startOffset",
-        stddeviation: "stdDeviation",
-        stitchtiles: "stitchTiles",
-        surfacescale: "surfaceScale",
-        systemlanguage: "systemLanguage",
-        tablevalues: "tableValues",
-        targetx: "targetX",
-        targety: "targetY",
-        textlength: "textLength",
-        viewbox: "viewBox",
-        viewtarget: "viewTarget",
-        xchannelselector: "xChannelSelector",
-        ychannelselector: "yChannelSelector",
-        zoomandpan: "zoomAndPan"
-    };
+        specularexponent: "specularExponent", spreadmethod: "spreadMethod",
+        startoffset: "startOffset", stddeviation: "stdDeviation",
+        stitchtiles: "stitchTiles", surfacescale: "surfaceScale",
+        systemlanguage: "systemLanguage", tablevalues: "tableValues",
+        targetx: "targetX", targety: "targetY",
+        textlength: "textLength", viewbox: "viewBox",
+        viewtarget: "viewTarget", xchannelselector: "xChannelSelector",
+        ychannelselector: "yChannelSelector", zoomandpan: "zoomAndPan"
+    });
 
-    const svgTagNameAdjustments = {
-        altglyph: "altGlyph",
-        altglyphdef: "altGlyphDef",
-        altglyphitem: "altGlyphItem",
-        animatecolor: "animateColor",
-        animatemotion: "animateMotion",
-        animatetransform: "animateTransform",
-        clippath: "clipPath",
-        feblend: "feBlend",
-        fecolormatrix: "feColorMatrix",
-        fecomponenttransfer: "feComponentTransfer",
-        fecomposite: "feComposite",
+    const svgTagNameAdjustments = Object.freeze({
+        altglyph: "altGlyph", altglyphdef: "altGlyphDef",
+        altglyphitem: "altGlyphItem", animatecolor: "animateColor",
+        animatemotion: "animateMotion", animatetransform: "animateTransform",
+        clippath: "clipPath", feblend: "feBlend",
+        fecolormatrix: "feColorMatrix", 
+        fecomponenttransfer: "feComponentTransfer", fecomposite: "feComposite",
         feconvolvematrix: "feConvolveMatrix",
         fediffuselighting: "feDiffuseLighting",
         fedisplacementmap: "feDisplacementMap",
-        fedistantlight: "feDistantLight",
-        feflood: "feFlood",
-        fefunca: "feFuncA",
-        fefuncb: "feFuncB",
-        fefuncg: "feFuncG",
-        fefuncr: "feFuncR",
-        fegaussianblur: "feGaussianBlur",
-        feimage: "feImage",
-        femerge: "feMerge",
-        femergenode: "feMergeNode",
-        femorphology: "feMorphology",
-        feoffset: "feOffset",
-        fepointlight: "fePointLight",
-        fespecularlighting: "feSpecularLighting",
-        fespotlight: "feSpotLight",
-        fetile: "feTile",
-        feturbulence: "feTurbulence",
-        foreignobject: "foreignObject",
-        glyphref: "glyphRef",
-        lineargradient: "linearGradient",
-        radialgradient: "radialGradient",
-        textpath: "textPath"
-    };
+        fedistantlight: "feDistantLight", feflood: "feFlood",
+        fefunca: "feFuncA", fefuncb: "feFuncB",
+        fefuncg: "feFuncG", fefuncr: "feFuncR",
+        fegaussianblur: "feGaussianBlur", feimage: "feImage",
+        femerge: "feMerge", femergenode: "feMergeNode",
+        femorphology: "feMorphology", feoffset: "feOffset",
+        fepointlight: "fePointLight", fespecularlighting: "feSpecularLighting",
+        fespotlight: "feSpotLight", fetile: "feTile",
+        feturbulence: "feTurbulence", foreignobject: "foreignObject",
+        glyphref: "glyphRef", lineargradient: "linearGradient",
+        radialgradient: "radialGradient", textpath: "textPath"
+    });
 
 
     // Data for parsing numeric and named character references
     // These next 3 objects are direct translations of tables
     // in the HTML spec into JavaScript object format
-    const numericCharRefReplacements = {
+    const numericCharRefReplacements = Object.freeze({
         0x00:0xFFFD, 0x80:0x20AC, 0x82:0x201A, 0x83:0x0192, 0x84:0x201E,
         0x85:0x2026, 0x86:0x2020, 0x87:0x2021, 0x88:0x02C6, 0x89:0x2030,
         0x8A:0x0160, 0x8B:0x2039, 0x8C:0x0152, 0x8E:0x017D, 0x91:0x2018,
         0x92:0x2019, 0x93:0x201C, 0x94:0x201D, 0x95:0x2022, 0x96:0x2013,
         0x97:0x2014, 0x98:0x02DC, 0x99:0x2122, 0x9A:0x0161, 0x9B:0x203A,
         0x9C:0x0153, 0x9E:0x017E, 0x9F:0x0178
-    };
+    });
 
     // These named character references work even without the semicolon
-    const namedCharRefsNoSemi = {
+    const namedCharRefsNoSemi = Object.freeze({
         "AElig":0xC6, "AMP":0x26, "Aacute":0xC1, "Acirc":0xC2,
         "Agrave":0xC0, "Aring":0xC5, "Atilde":0xC3, "Auml":0xC4,
         "COPY":0xA9, "Ccedil":0xC7, "ETH":0xD0, "Eacute":0xC9,
@@ -424,9 +361,9 @@ function HTMLParser(mutationHandler, fragmentContext) {
         "thorn":0xFE, "times":0xD7, "uacute":0xFA, "ucirc":0xFB,
         "ugrave":0xF9, "uml":0xA8, "uuml":0xFC, "yacute":0xFD,
         "yen":0xA5, "yuml":0xFF
-    };
+    });
 
-    const namedCharRefs = {
+    const namedCharRefs = Object.freeze({
         "AElig;":0xc6, "AMP;":0x26,
         "Aacute;":0xc1, "Abreve;":0x102,
         "Acirc;":0xc2, "Acy;":0x410,
@@ -1490,7 +1427,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         "zigrarr;":0x21dd, "zopf;":[0xd835,0xdd6b],
         "zscr;":[0xd835,0xdccf], "zwj;":0x200d,
         "zwnj;":0x200c
-    };
+    });
 
     // Regular expression constants used by the tokenizer and parser
 
@@ -1515,829 +1452,19 @@ function HTMLParser(mutationHandler, fragmentContext) {
     const LEADINGWS = /^[\x09\x0A\x0C\x0D\x20]+/;
     const NULCHARS = /\x00/g;
 
-
     /***
-     * The ElementStack class
+     * These are utility functions that don't use any of the parser's
+     * internal state.
      */
-    function ElementStack() {
-        this.elements = [];
-        this.top = null;  // stack.top is the "current node" in the spec
+    function buf2str(buf) { return apply(fromCharCode,String,buf); }
+
+    // Determine whether the element is a member of the set.
+    // The set is an object that maps namespaces to objects. The objects
+    // then map local tagnames to the value true if that tag is part of the set
+    function isA(elt, set) {
+        var tagnames = set[elt.namespaceURI];
+        return tagnames ? elt.localName in tagnames : false;
     }
-    
-    ElementStack.prototype.toString = function(e) {
-        return "STACK: " + 
-            this.elements.map(function(e) {return e.localName;}).join("-");
-    }
-
-    ElementStack.prototype.push = function(e) {
-        push(this.elements, e);
-        this.top = e;
-    };
-
-    ElementStack.prototype.pop = function(e) {
-        pop(this.elements);
-        this.top = this.elements[this.elements.length-1];
-    };
-
-    // Pop elements off the stack up to and including the first 
-    // element with the specified (HTML) tagname
-    ElementStack.prototype.popTag = function(tag) {
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            var e = this.elements[i];
-            if (e.namespaceURI !== HTML_NAMESPACE) continue;
-            if (e.localName === tag) break;
-        }
-        this.elements.length = i;
-        this.top = this.elements[i-1];
-    };
-
-    // Pop elements off the stack up to and including the first 
-    // element that is an instance of the specified type
-    ElementStack.prototype.popElementType = function(type) {
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            if (this.elements[i] instanceof type) break;
-        }
-        this.elements.length = i;
-        this.top = this.elements[i-1];
-    };
-
-    // Pop elements off the stack up to and including the element e.
-    // Note that this is very different from removeElement()
-    // This requires that e is on the stack.
-    ElementStack.prototype.popElement = function(e) {
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            if (this.elements[i] === e) break;
-        }
-        this.elements.length = i;
-        this.top = this.elements[i-1];
-    };
-
-    // Remove a specific element from the stack.
-    // Do nothing if the element is not on the stack
-    ElementStack.prototype.removeElement = function(e) {
-        if (this.top === e) this.pop();
-        else {
-            var idx = A.lastIndexOf(this.elements, e);
-            if (idx !== -1)
-                splice(this.elements, idx, 1);
-        }
-    };
-
-    // Pop elements off the stack until (but not including) the first one
-    // that is a member of the specified set
-    // Use for operations like "clear to table context"
-    ElementStack.prototype.popUntil = function(set) {
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            if (isA(this.elements[i], set)) break;
-        }
-        this.elements.length = i+1;
-        this.top = this.elements[i];
-    };
-
-    ElementStack.prototype.clearToContext = function(type) {
-        // Note that we don't loop to 0. Never pop the <html> elt off.
-        for(var i = this.elements.length-1; i > 0; i--) {
-            if (this.elements[i] instanceof type) break;
-        }
-        this.elements.length = i+1;
-        this.top = this.elements[i];
-    };
-
-
-    ElementStack.prototype.clearToTableContext = function() {
-        // Note that we don't loop to 0. Never pop the <html> elt off.
-        for(var i = this.elements.length-1; i > 0; i--) {
-            if (this.elements[i] instanceof impl.HTMLTableElement) break;
-        }
-        this.elements.length = i+1;
-        this.top = this.elements[i];
-    };
-
-    ElementStack.prototype.clearToTableBodyContext = function() {
-        // Note that we don't loop to 0. Never pop the <html> elt off.
-        for(var i = this.elements.length-1; i > 0; i--) {
-            if (this.elements[i] instanceof impl.HTMLTableSectionElement)
-                break;
-        }
-        this.elements.length = i+1;
-        this.top = this.elements[i];
-    };
-
-    ElementStack.prototype.contains = function(elt) {
-        return A.lastIndexOf(this.elements, elt) !== -1;
-    };
-
-    ElementStack.prototype.inSpecificScope = function(tag, set) {
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            var elt = this.elements[i];
-            var ns = elt.namespaceURI;
-            var localname = elt.localName;
-            if (ns === HTML_NAMESPACE && localname === tag) return true;
-            var tags = set[ns];
-            if (tags && localname in tags) return false;
-        }
-        return false;
-    };
-
-    // Like the above, but for a specific element, not a tagname
-    ElementStack.prototype.elementInSpecificScope = function(target, set) {
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            var elt = this.elements[i];
-            if (elt === target) return true;
-            var tags = set[elt.namespaceURI];
-            if (tags && elt.localName in tags) return false;
-        }
-        return false;
-    };
-
-    // Like the above, but for an element interface, not a tagname
-    ElementStack.prototype.elementTypeInSpecificScope = function(target, set) {
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            var elt = this.elements[i];
-            if (elt instanceof target) return true;
-            var tags = set[elt.namespaceURI];
-            if (tags && elt.localName in tags) return false;
-        }
-        return false;
-    };
-
-    ElementStack.prototype.inScope = function(tag) {
-        return this.inSpecificScope(tag, inScopeSet);
-    };
-
-    ElementStack.prototype.elementInScope = function(e) {
-        return this.elementInSpecificScope(e, inScopeSet);
-    };
-
-    ElementStack.prototype.elementTypeInScope = function(type) {
-        return this.elementTypeInSpecificScope(type, inScopeSet);
-    };
-
-    ElementStack.prototype.inButtonScope = function(tag) {
-        return this.inSpecificScope(tag, inButtonScopeSet);
-    };
-
-    ElementStack.prototype.inListItemScope = function(tag) {
-        return this.inSpecificScope(tag, inListItemScopeSet);
-    };
-
-    ElementStack.prototype.inTableScope = function(tag) {
-        return this.inSpecificScope(tag, inTableScopeSet);
-    };
-
-    ElementStack.prototype.inSelectScope = function(tag) {
-        // Can't implement this one with inSpecificScope, since it involves
-        // a set defined by inverting another set. So implement manually.
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            var elt = this.elements[i];
-            if (elt.namespaceURI !== HTML_NAMESPACE) return false;
-            var localname = elt.localName;
-            if (localname === tag) return true;
-            if (localname !== "optgroup" && localname !== "option")
-                return false;
-        }
-        return false;
-    };
-
-    ElementStack.prototype.generateImpliedEndTags = function(butnot) {
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            var e = this.elements[i];
-            if (butnot && e.localName === butnot) break;
-            if (!isA(this.elements[i], impliedEndTagsSet)) break;
-        }
-
-        this.elements.length = i+1;
-        this.top = this.elements[i];
-    };
-
-
-    ElementStack.prototype.resetInsertionMode = function() {
-        var last = false;
-        for(var i = this.elements.length-1; i >= 0; i--) {
-            var node = this.elements[i];
-            if (i === 0) {
-                last = true;
-                node = fragmentContext;
-            }
-            if (node.namespaceURI === HTML_NAMESPACE) {
-                var tag = node.localName;
-                if (tag in tagToMode) {
-                    parser = tagToMode[tag];
-                    return;
-                }
-                if (!last && (tag === "td" || tag === "th")) {
-                    parser = in_cell_mode;
-                    return;
-                }
-            }
-            if (last) {
-                parser = in_body_mode;
-                return;
-            }
-        }
-    };
-
-
-    /***
-     * The ActiveFormattingElements class
-     */
-    function ActiveFormattingElements() {
-        this.list = [];
-    }
-
-    ActiveFormattingElements.prototype.MARKER = { localName: "|" };
-
-    // For debugging
-    ActiveFormattingElements.prototype.toString = function() {
-        return "AFE: " +
-            this.list.map(function(e) { return e.localName; }).join("-");
-    }
-
-    ActiveFormattingElements.prototype.insertMarker = function() {
-        push(this.list, this.MARKER);
-    };
-
-    ActiveFormattingElements.prototype.push = function(elt) {
-        // Scan backwards: if there are already 3 copies of this element before
-        // we encounter a marker, then drop the last one
-        var count = 0;
-        for(var i = this.list.length-1; i >= 0; i--) {
-            if (this.list[i] === this.MARKER) break;
-            if (equal(elt, this.list[i])) {  // equal() is defined below
-                count++;
-                if (count === 3) {
-                    splice(this.list, i, 1);
-                    break;
-                }
-            }
-        }
-
-        // Now push the element onto the list
-        push(this.list, elt);
-
-        // This function defines equality of two elements.
-        // It is different than Node.isEqualNode() because
-        // it doesn't check the namespace prefix, only the namespace.
-        // And it also doesn't check children.
-        function equal(a, b) {
-            if (a.localName !== b.localName ||
-                a.namespaceURI !== b.namespaceURI) return false;
-            if (a._numattrs !== b._numattrs) return false;
-            for(var i = 0, n = a._numattrs; i < n; i++) {
-                var aa = a._attr(i);
-                if (aa.namespaceURI) {
-                    if (!b.hasAttributeNS(aa.namespaceURI, aa.localName))
-                        return false;
-                    if (b.getAttributeNS(aa.namespaceURI,aa.localName) !== aa.value)
-                        return false;
-                }
-                else {
-                    if (!b.hasAttribute(aa.localName))
-                        return false;
-                    if (b.getAttribute(aa.localName) !== aa.value)
-                        return false;
-                }
-            }
-
-            return true;
-        }
-    };
-
-    ActiveFormattingElements.prototype.reconstruct = function() {
-        if (this.list.length === 0) return;
-        var entry = this.list[this.list.length-1];
-        // If the last is a marker , do nothing
-        if (entry === this.MARKER) return;
-        // Or if it is an open element, do nothing
-        if (A.lastIndexOf(stack.elements, entry) !== -1) return;
-
-        // Loop backward through the list until we find a marker or an
-        // open element, and then move forward one from there.
-        for(var i = this.list.length-2; i >= 0; i--) {
-            entry = this.list[i];
-            if (entry === this.MARKER) break;
-            if (A.lastIndexOf(stack.elements, entry) !== -1) break;
-        }
-
-        // Now loop forward, starting from the element after the current one,
-        // recreating formatting elements and pushing them back onto the
-        // list of open elements
-        for(i = i+1; i < this.list.length; i++) {
-            entry = this.list[i];
-            var newelt = entry.cloneNode(false); // shallow clone
-            //            stack.top.appendChild(newelt);
-            //            stack.push(newelt);
-            insertElement(newelt);
-            this.list[i] = newelt;
-        }
-    };
-
-    ActiveFormattingElements.prototype.clearToMarker = function() {
-        for(var i = this.list.length-1; i >= 0; i--) {
-            if (this.list[i] === this.MARKER) break;
-        }
-        this.list.length = (i < 0) ? 0 : i;
-    };
-
-    // Find and return the last element with the specified tag between the
-    // end of the list and the last marker on the list.
-    // Used when parsing <a> in_body_mode()
-    ActiveFormattingElements.prototype.findElementByTag = function(tag) {
-        for(var i = this.list.length-1; i >= 0; i--) {
-            var elt = this.list[i];
-            if (elt === this.MARKER) break;
-            if (elt.namespaceURI === HTML_NAMESPACE &&
-                elt.localName === tag) 
-                return elt;
-        }
-        return null;
-    };
-
-    ActiveFormattingElements.prototype.contains = function(e) {
-        var idx = A.lastIndexOf(this.list, e);
-        return idx !== -1;
-    };
-
-    // Find the element e in the list and remove it
-    // Used when parsing <a> in_body()
-    ActiveFormattingElements.prototype.remove = function(e) {
-        var idx = A.lastIndexOf(this.list, e);
-        if (idx !== -1) splice(this.list, idx, 1);
-    };
-
-    // Find element a in the list and replace it with element b
-    ActiveFormattingElements.prototype.replace = function(a, b) {
-        var idx = A.lastIndexOf(this.list, a);
-        if (idx !== -1) this.list[idx] = b;
-    };
-
-    // Find a in the list and insert b after it
-    ActiveFormattingElements.prototype.insertAfter = function(a,b) {
-        var idx = A.lastIndexOf(this.list, a);
-        if (idx !== -1) splice(this.list, idx, 0, b);
-    };
-
-
-    /***
-     * The code of the HTMLParser() factory function begins here
-     */
-
-    if (mutationHandler) doc.mutationHandler = mutationHandler;
-
-    if (fragmentContext) {
-        if (fragmentContext.ownerDocument._quirks)
-            doc._quirks = true;
-        if (fragmentContext.ownerDocument._limitedQuirks)
-            doc._limitedQuirks = true;
-
-        // Set the initial tokenizer state
-        if (fragmentContext.namespaceURI === HTML_NAMESPACE) {
-            switch(fragmentContext.localName) {
-            case "title":
-            case "textarea":
-                tokenizer = rcdata_state;
-                break;
-            case "style":
-            case "xmp":
-            case "iframe":
-            case "noembed":
-            case "noframes":
-            case "script":
-            case "plaintext":
-                tokenizer = plaintext_state;
-                break;
-            case "noscript":
-                if (scripting_enabled)
-                    tokenizer = plaintext_state;
-            }
-        }
-
-        var root = doc.createElement("html");
-        doc.appendChild(root);
-        stack.push(root);
-        stack.resetInsertionMode();
-
-        for(var e = fragmentContext; e !== null; e = e.parentElement) {
-            if (e instanceof impl.HTMLFormElement) {
-                form_element_pointer = e;
-                break;
-            }
-        }
-    }
-
-    /*
-     * Scanner functions
-     */
-
-    // Add the string s to the scanner.
-    // Pass true as the second argument if this is the end of the data.
-    function scannerAppend(s, eof) {
-        if (eof) {
-            s = s || "";
-            // Add a special marker character to the end of the buffer.
-            // If the scanner is at the end of the buffer and input_complete
-            // is set, then this character will transform into an EOF token.
-            // Having an actual character that represents EOF in the 
-            // character buffer makes lookahead regexp matching work 
-            // more easily, and this is important for character references.
-            s += "\uFFFF";
-            input_complete = true;  // Makes scanChars() send EOF
-        }
-
-        if (chars === null) { // If this is the first text appended
-            chars = s;
-            numchars = chars.length;
-            // Skip Byte Order Mark (\uFEFF) on first appended string
-            if (chars.charCodeAt(0) === 0xFEFF) nextchar = 1;
-            else nextchar = 0;
-        }
-        else {
-            chars = chars.substring(nextchar) + s;
-            numchars = chars.length;
-            nextchar = 0;
-        }
-    }
-
-    // Insert characters into the input stream.
-    // document.write() does this.
-    function scannerInsert(s) {
-        chars = s + chars.substring(nextchar);
-        numchars = chars.length;
-        nextchar = 0;
-    }
-
-    // Loop through the characters in chars, and pass them one at a time
-    // to the tokenizer FSM. Return when no more characters can be processed
-    // (This may leave 1 or more characters in the buffer: like a CR
-    // waiting to see if the next char is LF, or for states that require
-    // lookahead...)
-    function scanChars() {
-        var codepoint, s, pattern, eof;
-        while(nextchar < numchars) {
-            switch(typeof tokenizer.lookahead) {
-            case 'undefined':
-                codepoint = chars.charCodeAt(nextchar++);
-                switch(codepoint) {
-                case 0x000D:
-                    // Need to peek and see if next char is LF.
-                    // If we don't know the next char, we're done for now
-                    if (nextchar === numchars) {
-                        nextchar--;
-                        return;
-                    }
-                    var next = chars.charCodeAt(nextchar);
-                    // If CR/LF pair, just skip the CR
-                    if (next === 0x000A) nextchar++;
-                    // In either case, tokenize just one LF
-                    tokenizer(0x000A);
-                    break;
-                case 0xFFFF:
-                    if (input_complete && nextchar === numchars) {
-                        tokenizer(EOF);  // codepoint will be 0xFFFF here
-                        break;
-                    }
-                    /* falls through */
-                default:
-                    tokenizer(codepoint);
-
-/*
-                    // Deal with unpaired surrogates
-                    if (codepoint < 0xD800 || codepoint > 0xDFFF) {
-                        tokenizer(codepoint);
-                    }
-                    else {
-                        if (codepoint >= 0xDC00) {
-                            // Second part of a pair without the first part
-                            // emit the replacement character
-                            tokenizer(0xFFFD);
-                        }
-                        else {
-                            // If we don't have enough chars to know
-                            // whether this is a valid pair, wait for more
-                            if (nextchar === numchars) {
-                                nextchar--;
-                                return;
-                            }
-                            next = chars.charCodeAt(nextchar);
-                            if (next >= 0xDC00 && next <= 0xDFFF) {
-                                // valid surrogate pair: emit both chars
-                                // (but only if the tokenizer state doesn't
-                                // change after emitting the first)
-                                var currentState = tokenizer;
-                                tokenizer(codepoint);
-                                if (tokenizer === currentState) {
-                                    nextchar++;
-                                    tokenizer(next);
-                                }
-                            }
-                            else {
-                                // unpaired surrogate, emit replacement
-                                tokenizer(0xFFFD);
-                            }
-                        }
-                    }
-*/
-                    break;
-                }
-                break;
-
-            case 'number':
-                // tokenizer wants n chars of lookahead
-                var n = tokenizer.lookahead;
-                
-                if (n < numchars - nextchar) {  // If we can look ahead that far
-                    s = chars.substring(nextchar, nextchar+n);
-                    eof = false;
-                }
-                else { // if we don't have that many characters
-                    if (input_complete) { // If no more are coming
-                        // Just return what we have
-                        s = chars.substring(nextchar, numchars);
-                        eof = true;
-                    }
-                    else {
-                        // Return now and wait for more chars later
-                        return;
-                    }
-                }
-                codepoint = chars.charCodeAt(nextchar);
-                tokenizer(codepoint, s, eof);
-                break;
-            case 'string':
-                // tokenizer wants characters up to a matching string
-                pattern = tokenizer.lookahead;
-                var pos = chars.indexOf(pattern, nextchar);
-                codepoint = chars.charCodeAt(nextchar);
-                if (pos !== -1) {
-                    s = chars.substring(nextchar, pos + pattern.length);
-                    eof = false;
-                }
-                else {  // No match
-                    // If more characters coming, wait for them
-                    if (!input_complete) return;
-
-                    // Otherwise, we've got to return what we've got
-                    s = chars.substring(nextchar, numchars);
-                    eof = true;
-                }
-
-                tokenizer(codepoint, s, eof);
-                break;
-            case 'object':
-                // tokenizer wants characters that match a regexp
-                pattern = tokenizer.lookahead;
-                codepoint = chars.charCodeAt(nextchar);
-                pattern.lastIndex = nextchar;
-                if (pattern.test(chars)) {
-                    // Found a match.
-                    // lastIndex now points to the first char after it
-                    s = chars.substring(nextchar, pattern.lastIndex);
-                    eof = false;
-                }
-                else {
-                    // No match.  If we're not at the end of input, then
-                    // wait for more chars
-                    if (!input_complete) return;
-
-                    // Otherwise, pass an empty string.
-                    // This is different than the string-based lookahead
-                    // above. Regexp-based lookahead is only used for
-                    // character references, and a partial one will not parse.
-                    // Also, a char ref terminated with EOF will parse
-                    // in the if branch above, so here we're dealing with
-                    // things that really aren't char refs
-                    s = "";
-                    eof = true;
-                }
-                
-                tokenizer(codepoint, s, eof);
-                break;
-            }
-        }
-    }
-
-
-    /*
-     * Tokenizer utility functions
-     */
-    function buf2str(buf) { return String.fromCharCode.apply(String,buf); }
-
-    function addAttribute(namebuf,valuebuf) {
-        var name = buf2str(namebuf);
-        var value;
-
-        // Make sure there isn't already an attribute with this name
-        // If there is, ignore this one.
-        for(var i = 0; i < attributes.length; i++) {
-            if (attributes[i][0] === name) return;
-        }
-        
-        if (valuebuf) {
-            push(attributes, [name, buf2str(valuebuf)]);
-        }
-        else {
-            push(attributes, [name]);
-        }
-    }
-
-    // Shortcut for simple attributes
-    function handleSimpleAttribute() {
-        SIMPLEATTR.lastIndex = nextchar-1;
-        var match = SIMPLEATTR.exec(chars);
-        if (!match) return false;
-        
-        var name = match[1];
-        var value = match[2];
-        var len = value.length;
-        switch(value[0]) {
-        case '"':
-        case "'":
-            value = value.substring(1, len-1);
-            nextchar += (match[0].length-1);
-            tokenizer = after_attribute_value_quoted_state;            
-            break;
-        default:
-            tokenizer = before_attribute_name_state;
-            nextchar += (match[0].length-1);
-            value = value.substring(0, len-1);
-            break;
-        }
-
-        // Make sure there isn't already an attribute with this name
-        // If there is, ignore this one.
-        for(var i = 0; i < attributes.length; i++) {
-            if (attributes[i][0] === name) return true;
-        }
-
-        push(attributes, [name, value]);
-        return true;
-    }
-
-
-    function pushState() { push(savedTokenizerStates, tokenizer); }
-    function popState() { tokenizer = pop(savedTokenizerStates); }
-    function beginTagName() {
-        is_end_tag = false;
-        tagnamebuf.length = 0;
-        attributes.length = 0;
-    }
-    function beginEndTagName() {
-        is_end_tag = true;
-        tagnamebuf.length = 0;
-        attributes.length = 0;
-    }
-
-    function beginTempBuf() { tempbuf.length = 0; }
-    function beginAttrName() { attrnamebuf.length = 0; }
-    function beginAttrValue() { attrvaluebuf.length = 0; }
-    function beginComment() { commentbuf.length = 0; }
-    function beginDoctype() {
-        doctypenamebuf.length = 0;
-        doctypepublicbuf = null;
-        doctypesystembuf = null;
-    }
-    function beginDoctypePublicId() { doctypepublicbuf = []; }
-    function beginDoctypeSystemId() { doctypesystembuf = []; }
-    function appendChar(buf, char) { push(buf, char); }
-/*
- * This doesn't seem to be a useful optimization
- *
-    function appendCharsWhile(buf, pattern) {
-        pattern.lastIndex = nextchar-1;
-        var match = pattern.exec(chars)[0];
-        if (!match) return false;
-        var len = match.length;
-        nextchar += len - 1;
-        for(var i = 0; i < len; i++)
-            push(buf, match.charCodeAt(i));
-        return true;
-    }
-*/
-
-    function forcequirks() { force_quirks = true; }
-    function cdataAllowed() {
-        return stack.top &&
-            stack.top.namespaceURI !== "http://www.w3.org/1999/xhtml";
-    }
-
-    // Return true if the codepoints in the specified buffer match the
-    // characters of lasttagname
-    function appropriateEndTag(buf) {
-        if (buf.length !== lasttagname.length) return false;
-        for(var i = 0, n = buf.length; i < n; i++) {
-            if (buf[i] !== lasttagname.charCodeAt(i)) return false;
-        }
-        return true;
-    }
-
-    function flushText() {
-        if (textrun.length > 0) {
-            var s = buf2str(textrun);
-            textrun.length = 0;
-
-            if (ignore_linefeed) {
-                ignore_linefeed = false;
-                if (s[0] === "\n") s = s.substring(1);
-                if (s.length === 0) return;
-            }
-
-            insertToken(TEXT, s);
-            textIncludesNUL = false;
-        }
-        ignore_linefeed = false;
-    }
-
-    // emit a string of chars that match a regexp
-    // Returns false if no chars matched.
-    function emitCharsWhile(pattern) {
-        pattern.lastIndex = nextchar-1;
-        var match = pattern.exec(chars)[0];
-        if (!match) return false;
-        emitCharString(match);
-        nextchar += match.length - 1;
-        return true;
-    }
-
-    // This is used by CDATA sections 
-    function emitCharString(s) {
-        if (textrun.length > 0) flushText();
-
-        if (ignore_linefeed) {
-            ignore_linefeed = false;
-            if (s[0] === "\n") s = s.substring(1);
-            if (s.length === 0) return;
-        }
-        
-        insertToken(TEXT, s);
-    }
-
-    function emitTag() {
-        if (is_end_tag) insertToken(ENDTAG, buf2str(tagnamebuf));
-        else {
-            // Remember the last open tag we emitted
-            var tagname = buf2str(tagnamebuf);
-            tagnamebuf.length = 0;
-            lasttagname = tagname;
-            insertToken(TAG, tagname, attributes);
-        }
-    }
-
-    var NOATTRS = [];
-
-    // A shortcut: look ahead and if this is a open or close tag in lowercase
-    // with no spaces and no attributes, just emit it now
-    function emitSimpleTag() {
-        SIMPLETAG.lastIndex = nextchar;
-        var match = SIMPLETAG.exec(chars);
-        if (!match) return false;
-        var tagname = match[2];
-        var endtag = match[1];
-        if (endtag) {
-            nextchar += (tagname.length+2);
-            insertToken(ENDTAG, tagname);
-        }
-        else {
-            nextchar += (tagname.length+1);
-            lasttagname = tagname;
-            insertToken(TAG, tagname, NOATTRS);
-        }
-        return true;
-    }
-
-    function emitSelfClosingTag() {
-        if (is_end_tag) insertToken(ENDTAG, buf2str(tagnamebuf), null, true);
-        else {
-            insertToken(TAG, buf2str(tagnamebuf), attributes, true);
-        }
-    }
-
-    function emitDoctype() {
-        insertToken(DOCTYPE,
-               buf2str(doctypenamebuf), 
-               doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined,
-               doctypesystembuf ? buf2str(doctypesystembuf) : undefined);
-    }
-
-    function emitEOF() {
-        flushText();
-        parser(EOF);  // EOF never goes to insertForeignContent()
-    }
-
-    var mathmlTextIntegrationPointSet = {};
-    mathmlTextIntegrationPointSet[MATHML_NAMESPACE] = {
-        mi: true,
-        mo: true,
-        mn: true,
-        ms: true,
-        mtext: true
-    };
-
-    var htmlIntegrationPointSet = {};
-    htmlIntegrationPointSet[SVG_NAMESPACE] = {
-        foreignObject: true,
-        desc: true,
-        title: true
-    };
 
     function isMathmlTextIntegrationPoint(n) {
         return isA(n, mathmlTextIntegrationPointSet);
@@ -2348,7 +1475,7 @@ function HTMLParser(mutationHandler, fragmentContext) {
         if (n.namespaceURI === MATHML_NAMESPACE &&
             n.localName === "annotation-xml") {
             var encoding = n.getAttribute("encoding");
-            if (encoding) encoding = encoding.toLowerCase();
+            if (encoding) encoding = toLowerCase(encoding);
             if (encoding === "text/html" ||
                 encoding === "application/xhtml+xml")
                 return true;
@@ -2356,206 +1483,11 @@ function HTMLParser(mutationHandler, fragmentContext) {
         return false;
     }
 
-    // Insert a token, either using the current parser insertio mode
-    // (for HTML stuff) or using the insertForeignToken() method.
-    function insertToken(t, value, arg3, arg4) {
-        flushText();
-        var current = stack.top;
-
-        if (!current || current.namespaceURI === HTML_NAMESPACE) {
-            // This is the common case
-            parser(t, value, arg3, arg4);
-        }
-        else {
-            // Otherwise we may need to insert this token as foreign content
-            if (t !== TAG && t !== TEXT) {
-                insertForeignToken(t, value, arg3, arg4);
-            }
-            else {
-                // But in some cases we treat it as regular content
-                if ((isMathmlTextIntegrationPoint(current) &&
-                     (t === TEXT ||
-                      (t === TAG &&
-                       value !== "mglyph" && value !== "malignmark"))) ||
-                    (t === TAG &&
-                     value === "svg" &&
-                     current.namespaceURI === MATHML_NAMESPACE &&
-                     current.localName === "annotation-xml") ||
-                    isHTMLIntegrationPoint(current)) {
-
-                    // XXX: the text_integration_mode stuff is an 
-                    // attempted bug workaround of mine
-                    text_integration_mode = true;
-                    parser(t, value, arg3, arg4);
-                    text_integration_mode = false;
-                }
-                // Otherwise it is foreign content
-                else {
-                    insertForeignToken(t, value, arg3, arg4);
-                }
-            }
-        }
-    }
-
-
-    /*
-     * Tree building utility functions 
-     */
-    function insertComment(data) {
-        stack.top.appendChild(doc.createComment(data)); 
-    }
-
-    function insertText(s) {
-        if (foster_parent_mode && isA(stack.top, tablesectionrowSet)) {
-            fosterParent(doc.createTextNode(s));
-        }
-        else {
-            var lastChild = stack.top.lastChild;
-            if (lastChild && lastChild.nodeType === Node.TEXT_NODE) {
-                lastChild.appendData(s);
-            }
-            else {
-                stack.top.appendChild(doc.createTextNode(s));
-            }
-        }
-    }
-
-    function createHTMLElt(name, attrs, insert) {
-        // Create the element this way, rather than with 
-        // doc.createElement because createElement() does error
-        // checking on the element name that we need to avoid here.
-        var interfaceName = tagNameToInterfaceName[name] ||
-            "HTMLUnknownElement";
-        var elt = new impl[interfaceName](doc, name, null);
-
-        if (insert) {
-            insertElement(elt);
-        }
-
-        if (attrs) {
-            for(var i = 0, n = attrs.length; i < n; i++) {
-                // Use the _ version to avoid testing the validity
-                // of the attribute name
-                elt._setAttribute(attrs[i][0], attrs[i][1]);
-            }
-        }
-        // XXX
-        // If the element is a resettable form element,
-        // run its reset algorithm now
-        return elt;
-    }
-    
-    // The in_table insertion mode turns on this flag, and that makes
-    // insertHTMLElement use the foster parenting algorithm for elements
-    // tags inside a table
-    var foster_parent_mode = false;
-
-    function insertHTMLElement(name, attrs) {
-        var elt = createHTMLElt(name, attrs, true);
-        // XXX
-        // If this is a form element, set its form attribute property
-
-        return elt;
-    }
-
-    // Insert the element into the open element or foster parent it
-    function insertElement(elt) {
-        if (foster_parent_mode && isA(stack.top, tablesectionrowSet)) {
-            fosterParent(elt);
-        }
-        else {
-            stack.top.appendChild(elt);
-        }
-
-        stack.push(elt);
-    }
-
-    function fosterParent(elt) {
-        var parent, before;
-
-        for(var i = stack.elements.length-1; i >= 0; i--) {
-            if (stack.elements[i] instanceof impl.HTMLTableElement) {
-                parent = stack.elements[i].parentElement;
-                if (parent)
-                    before = stack.elements[i];
-                else 
-                    parent = stack.elements[i-1];
-                
-                break;
-            }
-        }
-        if (!parent) parent = stack.elements[0];
-
-        if (elt.nodeType === Node.TEXT_NODE) {
-            var prev;
-            if (before) prev = before.previousSibling;
-            else prev = parent.lastChild;
-            if (prev && prev.nodeType === Node.TEXT_NODE) {
-                prev.appendData(elt.data);
-                return;
-            }
-        }
-        if (before)
-            parent.insertBefore(elt, before);
-        else
-            parent.appendChild(elt);
-    }
-
-    function insertForeignElement(name, attrs, ns) {
-        var elt = doc.createElementNS(ns, name);
-        if (attrs) {
-            for(var i = 0, n = attrs.length; i < n; i++) {
-                var attr = attrs[i];
-                if (attr.length == 2) 
-                    elt._setAttribute(attr[0], attr[1]);
-                else {
-                    elt._setAttributeNS(attr[2], attr[0], attr[1]);
-                }
-            }
-        }
-
-        insertElement(elt);
-    }
-
-    // For each attribute in attrs, if elt doesn't have an attribute
-    // by that name, add the attribute to elt
-    // XXX: I'm ignoring namespaces for now
-    function transferAttributes(attrs, elt) {
-        for(var i = 0, n = attrs.length; i < n; i++) {
-            var name = attrs[i][0], value = attrs[i][1];
-            if (elt.hasAttribute(name)) continue;
-            elt._setAttribute(name, value);
-        }
-    }
-
-
-    // Determine whether the element is a member of the set.
-    // The set is an object that maps namespaces to objects. The objects
-    // then map local tagnames to the value true if that tag is part of the set
-    function isA(elt, set) {
-        var tagnames = set[elt.namespaceURI];
-        return tagnames ? elt.localName in tagnames : false;
-    }
-
-    function parseRawText(name, attrs) {
-        insertHTMLElement(name, attrs);
-        tokenizer = rawtext_state;
-        originalInsertionMode = parser;
-        parser = text_mode;
-    }
-
-    function parseRCDATA(name, attrs) {
-        insertHTMLElement(name, attrs);
-        tokenizer = rcdata_state;
-        originalInsertionMode = parser;
-        parser = text_mode;
-    }
-
     function adjustSVGTagName(name) {
-       if (name in svgTagNameAdjustments) 
-          return svgTagNameAdjustments[name];
-       else 
-          return name;
+        if (name in svgTagNameAdjustments) 
+            return svgTagNameAdjustments[name];
+        else 
+            return name;
     }
 
     function adjustSVGAttributes(attrs) {
@@ -2575,15 +1507,6 @@ function HTMLParser(mutationHandler, fragmentContext) {
         }
     }
 
-    var foreignAttributes = {
-        "xlink:actuate": XLINK_NAMESPACE, "xlink:arcrole": XLINK_NAMESPACE,
-        "xlink:href":    XLINK_NAMESPACE, "xlink:role":    XLINK_NAMESPACE,
-        "xlink:show":    XLINK_NAMESPACE, "xlink:title":   XLINK_NAMESPACE,
-        "xlink:type":    XLINK_NAMESPACE, "xml:base":      XML_NAMESPACE,
-        "xml:lang":      XML_NAMESPACE,   "xml:space":     XML_NAMESPACE,
-        "xmlns":         XMLNS_NAMESPACE, "xmlns:xlink":   XMLNS_NAMESPACE
-    };
-
     function adjustForeignAttributes(attrs) {
         for(var i = 0, n = attrs.length; i < n; i++) {
             if (attrs[i][0] in foreignAttributes) {
@@ -2594,4287 +1517,5322 @@ function HTMLParser(mutationHandler, fragmentContext) {
         }
     }
 
-    const BOOKMARK = {localName:"BM"};  // Used by the adoptionAgency() function
+    // For each attribute in attrs, if elt doesn't have an attribute
+    // by that name, add the attribute to elt
+    // XXX: I'm ignoring namespaces for now
+    function transferAttributes(attrs, elt) {
+        for(var i = 0, n = attrs.length; i < n; i++) {
+            var name = attrs[i][0], value = attrs[i][1];
+            if (elt.hasAttribute(name)) continue;
+            elt._setAttribute(name, value);
+        }
+    }
 
-    function adoptionAgency(tag) {
-        // Let outer loop counter be zero.
-        var outer = 0;
+    /***
+     * This is the parser factory function. It is the return value of
+     * the outer closure that it is defined within.  Most of the parser 
+     * implementation details are inside this function.
+     */
+    function HTMLParser(mutationHandler, fragmentContext) {
 
-        // Outer loop: If outer loop counter is greater than or equal to eight,
-        // then abort these steps.
-        while(outer < 8) {
-            // Increment outer loop counter by one.
-            outer++;
+        /***
+         * These are the parser's state variables
+         */
+        // Scanner state
+        var chars = null;       
+        var numchars = 0;     // Length of chars
+        var nextchar = 0;     // Index of next char 
+        var input_complete = false; // Becomes true when end() called.
 
-            // Let the formatting element be the last element in the list of
-            // active formatting elements that: is between the end of the list
-            // and the last scope marker in the list, if any, or the start of
-            // the list otherwise, and has the same tag name as the token.
-            var fmtelt = afe.findElementByTag(tag);
+        // Tokenizer state
+        var tokenizer = data_state;     // Current tokenizer state
+        var savedTokenizerStates = [];  // Stack of saved states
+        var tagnamebuf = [];
+        var lasttagname = "";  // holds the target end tag for text states
+        var tempbuf = [];
+        var attrnamebuf = [];
+        var attrvaluebuf = [];
+        var commentbuf = [];
+        var doctypenamebuf = [];
+        var doctypepublicbuf = [];
+        var doctypesystembuf = [];
+        var attributes = [];
+        var is_end_tag = false;
 
-            // If there is no such node, then abort these steps and instead
-            // act as described in the "any other end tag" entry below.
-            if (!fmtelt) {
-                return false;  // false means handle by the default case
+        // Tree builder state
+        var parser = initial_mode;                    // Current insertion mode
+        var originalInsertionMode = null;             // A saved insertion mode
+        var stack = new ElementStack();               // Stack of open elements
+        var afe = new ActiveFormattingElements();     // For mis-nested stuff
+        var fragment = (fragmentContext!==undefined); // Are we parsing innerHTML?
+        var script_nesting_level = 0;
+        var parser_pause_flag = false;
+        var head_element_pointer = null;
+        var form_element_pointer = null;
+        var scripting_enabled = true;  // XXX Do we ever set this false?
+        var frameset_ok = true;
+        var force_quirks = false;
+        var pending_table_text;
+        var text_integration_mode;     // XXX a spec bug workaround?
+
+        // A single run of characters, buffered up to be sent to
+        // the parser as a single string.
+        var textrun = [];
+        var textIncludesNUL = false;
+        var ignore_linefeed = false;
+
+        // This is the document we'll be building up
+        var doc = new impl.Document(true);
+
+        /***
+         * The ElementStack class
+         */
+        function ElementStack() {
+            this.elements = [];
+            this.top = null;  // stack.top is the "current node" in the spec
+        }
+
+        /*
+        // This is for debugging only
+        ElementStack.prototype.toString = function(e) {
+            return "STACK: " + 
+                this.elements.map(function(e) {return e.localName;}).join("-");
+        }
+       */
+
+        ElementStack.prototype.push = function(e) {
+            push(this.elements, e);
+            this.top = e;
+        };
+
+        ElementStack.prototype.pop = function(e) {
+            pop(this.elements);
+            this.top = this.elements[this.elements.length-1];
+        };
+
+        // Pop elements off the stack up to and including the first 
+        // element with the specified (HTML) tagname
+        ElementStack.prototype.popTag = function(tag) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var e = this.elements[i];
+                if (e.namespaceURI !== HTML_NAMESPACE) continue;
+                if (e.localName === tag) break;
             }
-            // Otherwise, if there is such a node, but that node is not in the
-            // stack of open elements, then this is a parse error; remove the
-            // element from the list, and abort these steps.
-            var index = A.lastIndexOf(stack.elements, fmtelt);
-            if (index === -1) {
-                afe.remove(fmtelt);
-                return true;   // true means no more handling required
-            }
+            this.elements.length = i;
+            this.top = this.elements[i-1];
+        };
 
-            // Otherwise, if there is such a node, and that node is also in
-            // the stack of open elements, but the element is not in scope,
-            // then this is a parse error; ignore the token, and abort these
-            // steps.
-            if (!stack.elementInScope(fmtelt)) {
-                return true;
+        // Pop elements off the stack up to and including the first 
+        // element that is an instance of the specified type
+        ElementStack.prototype.popElementType = function(type) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                if (this.elements[i] instanceof type) break;
             }
+            this.elements.length = i;
+            this.top = this.elements[i-1];
+        };
 
-            // Let the furthest block be the topmost node in the stack of open
-            // elements that is lower in the stack than the formatting
-            // element, and is an element in the special category. There might
-            // not be one.
-            var furthestblock = null, furthestblockindex;
-            for(var i = index+1; i < stack.elements.length; i++) {
-                if (isA(stack.elements[i], specialSet)) {
-                    furthestblock = stack.elements[i];
-                    furthestblockindex = i;
+        // Pop elements off the stack up to and including the element e.
+        // Note that this is very different from removeElement()
+        // This requires that e is on the stack.
+        ElementStack.prototype.popElement = function(e) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                if (this.elements[i] === e) break;
+            }
+            this.elements.length = i;
+            this.top = this.elements[i-1];
+        };
+
+        // Remove a specific element from the stack.
+        // Do nothing if the element is not on the stack
+        ElementStack.prototype.removeElement = function(e) {
+            if (this.top === e) this.pop();
+            else {
+                var idx = A.lastIndexOf(this.elements, e);
+                if (idx !== -1)
+                    splice(this.elements, idx, 1);
+            }
+        };
+
+        // Pop elements off the stack until (but not including) the first one
+        // that is a member of the specified set
+        // Use for operations like "clear to table context"
+        ElementStack.prototype.popUntil = function(set) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                if (isA(this.elements[i], set)) break;
+            }
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+        ElementStack.prototype.clearToContext = function(type) {
+            // Note that we don't loop to 0. Never pop the <html> elt off.
+            for(var i = this.elements.length-1; i > 0; i--) {
+                if (this.elements[i] instanceof type) break;
+            }
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+
+        ElementStack.prototype.clearToTableContext = function() {
+            // Note that we don't loop to 0. Never pop the <html> elt off.
+            for(var i = this.elements.length-1; i > 0; i--) {
+                if (this.elements[i] instanceof impl.HTMLTableElement) break;
+            }
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+        ElementStack.prototype.clearToTableBodyContext = function() {
+            // Note that we don't loop to 0. Never pop the <html> elt off.
+            for(var i = this.elements.length-1; i > 0; i--) {
+                if (this.elements[i] instanceof impl.HTMLTableSectionElement)
                     break;
-                }
             }
-
-            // If there is no furthest block, then the UA must skip the
-            // subsequent steps and instead just pop all the nodes from the
-            // bottom of the stack of open elements, from the current node up
-            // to and including the formatting element, and remove the
-            // formatting element from the list of active formatting elements.
-            if (!furthestblock) {
-                stack.popElement(fmtelt);
-                afe.remove(fmtelt);
-            }
-            else {
-                // Let the common ancestor be the element immediately above
-                // the formatting element in the stack of open elements.
-                var ancestor = stack.elements[index-1];
-
-                // Let a bookmark note the position of the formatting element
-                // in the list of active formatting elements relative to the
-                // elements on either side of it in the list.
-                afe.insertAfter(fmtelt, BOOKMARK);
-                
-                // Let node and last node be the furthest block. 
-                var node = furthestblock;
-                var lastnode = furthestblock;
-                var nodeindex = furthestblockindex;
-
-                // Let inner loop counter be zero.
-                var inner = 0; 
-
-                // Inner loop: If inner loop counter is greater than
-                // or equal to three, then abort these steps.
-                while(inner < 3) {
-
-                    // Increment inner loop counter by one.
-                    inner++;
-
-                    // Let node be the element immediately above node in the
-                    // stack of open elements, or if node is no longer in the
-                    // stack of open elements (e.g. because it got removed by
-                    // the next step), the element that was immediately above
-                    // node in the stack of open elements before node was
-                    // removed.
-                    node = stack.elements[--nodeindex];
-
-                    // If node is not in the list of active formatting
-                    // elements, then remove node from the stack of open
-                    // elements and then go back to the step labeled inner
-                    // loop.
-                    if (!afe.contains(node)) {
-                        stack.removeElement(node);
-                        continue;
-                    }
-
-                    // Otherwise, if node is the formatting element, then go
-                    // to the next step in the overall algorithm.
-                    if (node === fmtelt) break;
-
-                    // Create an element for the token for which the element
-                    // node was created, replace the entry for node in the
-                    // list of active formatting elements with an entry for
-                    // the new element, replace the entry for node in the
-                    // stack of open elements with an entry for the new
-                    // element, and let node be the new element.
-                    var newelt = node.cloneNode(false);
-                    afe.replace(node, newelt);
-                    stack.elements[nodeindex] = newelt;
-                    node = newelt;
-
-                    // If last node is the furthest block, then move the
-                    // aforementioned bookmark to be immediately after the new
-                    // node in the list of active formatting elements.
-                    if (lastnode === furthestblock) {
-                        afe.remove(BOOKMARK);
-                        afe.insertAfter(newelt, BOOKMARK);
-                    }
-                    
-                    // Insert last node into node, first removing it from its
-                    // previous parent node if any.
-                    node.appendChild(lastnode);
-
-                    // Let last node be node.
-                    lastnode = node;
-                }
-
-                // If the common ancestor node is a table, tbody, tfoot,
-                // thead, or tr element, then, foster parent whatever last
-                // node ended up being in the previous step, first removing it
-                // from its previous parent node if any.
-                if (isA(ancestor, tablesectionrowSet)) {
-                    fosterParent(lastnode);
-                }
-                // Otherwise, append whatever last node ended up being in the
-                // previous step to the common ancestor node, first removing
-                // it from its previous parent node if any.
-                else {
-                    ancestor.appendChild(lastnode);
-                }
-
-                // Create an element for the token for which the
-                // formatting element was created.
-                var newelt2 = fmtelt.cloneNode(false);
-
-                // Take all of the child nodes of the furthest block and append
-                // them to the element created in the last step.
-                while(furthestblock.hasChildNodes()) {
-                    newelt2.appendChild(furthestblock.firstChild);
-                }
-
-                // Append that new element to the furthest block.
-                furthestblock.appendChild(newelt2);
-
-                // Remove the formatting element from the list of active
-                // formatting elements, and insert the new element into the
-                // list of active formatting elements at the position of the
-                // aforementioned bookmark.
-                afe.remove(fmtelt);
-                afe.replace(BOOKMARK, newelt2);
-
-                // Remove the formatting element from the stack of open
-                // elements, and insert the new element into the stack of open
-                // elements immediately below the position of the furthest
-                // block in that stack.
-                stack.removeElement(fmtelt);
-                var pos = A.lastIndexOf(stack.elements, furthestblock);
-                splice(stack.elements, pos+1, 0, newelt2);
-            }
-        }
-
-        return true;
-    }
-
-    // We do this when we get /script in in_text_mode
-    function handleScriptEnd() {
-        // XXX:
-        // This is just a stub implementation right now and doesn't run scripts.
-        // Getting this method right involves the event loop, URL resolution
-        // script fetching etc. For now I just want to be able to parse 
-        // documents and test the parser.
-
-        stack.pop();
-        parser = originalInsertionMode;
-        return;
-
-        // XXX: here is what this method is supposed to do
-
-        // Provide a stable state.
-
-        // Let script be the current node (which will be a script
-        // element).
-
-        // Pop the current node off the stack of open elements.
-
-        // Switch the insertion mode to the original insertion mode.
-
-        // Let the old insertion point have the same value as the current
-        // insertion point. Let the insertion point be just before the
-        // next input character.
-
-        // Increment the parser's script nesting level by one.
-
-        // Prepare the script. This might cause some script to execute,
-        // which might cause new characters to be inserted into the
-        // tokenizer, and might cause the tokenizer to output more tokens,
-        // resulting in a reentrant invocation of the parser.
-
-        // Decrement the parser's script nesting level by one. If the
-        // parser's script nesting level is zero, then set the parser
-        // pause flag to false.
-
-        // Let the insertion point have the value of the old insertion
-        // point. (In other words, restore the insertion point to its
-        // previous value. This value might be the "undefined" value.)
-
-        // At this stage, if there is a pending parsing-blocking script,
-        // then:
-
-        // If the script nesting level is not zero:
-
-        //     Set the parser pause flag to true, and abort the processing
-        //     of any nested invocations of the tokenizer, yielding
-        //     control back to the caller. (Tokenization will resume when
-        //     the caller returns to the "outer" tree construction stage.)
-
-        //     The tree construction stage of this particular parser is
-        //     being called reentrantly, say from a call to
-        //     document.write().  
-
-        // Otherwise:
-
-        //         Run these steps:
-
-        //             Let the script be the pending parsing-blocking
-        //             script. There is no longer a pending
-        //             parsing-blocking script.
-
-        //             Block the tokenizer for this instance of the HTML
-        //             parser, such that the event loop will not run tasks
-        //             that invoke the tokenizer.
-
-        //             If the parser's Document has a style sheet that is
-        //             blocking scripts or the script's "ready to be
-        //             parser-executed" flag is not set: spin the event
-        //             loop until the parser's Document has no style sheet
-        //             that is blocking scripts and the script's "ready to
-        //             be parser-executed" flag is set.
-
-        //             Unblock the tokenizer for this instance of the HTML
-        //             parser, such that tasks that invoke the tokenizer
-        //             can again be run.
-
-        //             Let the insertion point be just before the next
-        //             input character.
-
-        //             Increment the parser's script nesting level by one
-        //             (it should be zero before this step, so this sets
-        //             it to one).
-
-        //             Execute the script.
-
-        //             Decrement the parser's script nesting level by
-        //             one. If the parser's script nesting level is zero
-        //             (which it always should be at this point), then set
-        //             the parser pause flag to false.
-
-        //             Let the insertion point be undefined again.
-
-        //             If there is once again a pending parsing-blocking
-        //             script, then repeat these steps from step 1.
-
-
-    }
-
-    function stopParsing() {
-        // XXX This is just a temporary implementation to get the parser working.
-        // A full implementation involves scripts and events and the event loop.
-        stack.elements.length = 0;  // pop everything off
-    }
-
-    /*
-     * Tokenizer states 
-     */
-
-    /**
-     * This file was partially mechanically generated from 
-     * http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html
-     *
-     * After mechanical conversion, it was further converted from prose to JS
-     * by hand, but the intent is that it is a very faithful rendering of the
-     * HTML tokenization spec in JavaScript.
-     * 
-     * It is not a goal of this tokenizer to detect or report parse errors.
-     *
-     * XXX The tokenizer is supposed to work with straight UTF32
-     * codepoints. But I don't think it has any dependencies on any
-     * character outside of the BMP so I think it is safe to pass it UTF16
-     * characters. I don't think it will ever change state in the middle
-     * of a surrogate pair.
-     */
-
-    /*
-     * Each state is represented by a function.  For most states, the
-     * scanner simply passes the next character (as an integer
-     * codepoint) to the current state function and automatically
-     * consumes the character.  If the state function can't process
-     * the character it can call pushback() to push it back to the
-     * scanner.
-     * 
-     * Some states require lookahead, though.  If a state function has
-     * a lookahead property, then it is invoked differently.  In this
-     * case, the scanner invokes the function with 3 arguments: 1) the
-     * next codepoint 2) a string of lookahead text 3) a boolean that
-     * is true if the lookahead goes all the way to the EOF. (XXX
-     * actually maybe this third is not necessary... the lookahead
-     * could just include \uFFFF?)
-     *
-     * If the lookahead property of a state function is an integer, it
-     * specifies the number of characters required. If it is a string,
-     * then the scanner will scan for that string and return all
-     * characters up to and including that sequence, or up to EOF.  If
-     * the lookahead property is a regexp, then the scanner will match
-     * the regexp at the current point and return the matching string.
-     * 
-     * States that require lookahead are responsible for explicitly
-     * consuming the characters they process. They do this by
-     * incrementing nextchar by the number of processed characters.
-     */
-
-    function data_state(c) {
-        switch(c) {
-        case 0x0026: //  AMPERSAND 
-            tokenizer = character_reference_in_data_state;
-            break; 
-        case 0x003C: //  LESS-THAN SIGN 
-            if (emitSimpleTag()) // Shortcut for <p>, <dl>, </div> etc.
-                break;
-            tokenizer = tag_open_state;
-            break; 
-        case 0x0000: //  NULL 
-            // Usually null characters emitted by the tokenizer will be
-            // ignored by the tree builder, but sometimes they'll be 
-            // converted to \uFFFD.  I don't want to have the search every
-            // string emitted to replace NULs, so I'll set a flag
-            // if I've emitted a NUL.
-            push(textrun,c);
-            textIncludesNUL = true;
-            break; 
-        case EOF: 
-            emitEOF();
-            break; 
-        default: 
-            // Instead of just pushing a single character and then
-            // coming back to the very same place, lookahead and
-            // emit everything we can at once.
-            emitCharsWhile(DATATEXT) || push(textrun, c);
-            break; 
-        }
-    }
-
-    function character_reference_in_data_state(c, lookahead, eof) {
-        var char = parseCharRef(lookahead, false);
-        if (char !== null) {
-            if (typeof char === "number") push(textrun,char);
-            else pushAll(textrun, char);  // An array of characters
-        }
-        else
-            push(textrun,0x0026); // AMPERSAND;
-
-        tokenizer = data_state;
-    }
-    character_reference_in_data_state.lookahead = CHARREF;
-
-    function rcdata_state(c) {
-        // Save the open tag so we can find a matching close tag
-        switch(c) {
-        case 0x0026: //  AMPERSAND 
-            tokenizer = character_reference_in_rcdata_state;
-            break; 
-        case 0x003C: //  LESS-THAN SIGN 
-            tokenizer = rcdata_less_than_sign_state;
-            break; 
-        case 0x0000: //  NULL 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            textIncludesNUL = true;
-            break; 
-        case EOF: 
-            emitEOF();
-            break; 
-        default: 
-            push(textrun,c);
-            break; 
-        }
-    }
-
-    function character_reference_in_rcdata_state(c, lookahead, eof) {
-        var char = parseCharRef(lookahead, false);
-        if (char !== null) {
-            if (typeof char === "number") push(textrun,char);
-            else pushAll(textrun, char);  // An array of characters
-        }
-        else
-            push(textrun,0x0026); // AMPERSAND;
-
-        tokenizer = rcdata_state;
-    }
-    character_reference_in_rcdata_state.lookahead = CHARREF;
-
-    function rawtext_state(c) {
-        switch(c) {
-        case 0x003C: //  LESS-THAN SIGN 
-            tokenizer = rawtext_less_than_sign_state;
-            break; 
-        case 0x0000: //  NULL 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            break; 
-        case EOF: 
-            emitEOF();
-            break; 
-        default: 
-            emitCharsWhile(RAWTEXT) || push(textrun, c);
-            break; 
-        }
-    }
-
-    function script_data_state(c) {
-        switch(c) {
-        case 0x003C: //  LESS-THAN SIGN 
-            tokenizer = script_data_less_than_sign_state;
-            break; 
-        case 0x0000: //  NULL 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            break; 
-        case EOF: 
-            emitEOF();
-            break; 
-        default: 
-            emitCharsWhile(RAWTEXT) || push(textrun, c);
-            break; 
-        }
-    }
-
-    function plaintext_state(c) {
-        switch(c) {
-        case 0x0000: //  NULL 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            break; 
-        case EOF: 
-            emitEOF();
-            break; 
-        default: 
-            emitCharsWhile(PLAINTEXT) || push(textrun, c);
-            break; 
-        }
-    }
-
-    function tag_open_state(c) {
-        switch(c) {
-        case 0x0021: //  EXCLAMATION MARK 
-            tokenizer = markup_declaration_open_state;
-            break; 
-        case 0x002F: //  SOLIDUS 
-            tokenizer = end_tag_open_state;
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            c += 0x20;  // to lowercase
-            /* falls through */
-
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            beginTagName();
-            appendChar(tagnamebuf, c);
-            tokenizer = tag_name_state; 
-            break; 
-        case 0x003F: //  QUESTION MARK 
-            nextchar--;  // pushback
-            tokenizer = bogus_comment_state;
-            break; 
-        default: 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        }
-    }
-
-    function end_tag_open_state(c) {
-        switch(c) {
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            c += 0x20; // to lowercase
-            /* falls through */
-
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            beginEndTagName();
-            appendChar(tagnamebuf, c);
-            tokenizer = tag_name_state; 
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state;
-            break; 
-        case EOF: 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            push(textrun,0x002F); // SOLIDUS
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            nextchar--;  // pushback
-            tokenizer = bogus_comment_state;
-            break; 
-        }
-    }
-
-    function tag_name_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF)
-        case 0x0020: //  SPACE 
-            tokenizer = before_attribute_name_state;
-            break; 
-        case 0x002F: //  SOLIDUS
-            tokenizer = self_closing_start_tag_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            emitTag();
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            appendChar(tagnamebuf, c + 0x0020);
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(tagnamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            appendChar(tagnamebuf, c);
-            // appendCharsWhile(tagnamebuf, TAGNAMECHARS) || appendChar(tagnamebuf, c);
-            break; 
-        }
-    }
-
-    function rcdata_less_than_sign_state(c) {
-    /* identical to the RAWTEXT less-than sign state, except s/RAWTEXT/RCDATA/g */
-        if (c === 0x002F) {  //  SOLIDUS
-            beginTempBuf();
-            tokenizer = rcdata_end_tag_open_state;
-        }
-        else {
-            push(textrun,0x003C); // LESS-THAN SIGN
-            nextchar--;  // pushback
-            tokenizer = rcdata_state;
-        }
-    }
-
-    function rcdata_end_tag_open_state(c) {
-     /* identical to the RAWTEXT (and Script data) end tag open state, except s/RAWTEXT/RCDATA/g */    
-        switch(c) {
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            beginEndTagName();
-            appendChar(tagnamebuf, c + 0x0020);
-            appendChar(tempbuf, c); 
-            tokenizer = rcdata_end_tag_name_state; 
-            break; 
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            beginEndTagName();
-            appendChar(tagnamebuf, c);
-            appendChar(tempbuf, c); 
-            tokenizer = rcdata_end_tag_name_state; 
-            break; 
-        default: 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            push(textrun,0x002F); // SOLIDUS 
-            nextchar--;  // pushback
-            tokenizer = rcdata_state;
-            break; 
-        }
-    }
-
-    function rcdata_end_tag_name_state(c) {
-     /* identical to the RAWTEXT (and Script data) end tag name state, except s/RAWTEXT/RCDATA/g */
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE
-            if (appropriateEndTag(tagnamebuf)) {
-                tokenizer = before_attribute_name_state;
-                return;
-            }
-            break;
-        case 0x002F: //  SOLIDUS 
-            if (appropriateEndTag(tagnamebuf)) {
-                tokenizer = self_closing_start_tag_state;
-                return;
-            }
-            break;
-        case 0x003E: //  GREATER-THAN SIGN 
-            if (appropriateEndTag(tagnamebuf)) {
-                emitTag();
-                tokenizer = data_state;
-                return;
-            }
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-
-            appendChar(tagnamebuf, c + 0x0020); 
-            appendChar(tempbuf, c);
-            return;
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-
-            appendChar(tagnamebuf, c); 
-            appendChar(tempbuf, c);
-            return;
-        default: 
-            break;
-        }
-
-        // If we don't return in one of the cases above, then this was not 
-        // an appropriately matching close tag, so back out by emitting all
-        // the characters as text
-        push(textrun,0x003C); // LESS-THAN SIGN
-        push(textrun,0x002F); // SOLIDUS
-        pushAll(textrun, tempbuf);
-        nextchar--;  // pushback
-        tokenizer = rcdata_state;
-    }
-
-    function rawtext_less_than_sign_state(c) {
-     /* identical to the RCDATA less-than sign state, except s/RCDATA/RAWTEXT/g 
-*/    
-        if (c === 0x002F) { //  SOLIDUS 
-            beginTempBuf();
-            tokenizer = rawtext_end_tag_open_state;
-        }
-        else {
-            push(textrun,0x003C); // LESS-THAN SIGN
-            nextchar--;  // pushback
-            tokenizer = rawtext_state;
-        }
-    }
-
-    function rawtext_end_tag_open_state(c) {
-     /* identical to the RCDATA (and Script data) end tag open state, except s/RCDATA/RAWTEXT/g */
-        switch(c) {
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            beginEndTagName();
-            appendChar(tagnamebuf, c + 0x0020);
-            appendChar(tempbuf, c); 
-            tokenizer = rawtext_end_tag_name_state; 
-            break; 
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            beginEndTagName();
-            appendChar(tagnamebuf, c);
-            appendChar(tempbuf, c); 
-            tokenizer = rawtext_end_tag_name_state; 
-            break; 
-        default: 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            push(textrun,0x002F); // SOLIDUS 
-            nextchar--;  // pushback
-            tokenizer = rawtext_state;
-            break; 
-        }
-    }
-
-    function rawtext_end_tag_name_state(c) {
-     /* identical to the RCDATA (and Script data) end tag name state, except s/RCDATA/RAWTEXT/g */    
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF)
-        case 0x0020: //  SPACE
-            if (appropriateEndTag(tagnamebuf)) {
-                tokenizer = before_attribute_name_state;
-                return;
-            }
-            break;
-        case 0x002F: //  SOLIDUS 
-            if (appropriateEndTag(tagnamebuf)) {
-                tokenizer = self_closing_start_tag_state;
-                return;
-            }
-            break;
-        case 0x003E: //  GREATER-THAN SIGN 
-            if (appropriateEndTag(tagnamebuf)) {
-                emitTag();
-                tokenizer = data_state;
-                return;
-            }
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            appendChar(tagnamebuf, c + 0x0020); 
-            appendChar(tempbuf, c);
-            return;
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            appendChar(tagnamebuf, c); 
-            appendChar(tempbuf, c);
-            return;
-        default: 
-            break;
-        }
-
-        // If we don't return in one of the cases above, then this was not 
-        // an appropriately matching close tag, so back out by emitting all
-        // the characters as text
-        push(textrun,0x003C); // LESS-THAN SIGN
-        push(textrun,0x002F); // SOLIDUS
-        pushAll(textrun,tempbuf);
-        nextchar--;  // pushback
-        tokenizer = rawtext_state;
-    }
-
-    function script_data_less_than_sign_state(c) {
-        switch(c) {
-        case 0x002F: //  SOLIDUS  
-            beginTempBuf();
-            tokenizer = script_data_end_tag_open_state;
-            break; 
-        case 0x0021: //  EXCLAMATION MARK 
-            tokenizer = script_data_escape_start_state; 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            push(textrun,0x0021); // EXCLAMATION MARK
-            break; 
-        default: 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            nextchar--;  // pushback
-            tokenizer = script_data_state;
-            break; 
-        }
-    }
-
-    function script_data_end_tag_open_state(c) {
-     /* identical to the RCDATA (and RAWTEXT) end tag open state, except s/RCDATA/Script data/g */    
-        switch(c) {
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            beginEndTagName();
-            appendChar(tagnamebuf, c + 0x0020);
-            appendChar(tempbuf, c); 
-            tokenizer = script_data_end_tag_name_state; 
-            break; 
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            beginEndTagName();
-            appendChar(tagnamebuf, c);
-            appendChar(tempbuf, c); 
-            tokenizer = script_data_end_tag_name_state; 
-            break; 
-        default: 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            push(textrun,0x002F); // SOLIDUS 
-            nextchar--;  // pushback
-            tokenizer = script_data_state;
-            break; 
-        }
-    }
-
-    function script_data_end_tag_name_state(c) {
-     /* identical to the RCDATA (and RAWTEXT) end tag name state, except s/RCDATA/Script data/g */    
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE
-            if (appropriateEndTag(tagnamebuf)) {
-                tokenizer = before_attribute_name_state;
-                return;
-            }
-            break;
-        case 0x002F: //  SOLIDUS 
-            if (appropriateEndTag(tagnamebuf)) {
-                tokenizer = self_closing_start_tag_state;
-                return;
-            }
-            break;
-        case 0x003E: //  GREATER-THAN SIGN 
-            if (appropriateEndTag(tagnamebuf)) {
-                emitTag();
-                tokenizer = data_state;
-                return;
-            }
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-
-            appendChar(tagnamebuf, c + 0x0020); 
-            appendChar(tempbuf, c);
-            return;
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-
-            appendChar(tagnamebuf, c); 
-            appendChar(tempbuf, c);
-            return;
-        default: 
-            break;
-        }
-
-        // If we don't return in one of the cases above, then this was not 
-        // an appropriately matching close tag, so back out by emitting all
-        // the characters as text
-        push(textrun,0x003C); // LESS-THAN SIGN
-        push(textrun,0x002F); // SOLIDUS
-        pushAll(textrun,tempbuf);
-        nextchar--;  // pushback
-        tokenizer = script_data_state;
-    }
-
-    function script_data_escape_start_state(c) {
-        if (c === 0x002D) { //  HYPHEN-MINUS 
-            tokenizer = script_data_escape_start_dash_state; 
-            push(textrun,0x002D); // HYPHEN-MINUS
-        }
-        else {
-            nextchar--;  // pushback
-            tokenizer = script_data_state;
-        }
-    }
-
-    function script_data_escape_start_dash_state(c) {
-        if (c === 0x002D) { //  HYPHEN-MINUS 
-            tokenizer = script_data_escaped_dash_dash_state; 
-            push(textrun,0x002D); // HYPHEN-MINUS
-        }
-        else {
-            nextchar--;  // pushback
-            tokenizer = script_data_state;
-        }
-    }
-
-    function script_data_escaped_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            tokenizer = script_data_escaped_dash_state; 
-            push(textrun,0x002D); // HYPHEN-MINUS
-            break; 
-        case 0x003C: //  LESS-THAN SIGN 
-            tokenizer = script_data_escaped_less_than_sign_state;
-            break; 
-        case 0x0000: //  NULL 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            push(textrun,c);
-            break; 
-        }
-    }
-
-    function script_data_escaped_dash_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            tokenizer = script_data_escaped_dash_dash_state; 
-            push(textrun,0x002D); // HYPHEN-MINUS
-            break; 
-        case 0x003C: //  LESS-THAN SIGN 
-            tokenizer = script_data_escaped_less_than_sign_state;
-            break; 
-        case 0x0000: //  NULL 
-            tokenizer = script_data_escaped_state; 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            tokenizer = script_data_escaped_state; 
-            push(textrun,c);
-            break; 
-        }
-    }
-
-    function script_data_escaped_dash_dash_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            push(textrun,0x002D); // HYPHEN-MINUS
-            break; 
-        case 0x003C: //  LESS-THAN SIGN 
-            tokenizer = script_data_escaped_less_than_sign_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = script_data_state; 
-            push(textrun,0x003E); // GREATER-THAN SIGN
-            break; 
-        case 0x0000: //  NULL 
-            tokenizer = script_data_escaped_state; 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            tokenizer = script_data_escaped_state; 
-            push(textrun,c);
-            break; 
-        }
-    }
-
-    function script_data_escaped_less_than_sign_state(c) {
-        switch(c) {
-        case 0x002F: //  SOLIDUS  
-            beginTempBuf();
-            tokenizer = script_data_escaped_end_tag_open_state;
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            beginTempBuf();
-            appendChar(tempbuf, c + 0x0020); 
-            tokenizer = script_data_double_escape_start_state; 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            push(textrun,c);
-            break; 
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            beginTempBuf();
-            appendChar(tempbuf, c); 
-            tokenizer = script_data_double_escape_start_state; 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            push(textrun,c);
-            break; 
-        default: 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            nextchar--;  // pushback
-            tokenizer = script_data_escaped_state;
-            break; 
-        }
-    }
-
-    function script_data_escaped_end_tag_open_state(c) {
-        switch(c) {
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            beginEndTagName();
-            appendChar(tagnamebuf, c + 0x0020);
-            appendChar(tempbuf, c); 
-            tokenizer = script_data_escaped_end_tag_name_state; 
-            break; 
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            beginEndTagName();
-            appendChar(tagnamebuf, c);
-            appendChar(tempbuf, c); 
-            tokenizer = script_data_escaped_end_tag_name_state; 
-            break; 
-        default: 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            push(textrun,0x002F); // SOLIDUS 
-            nextchar--;  // pushback
-            tokenizer = script_data_escaped_state;
-            break; 
-        }
-    }
-
-    function script_data_escaped_end_tag_name_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF)
-        case 0x0020: //  SPACE 
-            if (appropriateEndTag(tagnamebuf)) {
-                tokenizer = before_attribute_name_state; 
-                return;
-            }
-            break; 
-        case 0x002F: //  SOLIDUS  
-            if (appropriateEndTag(tagnamebuf)) {
-                tokenizer = self_closing_start_tag_state; 
-                return;
-            }
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            if (appropriateEndTag(tagnamebuf)) {
-                emitTag();
-                tokenizer = data_state; 
-                return;
-            }
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            appendChar(tagnamebuf, c + 0x0020); 
-            appendChar(tempbuf, c);
-            return;
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            appendChar(tagnamebuf, c); 
-            appendChar(tempbuf, c);
-            return;
-        default: 
-            break;
-        }
-
-        // We get here in the default case, and if the closing tagname
-        // is not an appropriate tagname.
-        push(textrun,0x003C); // LESS-THAN SIGN
-        push(textrun,0x002F); // SOLIDUS 
-        pushAll(textrun,tempbuf);
-        nextchar--;  // pushback
-        tokenizer = script_data_escaped_state;
-    }
-
-    function script_data_double_escape_start_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-        case 0x002F: //  SOLIDUS  
-        case 0x003E: //  GREATER-THAN SIGN  
-            if (buf2str(tempbuf) === "script") {
-                tokenizer = script_data_double_escaped_state;
-            }
-            else {
-                tokenizer = script_data_escaped_state; 
-            }
-            push(textrun,c);
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            appendChar(tempbuf, c + 0x0020); 
-            push(textrun,c);
-            break; 
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            appendChar(tempbuf, c); 
-            push(textrun,c);
-            break; 
-        default: 
-            nextchar--;  // pushback
-            tokenizer = script_data_escaped_state;
-            break; 
-        }
-    }
-
-    function script_data_double_escaped_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            tokenizer = script_data_double_escaped_dash_state; 
-            push(textrun,0x002D); // HYPHEN-MINUS
-            break; 
-        case 0x003C: //  LESS-THAN SIGN 
-            tokenizer = script_data_double_escaped_less_than_sign_state; 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            break; 
-        case 0x0000: //  NULL 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            push(textrun,c);
-            break; 
-        }
-    }
-
-    function script_data_double_escaped_dash_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            tokenizer = script_data_double_escaped_dash_dash_state; 
-            push(textrun,0x002D); // HYPHEN-MINUS
-            break; 
-        case 0x003C: //  LESS-THAN SIGN 
-            tokenizer = script_data_double_escaped_less_than_sign_state; 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            break; 
-        case 0x0000: //  NULL 
-            tokenizer = script_data_double_escaped_state; 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            tokenizer = script_data_double_escaped_state; 
-            push(textrun,c);
-            break; 
-        }
-    }
-
-    function script_data_double_escaped_dash_dash_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            push(textrun,0x002D); // HYPHEN-MINUS
-            break; 
-        case 0x003C: //  LESS-THAN SIGN 
-            tokenizer = script_data_double_escaped_less_than_sign_state; 
-            push(textrun,0x003C); // LESS-THAN SIGN
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = script_data_state; 
-            push(textrun,0x003E); // GREATER-THAN SIGN
-            break; 
-        case 0x0000: //  NULL 
-            tokenizer = script_data_double_escaped_state; 
-            push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            tokenizer = script_data_double_escaped_state; 
-            push(textrun,c);
-            break; 
-        }
-    }
-
-    function script_data_double_escaped_less_than_sign_state(c) {
-        if (c === 0x002F) { //  SOLIDUS  
-            beginTempBuf();
-            tokenizer = script_data_double_escape_end_state; 
-            push(textrun,0x002F); // SOLIDUS
-        }
-        else {
-            nextchar--;  // pushback
-            tokenizer = script_data_double_escaped_state;
-        }
-    }
-
-    function script_data_double_escape_end_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-        case 0x002F: //  SOLIDUS  
-        case 0x003E: //  GREATER-THAN SIGN  
-            if (buf2str(tempbuf) === "script") {
-                tokenizer = script_data_escaped_state;
-            }
-            else {
-                tokenizer = script_data_double_escaped_state; 
-            }
-            push(textrun,c);
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            appendChar(tempbuf, c + 0x0020); 
-            push(textrun,c);
-            break; 
-        case 0x0061:  // [a-z]
-        case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
-        case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
-        case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
-        case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
-        case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-            appendChar(tempbuf, c); 
-            push(textrun,c);
-            break; 
-        default: 
-            nextchar--;  // pushback
-            tokenizer = script_data_double_escaped_state;
-            break; 
-        }
-    }
-
-    function before_attribute_name_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            /* Ignore the character. */
-            break; 
-        case 0x002F: //  SOLIDUS  
-            tokenizer = self_closing_start_tag_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            emitTag();
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            beginAttrName();
-            appendChar(attrnamebuf, c + 0x0020);
-            tokenizer = attribute_name_state;
-            break; 
-        case 0x0000: //  NULL 
-            beginAttrName();
-            appendChar(attrnamebuf, 0xFFFD);
-            tokenizer = attribute_name_state;
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-        case 0x0027: //  APOSTROPHE  
-        case 0x003C: //  LESS-THAN SIGN 
-        case 0x003D: //  EQUALS SIGN 
-            /* falls through */
-        default: 
-            if (handleSimpleAttribute()) break;
-            beginAttrName();
-            appendChar(attrnamebuf, c);
-            tokenizer = attribute_name_state;
-            break; 
-        }
-    }
-
-    function attribute_name_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            tokenizer = after_attribute_name_state;
-            break; 
-        case 0x002F: //  SOLIDUS  
-            addAttribute(attrnamebuf);
-            tokenizer = self_closing_start_tag_state;
-            break; 
-        case 0x003D: //  EQUALS SIGN 
-            beginAttrValue();
-            tokenizer = before_attribute_value_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            addAttribute(attrnamebuf);
-            tokenizer = data_state; 
-            emitTag();
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            appendChar(attrnamebuf, c + 0x0020);
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(attrnamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-        case 0x0027: //  APOSTROPHE  
-        case 0x003C: //  LESS-THAN SIGN 
-            /* falls through */
-        default: 
-            appendChar(attrnamebuf, c);
-            break; 
-        }
-    }
-
-    function after_attribute_name_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            /* Ignore the character. */
-            break; 
-        case 0x002F: //  SOLIDUS  
-            addAttribute(attrnamebuf);
-            tokenizer = self_closing_start_tag_state;
-            break; 
-        case 0x003D: //  EQUALS SIGN 
-            beginAttrValue();
-            tokenizer = before_attribute_value_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            addAttribute(attrnamebuf);
-            emitTag();
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            addAttribute(attrnamebuf);
-            beginAttrName();
-            appendChar(attrnamebuf, c + 0x0020);
-            tokenizer = attribute_name_state;
-            break; 
-        case 0x0000: //  NULL 
-            addAttribute(attrnamebuf);
-            beginAttrName();
-            appendChar(attrnamebuf, 0xFFFD);
-            tokenizer = attribute_name_state;
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-        case 0x0027: //  APOSTROPHE  
-        case 0x003C: //  LESS-THAN SIGN 
-            /* falls through */
-        default: 
-            addAttribute(attrnamebuf);
-            beginAttrName();
-            appendChar(attrnamebuf, c);
-            tokenizer = attribute_name_state;
-            break; 
-        }
-    }
-
-    function before_attribute_value_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            /* Ignore the character. */
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-            tokenizer = attribute_value_double_quoted_state;
-            break; 
-        case 0x0026: //  AMPERSAND
-            nextchar--;  // pushback
-            tokenizer = attribute_value_unquoted_state;
-            break; 
-        case 0x0027: //  APOSTROPHE  
-            tokenizer = attribute_value_single_quoted_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */); 
-            tokenizer = attribute_value_unquoted_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            addAttribute(attrnamebuf);
-            emitTag();
-            tokenizer = data_state; 
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        case 0x003C: //  LESS-THAN SIGN 
-        case 0x003D: //  EQUALS SIGN 
-        case 0x0060: //  GRAVE ACCENT 
-            /* falls through */
-        default: 
-            appendChar(attrvaluebuf, c); 
-            tokenizer = attribute_value_unquoted_state;
-            break; 
-        }
-    }
-
-    function attribute_value_double_quoted_state(c) {
-        switch(c) {
-        case 0x0022: //  QUOTATION MARK  
-            addAttribute(attrnamebuf, attrvaluebuf);
-            tokenizer = after_attribute_value_quoted_state;
-            break; 
-        case 0x0026: //  AMPERSAND 
-            pushState();
-            tokenizer = character_reference_in_attribute_value_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            appendChar(attrvaluebuf, c);
-            // appendCharsWhile(attrvaluebuf, DBLQUOTEATTRVAL);
-            break; 
-        }
-    }
-
-    function attribute_value_single_quoted_state(c) {
-        switch(c) {
-        case 0x0027: //  APOSTROPHE  
-            addAttribute(attrnamebuf, attrvaluebuf);
-            tokenizer = after_attribute_value_quoted_state;
-            break; 
-        case 0x0026: //  AMPERSAND 
-            pushState();
-            tokenizer = character_reference_in_attribute_value_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            appendChar(attrvaluebuf, c);
-            // appendCharsWhile(attrvaluebuf, SINGLEQUOTEATTRVAL);
-            break; 
-        }
-    }
-
-    function attribute_value_unquoted_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            addAttribute(attrnamebuf, attrvaluebuf);
-            tokenizer = before_attribute_name_state;
-            break; 
-        case 0x0026: //  AMPERSAND 
-            pushState();
-            tokenizer = character_reference_in_attribute_value_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            addAttribute(attrnamebuf, attrvaluebuf);
-            tokenizer = data_state; 
-            emitTag();
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-        case 0x0027: //  APOSTROPHE  
-        case 0x003C: //  LESS-THAN SIGN 
-        case 0x003D: //  EQUALS SIGN 
-        case 0x0060: //  GRAVE ACCENT 
-            /* falls through */
-        default: 
-            appendChar(attrvaluebuf, c);
-            // appendCharsWhile(attrvaluebuf, UNQUOTEDATTRVAL);
-            break; 
-        }
-    }
-
-    function character_reference_in_attribute_value_state(c, lookahead, eof) {
-        var char = parseCharRef(lookahead, true);
-        if (char !== null) {
-            if (typeof char === "number")
-                appendChar(attrvaluebuf, char);
-            else {
-                // An array of numbers
-                for(var i = 0; i < char.length; i++) {
-                    appendChar(attrvaluebuf, char[i]);
-                }
-            }
-        }
-        else {
-            appendChar(attrvaluebuf, 0x0026); // AMPERSAND;
-        }
-
-        popState();
-    }
-    character_reference_in_attribute_value_state.lookahead = ATTRCHARREF;
-
-    function after_attribute_value_quoted_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            tokenizer = before_attribute_name_state;
-            break; 
-        case 0x002F: //  SOLIDUS  
-            tokenizer = self_closing_start_tag_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            emitTag();
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            nextchar--;  // pushback
-            tokenizer = before_attribute_name_state;
-            break; 
-        }
-    }
-
-    function self_closing_start_tag_state(c) {
-        switch(c) {
-        case 0x003E: //  GREATER-THAN SIGN  
-            // Set the <i>self-closing flag</i> of the current tag token. 
-            tokenizer = data_state; 
-            emitSelfClosingTag(true); 
-            break; 
-        case EOF: 
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            nextchar--;  // pushback
-            tokenizer = before_attribute_name_state;
-            break; 
-        }
-    }
-
-    function bogus_comment_state(c, lookahead, eof) {
-        var len = lookahead.length;
-
-        if (eof) {
-            nextchar += len-1;  // don't consume the eof
-        }
-        else {
-            nextchar += len;
-        }
-
-        insertToken(COMMENT,
-                    lookahead.substring(0,len-1).replace(/\u0000/g,"\uFFFD"));
-
-        tokenizer = data_state;
-    }
-    bogus_comment_state.lookahead = ">";
-
-    function markup_declaration_open_state(c, lookahead, eof) {
-        if (lookahead[0] === "-" && lookahead[1] === "-") {
-            nextchar += 2;
-            beginComment();
-            tokenizer = comment_start_state;
-            return;
-        }
-
-        if (lookahead.toUpperCase() === "DOCTYPE") {
-            nextchar += 7;
-            tokenizer = doctype_state;
-        }
-        else if (lookahead === "[CDATA[" && cdataAllowed()) {
-            nextchar += 7;
-            tokenizer = cdata_section_state;
-        }
-        else {
-            tokenizer = bogus_comment_state;        
-        }
-    }
-    markup_declaration_open_state.lookahead = 7;
-
-    function comment_start_state(c) {
-        beginComment();
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            tokenizer = comment_start_dash_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(commentbuf, 0xFFFD /* REPLACEMENT CHARACTER */); 
-            tokenizer = comment_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            insertToken(COMMENT, buf2str(commentbuf));
-            break; /* see comment in comment end state */ 
-        case EOF: 
-            insertToken(COMMENT, buf2str(commentbuf));
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            appendChar(commentbuf, c); 
-            tokenizer = comment_state;
-            break; 
-        }
-    }
-
-    function comment_start_dash_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS
-            tokenizer = comment_end_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
-            appendChar(commentbuf, 0xFFFD);
-            tokenizer = comment_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            insertToken(COMMENT, buf2str(commentbuf));
-            break; 
-        case EOF: 
-            insertToken(COMMENT, buf2str(commentbuf));
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; /* see comment in comment end state */ 
-        default: 
-            appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
-            appendChar(commentbuf, c);
-            tokenizer = comment_state;
-            break; 
-        }
-    }
-
-    function comment_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            tokenizer = comment_end_dash_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(commentbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case EOF: 
-            insertToken(COMMENT, buf2str(commentbuf));
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; /* see comment in comment end state */ 
-        default: 
-            appendChar(commentbuf, c);
-            break; 
-        }
-    }
-
-    function comment_end_dash_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            tokenizer = comment_end_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
-            appendChar(commentbuf, 0xFFFD);
-            tokenizer = comment_state;
-            break; 
-        case EOF: 
-            insertToken(COMMENT, buf2str(commentbuf));
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; /* see comment in comment end state */ 
-        default: 
-            appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
-            appendChar(commentbuf, c);
-            tokenizer = comment_state;
-            break; 
-        }
-    }
-
-    function comment_end_state(c) {
-        switch(c) {
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            insertToken(COMMENT, buf2str(commentbuf));
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, 0xFFFD);
-            tokenizer = comment_state;
-            break; 
-        case 0x0021: //  EXCLAMATION MARK 
-            tokenizer = comment_end_bang_state;
-            break; 
-        case 0x002D: //  HYPHEN-MINUS 
-            appendChar(commentbuf, 0x002D);
-            break; 
-        case EOF: 
-            insertToken(COMMENT, buf2str(commentbuf));
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; /* For security reasons: otherwise, hostile user could put a script in a comment e.g. in a blog comment and then DOS the server so that the end tag isn't read, and then the commented script tag would be treated as live code */ 
-        default: 
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, c);
-            tokenizer = comment_state;
-            break; 
-        }
-    }
-
-    function comment_end_bang_state(c) {
-        switch(c) {
-        case 0x002D: //  HYPHEN-MINUS 
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, 0x0021);
-            tokenizer = comment_end_dash_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state;
-            insertToken(COMMENT, buf2str(commentbuf));
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, 0x0021);
-            appendChar(commentbuf, 0xFFFD);
-            tokenizer = comment_state;
-            break; 
-        case EOF: 
-            insertToken(COMMENT, buf2str(commentbuf));
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; /* see comment in comment end state */ 
-        default: 
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, 0x002D);
-            appendChar(commentbuf, 0x0021);
-            appendChar(commentbuf, c);
-            tokenizer = comment_state;
-            break; 
-        }
-    }
-
-    function doctype_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            tokenizer = before_doctype_name_state;
-            break; 
-        case EOF: 
-            beginDoctype();
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            nextchar--;  // pushback
-            tokenizer = before_doctype_name_state;
-            break; 
-        }
-    }
-
-    function before_doctype_name_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            /* Ignore the character. */
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            beginDoctype();
-            appendChar(doctypenamebuf, c + 0x0020);
-            tokenizer = doctype_name_state;
-            break; 
-        case 0x0000: //  NULL 
-            beginDoctype();
-            appendChar(doctypenamebuf, 0xFFFD);
-            tokenizer = doctype_name_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            beginDoctype();
-            tokenizer = data_state;
-            forcequirks();
-            emitDoctype();
-            break; 
-        case EOF: 
-            beginDoctype();
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            beginDoctype();
-            appendChar(doctypenamebuf, c);
-            tokenizer = doctype_name_state;
-            break; 
-        }
-    }
-
-    function doctype_name_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            tokenizer = after_doctype_name_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            emitDoctype();
-            break; 
-        case 0x0041:  // [A-Z]
-        case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
-        case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
-        case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
-        case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
-        case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-            appendChar(doctypenamebuf, c + 0x0020);
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(doctypenamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            appendChar(doctypenamebuf, c);
-            break; 
-        }
-    }
-
-    function after_doctype_name_state(c, lookahead, eof) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            /* Ignore the character. */
-            nextchar += 1;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state;
-            nextchar += 1;
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            tokenizer = data_state;
-            break; 
-        default:  
-            lookahead = lookahead.toUpperCase();
-            if (lookahead === "PUBLIC") {
-                nextchar += 6;
-                tokenizer = after_doctype_public_keyword_state;
-            }
-            else if (lookahead === "SYSTEM") {
-                nextchar += 6;
-                tokenizer = after_doctype_system_keyword_state;
-            }
-            else {
-                forcequirks();
-                tokenizer = bogus_doctype_state;
-            }
-            break; 
-        }
-    }
-    after_doctype_name_state.lookahead = 6;
-
-    function after_doctype_public_keyword_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            tokenizer = before_doctype_public_identifier_state;
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-            beginDoctypePublicId();
-            tokenizer = doctype_public_identifier_double_quoted_state;
-            break; 
-        case 0x0027: //  APOSTROPHE  
-            beginDoctypePublicId();
-            tokenizer = doctype_public_identifier_single_quoted_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            forcequirks();
-            tokenizer = data_state; 
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            forcequirks();
-            tokenizer = bogus_doctype_state;
-            break; 
-        }
-    }
-
-    function before_doctype_public_identifier_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            /* Ignore the character. */
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-            beginDoctypePublicId();
-            tokenizer = doctype_public_identifier_double_quoted_state;
-            break; 
-        case 0x0027: //  APOSTROPHE  
-            beginDoctypePublicId();
-            tokenizer = doctype_public_identifier_single_quoted_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            forcequirks();
-            tokenizer = data_state; 
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            forcequirks();
-            tokenizer = bogus_doctype_state;
-            break; 
-        }
-    }
-
-    function doctype_public_identifier_double_quoted_state(c) {
-        switch(c) {
-        case 0x0022: //  QUOTATION MARK  
-            tokenizer = after_doctype_public_identifier_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(doctypepublicbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            forcequirks();
-            tokenizer = data_state; 
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            appendChar(doctypepublicbuf, c);
-            break; 
-        }
-    }
-
-    function doctype_public_identifier_single_quoted_state(c) {
-        switch(c) {
-        case 0x0027: //  APOSTROPHE  
-            tokenizer = after_doctype_public_identifier_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(doctypepublicbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            forcequirks();
-            tokenizer = data_state;
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            appendChar(doctypepublicbuf, c);
-            break; 
-        }
-    }
-
-    function after_doctype_public_identifier_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            tokenizer = between_doctype_public_and_system_identifiers_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            emitDoctype();
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-            beginDoctypeSystemId();
-            tokenizer = doctype_system_identifier_double_quoted_state;
-            break; 
-        case 0x0027: //  APOSTROPHE  
-            beginDoctypeSystemId();
-            tokenizer = doctype_system_identifier_single_quoted_state;
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            forcequirks();
-            tokenizer = bogus_doctype_state;
-            break; 
-        }
-    }
-
-    function between_doctype_public_and_system_identifiers_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF)
-        case 0x0020: //  SPACE Ignore the character.
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            emitDoctype();
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-            beginDoctypeSystemId();
-            tokenizer = doctype_system_identifier_double_quoted_state;
-            break; 
-        case 0x0027: //  APOSTROPHE  
-            beginDoctypeSystemId();
-            tokenizer = doctype_system_identifier_single_quoted_state;
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            forcequirks();
-            tokenizer = bogus_doctype_state;
-            break; 
-        }
-    }
-
-    function after_doctype_system_keyword_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE 
-            tokenizer = before_doctype_system_identifier_state;
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-            beginDoctypeSystemId();
-            tokenizer = doctype_system_identifier_double_quoted_state;
-            break; 
-        case 0x0027: //  APOSTROPHE  
-            beginDoctypeSystemId();
-            tokenizer = doctype_system_identifier_single_quoted_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            forcequirks();
-            tokenizer = data_state; 
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            forcequirks();
-            tokenizer = bogus_doctype_state;
-            break; 
-        }
-    }
-
-    function before_doctype_system_identifier_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF) 
-        case 0x0020: //  SPACE Ignore the character.
-            break; 
-        case 0x0022: //  QUOTATION MARK  
-            beginDoctypeSystemId();
-            tokenizer = doctype_system_identifier_double_quoted_state;
-            break; 
-        case 0x0027: //  APOSTROPHE 
-            beginDoctypeSystemId();
-            tokenizer = doctype_system_identifier_single_quoted_state;
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            forcequirks();
-            tokenizer = data_state;
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            forcequirks();
-            tokenizer = bogus_doctype_state;
-            break; 
-        }
-    }
-
-    function doctype_system_identifier_double_quoted_state(c) {
-        switch(c) {
-        case 0x0022: //  QUOTATION MARK  
-            tokenizer = after_doctype_system_identifier_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(doctypesystembuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            forcequirks();
-            tokenizer = data_state;
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            appendChar(doctypesystembuf, c);
-            break; 
-        }
-    }
-
-    function doctype_system_identifier_single_quoted_state(c) {
-        switch(c) {
-        case 0x0027: //  APOSTROPHE  
-            tokenizer = after_doctype_system_identifier_state;
-            break; 
-        case 0x0000: //  NULL 
-            appendChar(doctypesystembuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            forcequirks();
-            tokenizer = data_state;
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            appendChar(doctypesystembuf, c);
-            break; 
-        }
-    }
-
-    function after_doctype_system_identifier_state(c) {
-        switch(c) {
-        case 0x0009: //  CHARACTER TABULATION (tab) 
-        case 0x000A: //  LINE FEED (LF) 
-        case 0x000C: //  FORM FEED (FF)
-        case 0x0020: //  SPACE 
-            /* Ignore the character. */
-            break; 
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state;
-            emitDoctype();
-            break; 
-        case EOF: 
-            forcequirks();
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            tokenizer = bogus_doctype_state;
-            /* This does *not* set the DOCTYPE token's force-quirks flag. */
-            break; 
-        }
-    }
-
-    function bogus_doctype_state(c) {
-        switch(c) {
-        case 0x003E: //  GREATER-THAN SIGN  
-            tokenizer = data_state; 
-            emitDoctype();
-            break; 
-        case EOF: 
-            emitDoctype();
-            nextchar--;  // pushback
-            tokenizer = data_state;
-            break; 
-        default: 
-            /* Ignore the character. */
-            break; 
-        }
-    }
-
-    function cdata_section_state(c, lookahead, eof) {
-        var len = lookahead.length;
-        var output;
-        if (eof) {
-            nextchar += len-1; // leave the EOF in the scanner
-            output = lookahead.substring(0, len-1); // don't include the EOF
-        }
-        else {
-            nextchar += len;
-            output = lookahead.substring(0,len-3); // don't emit the ]]>
-        }
-
-        if (output.length > 0) {
-            if (output.indexOf("\u0000") !== -1) 
-                textIncludesNUL = true;
-            emitCharString(output);
-        }
-
-        tokenizer = data_state;
-    }
-    cdata_section_state.lookahead = "]]>";
-
-
-    /*
-     * The tree builder insertion modes
-     */
-
-    // 11.2.5.4.1 The "initial" insertion mode
-    function initial_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            value = value.replace(LEADINGWS, ""); // Ignore spaces
-            if (value.length === 0) return; // Are we done?
-            break;  // Handle anything non-space text below
-        case COMMENT:
-            doc.appendChild(doc.createComment(value));
-            return;
-        case DOCTYPE:
-            var name = value;
-            var publicid = arg3;
-            var systemid = arg4;
-            // Use the constructor directly instead of 
-            // implementation.createDocumentType because the create
-            // function throws errors on invalid characters, and 
-            // we don't want the parser to throw them.
-            doc.appendChild(new impl.DocumentType(name,publicid, systemid));
-
-            // Note that there is no public API for setting quirks mode We can
-            // do this here because we have access to implementation details
-            if (force_quirks || 
-                name.toLowerCase() !== "html" ||
-                quirkyPublicIds.test(publicid) ||
-                (systemid && systemid.toLowerCase() === quirkySystemId) ||
-                (systemid === undefined &&
-                 conditionallyQuirkyPublicIds.test(publicid)))
-                doc._quirks = true;
-            else if (limitedQuirkyPublicIds.test(publicid) ||
-                     (systemid !== undefined &&
-                      conditionallyQuirkyPublicIds.test(publicid)))
-                doc._limitedQuirks = true;
-            parser = before_html_mode;
-            return;
-        }
-
-        // tags or non-whitespace text
-        doc._quirks = true;
-        parser = before_html_mode;
-        parser(t,value,arg3,arg4);
-    }
-
-    // 11.2.5.4.2 The "before html" insertion mode
-    function before_html_mode(t,value,arg3,arg4) {
-        var elt;
-        switch(t) {
-        case TEXT:
-            value = value.replace(LEADINGWS, ""); // Ignore spaces
-            if (value.length === 0) return; // Are we done?
-            break;  // Handle anything non-space text below
-        case DOCTYPE:
-            /* ignore the token */
-            return;
-        case COMMENT:
-            doc.appendChild(doc.createComment(value));
-            return;
-        case TAG:
-            if (value === "html") {
-                elt = createHTMLElt(value, arg3);
-                stack.push(elt);
-                doc.appendChild(elt);
-                // XXX: handle application cache here
-                parser = before_head_mode;
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "html":
-            case "head":
-            case "body":
-            case "br":
-                break;   // fall through on these
-            default:
-                return;  // ignore most end tags
-            }
-        }
-
-        // Anything that didn't get handled above is handled like this:
-        elt = createHTMLElt("html", null);
-        stack.push(elt);
-        doc.appendChild(elt);
-        // XXX: handle application cache here
-        parser = before_head_mode;
-        parser(t,value,arg3,arg4);
-    }
-
-    // 11.2.5.4.3 The "before head" insertion mode
-    function before_head_mode(t,value,arg3,arg4) {
-        switch(t) {
-        case TEXT:
-            value = value.replace(LEADINGWS, "");  // Ignore spaces
-            if (value.length === 0) return; // Are we done?
-            break;  // Handle anything non-space text below
-        case DOCTYPE:
-            /* ignore the token */
-            return;
-        case COMMENT:
-            insertComment(value);
-            return;
-        case TAG:
-            switch(value) {
-            case "html":
-                in_body_mode(t,value,arg3,arg4);
-                return;
-            case "head":
-                var elt = insertHTMLElement(value, arg3);
-                head_element_pointer = elt;
-                parser = in_head_mode;
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "html":
-            case "head":
-            case "body":
-            case "br":
-                break;
-            default: 
-                return; // ignore most end tags
-            }
-        }
-
-        // If not handled explicitly above
-        before_head_mode(TAG, "head", null);  // create a head tag
-        parser(t, value, arg3, arg4);  // then try again with this token
-    }
-
-    function in_head_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            var ws = value.match(LEADINGWS);
-            if (ws) {
-                insertText(ws[0]);
-                value = value.substring(ws[0].length);
-            }
-            if (value.length === 0) return;
-            break; // Handle non-whitespace below
-        case COMMENT:
-            insertComment(value);
-            return;
-        case DOCTYPE:
-            return;
-        case TAG:
-            switch(value) {
-            case "html":
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            case "meta":
-                // XXX: 
-                // May need to change the encoding based on this tag
-                /* falls through */
-            case "base":
-            case "basefont":
-            case "bgsound":
-            case "command":
-            case "link":
-                insertHTMLElement(value, arg3);
-                stack.pop();
-                return;
-            case "title":
-                parseRCDATA(value, arg3);
-                return;
-            case "noscript":
-                if (!scripting_enabled) {
-                    insertHTMLElement(value, arg3);
-                    parser = in_head_noscript_mode;
-                    return;
-                }
-                // Otherwise, if scripting is enabled...
-                /* falls through */
-            case "noframes":
-            case "style":
-                parseRawText(value,arg3);
-                return;
-            case "script":
-                var elt = createHTMLElt(value, arg3);
-                elt.parser_inserted = true;
-                elt.force_async = false;
-                if (fragment) elt.already_started = true;
-                flushText();
-                stack.top.appendChild(elt);
-                stack.push(elt);
-
-                tokenizer = script_data_state;
-                originalInsertionMode = parser;
-                parser = text_mode;
-                return;
-            case "head":
-                return; // ignore it
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "head":
-                stack.pop();
-                parser = after_head_mode;
-                return;
-            case "body":
-            case "html":
-            case "br":
-                break; // handle these at the bottom of the function
-            default: 
-                // ignore any other end tag
-                return;
-            }
-            break;
-        }
-
-        // If not handled above
-        in_head_mode(ENDTAG, "head", null);     // synthetic </head>
-        parser(t, value, arg3, arg4);   // Then redo this one
-    }
-
-    // 13.2.5.4.5 The "in head noscript" insertion mode
-    function in_head_noscript_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case DOCTYPE:
-            return;
-        case COMMENT:
-            in_head_mode(t, value);
-            return;
-        case TEXT:
-            var ws = value.match(LEADINGWS);
-            if (ws) {
-                in_head_mode(t, ws[0]);
-                value = value.substring(ws[0].length);
-            }
-            if (value.length === 0) return; // no more text
-            break; // Handle non-whitespace below
-        case TAG:
-            switch(value) {
-            case "html":
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            case "basefont":
-            case "bgsound":
-            case "link":
-            case "meta":
-            case "noframes":
-            case "style":
-                in_head_mode(t, value, arg3);
-                return;
-            case "head":
-            case "noscript":
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "noscript":
-                stack.pop();
-                parser = in_head_mode;
-                return;
-            case "br":
-                break;  // goes to the outer default
-            default:
-                return; // ignore other end tags
-            }
-            break;
-        }
-
-        // If not handled above
-        in_head_noscript_mode(ENDTAG, "noscript", null);
-        parser(t, value, arg3, arg4);
-    }
-
-    function after_head_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            var ws = value.match(LEADINGWS);
-            if (ws) {
-                insertText(ws[0]);
-                value = value.substring(ws[0].length);
-            }
-            if (value.length === 0) return;
-            break; // Handle non-whitespace below
-        case COMMENT:
-            insertComment(value);
-            return;
-        case DOCTYPE:
-            return;
-        case TAG:
-            switch(value) {
-            case "html":
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            case "body":
-                insertHTMLElement(value, arg3);
-                frameset_ok = false;
-                parser = in_body_mode;
-                return;
-            case "frameset":
-                insertHTMLElement(value, arg3);
-                parser = in_frameset_mode;
-                return;
-            case "base":
-            case "basefont":
-            case "bgsound":
-            case "link":
-            case "meta":
-            case "noframes":
-            case "script":
-            case "style":
-            case "title":
-                stack.push(head_element_pointer);
-                in_head_mode(TAG, value, arg3);
-                stack.removeElement(head_element_pointer);
-                return;
-            case "head":
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "body":
-            case "html":
-            case "br":
-                break;
-            default:
-                return;  // ignore any other end tag
-            }
-            break;
-        }
-
-        after_head_mode(TAG, "body", null);
-        frameset_ok = true;
-        parser(t, value, arg3, arg4);
-    }
-
-    // 13.2.5.4.7 The "in body" insertion mode
-    function in_body_mode(t,value,arg3,arg4) {
-        var body, i, node;
-        switch(t) {
-        case TEXT:
-            if (textIncludesNUL) {
-                value = value.replace(NULCHARS, "");
-                if (value.length === 0) return;
-            }
-            if (frameset_ok && NONWS.test(value))  // If any non-space characters
-                frameset_ok = false;
-            afe.reconstruct();
-            insertText(value);
-            return;
-        case DOCTYPE:
-            return;
-        case COMMENT:
-            insertComment(value);
-            return;
-        case EOF:
-            stopParsing();
-            return;
-        case TAG:
-            switch(value) {
-            case "html":
-                transferAttributes(arg3, stack.elements[0]);
-                return;
-            case "base":
-            case "basefont":
-            case "bgsound":
-            case "command":
-            case "link":
-            case "meta":
-            case "noframes":
-            case "script":
-            case "style":
-            case "title":
-                in_head_mode(TAG, value, arg3);
-                return;
-            case "body":
-                body = stack.elements[1];
-                if (!body || !(body instanceof impl.HTMLBodyElement)) return;
-                frameset_ok = false;
-                transferAttributes(arg3, body);
-                return;
-            case "frameset":
-                if (!frameset_ok) return;
-                body = stack.elements[1];
-                if (!body || !(body instanceof impl.HTMLBodyElement)) return;
-                if (body.parentNode) body.parentNode.removeChild(body);
-                while(!(stack.top instanceof impl.HTMLHtmlElement)) stack.pop();
-                insertHTMLElement(value, arg3);
-                parser = in_frameset_mode;
-                return;
-
-            case "address":
-            case "article":
-            case "aside":
-            case "blockquote":
-            case "center":
-            case "details":
-            case "dir":
-            case "div":
-            case "dl":
-            case "fieldset":
-            case "figcaption":
-            case "figure":
-            case "footer":
-            case "header":
-            case "hgroup":
-            case "menu":
-            case "nav":
-            case "ol":
-            case "p":
-            case "section":
-            case "summary":
-            case "ul":
-                if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                insertHTMLElement(value, arg3);
-                return;
-
-            case "h1":
-            case "h2":
-            case "h3":
-            case "h4":
-            case "h5":
-            case "h6":
-                if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                if (stack.top instanceof impl.HTMLHeadingElement) stack.pop();
-                insertHTMLElement(value, arg3);
-                return;
-                
-            case "pre":
-            case "listing":
-                if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                insertHTMLElement(value, arg3);
-                ignore_linefeed = true;
-                frameset_ok = false;
-                return;
-
-            case "form":
-                if (form_element_pointer) return;
-                if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                form_element_pointer = insertHTMLElement(value, arg3);
-                return;
-
-            case "li":
-                frameset_ok = false;
-                for(i = stack.elements.length-1; i >= 0; i--) {
-                    node = stack.elements[i];
-                    if (node instanceof impl.HTMLLIElement) {
-                        in_body_mode(ENDTAG, "li");
-                        break;
-                    }
-                    if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
-                        break;
-                }
-                if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                insertHTMLElement(value, arg3);
-                return;
-
-            case "dd":
-            case "dt":
-                frameset_ok = false;
-                for(i = stack.elements.length-1; i >= 0; i--) {
-                    node = stack.elements[i];
-                    if (isA(node, dddtSet)) {
-                        in_body_mode(ENDTAG, node.localName);
-                        break;
-                    }
-                    if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
-                        break;
-                }
-                if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                insertHTMLElement(value, arg3);
-                return;
-                
-            case "plaintext":
-                if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                insertHTMLElement(value, arg3);
-                tokenizer = plaintext_state;
-                return;
-                
-            case "button":
-                if (stack.inScope("button")) {
-                    in_body_mode(ENDTAG, "button");
-                    parser(t, value, arg3, arg4);
-                }
-                else {
-                    afe.reconstruct();
-                    insertHTMLElement(value, arg3);
-                    frameset_ok = false;
-                }
-                return;
-
-            case "a":
-                var activeElement = afe.findElementByTag("a");
-                if (activeElement) {
-                    in_body_mode(ENDTAG, value);
-                    afe.remove(activeElement);
-                    stack.removeElement(activeElement);
-                }
-                /* falls through */
-
-            case "b":
-            case "big":
-            case "code":
-            case "em":
-            case "font":
-            case "i":
-            case "s":
-            case "small":
-            case "strike":
-            case "strong":
-            case "tt":
-            case "u":
-                afe.reconstruct();
-                afe.push(insertHTMLElement(value,arg3));
-                return;
-
-            case "nobr":
-                afe.reconstruct();
-
-                if (stack.inScope(value)) {
-                    in_body_mode(ENDTAG, value);
-                    afe.reconstruct();
-                }
-                afe.push(insertHTMLElement(value,arg3));
-                return;
-
-            case "applet":
-            case "marquee":
-            case "object":
-                afe.reconstruct();
-                insertHTMLElement(value,arg3);
-                afe.insertMarker();
-                frameset_ok = false;
-                return;
-
-            case "table":
-                if (!doc._quirks && stack.inButtonScope("p")) {
-                    in_body_mode(ENDTAG, "p");
-                }
-                insertHTMLElement(value,arg3);
-                frameset_ok = false;
-                parser = in_table_mode;
-                return;
-
-            case "area":
-            case "br":
-            case "embed":
-            case "img":
-            case "keygen":
-            case "wbr":
-                afe.reconstruct();
-                insertHTMLElement(value,arg3);
-                stack.pop();
-                frameset_ok = false;
-                return;
-                
-            case "input":
-                afe.reconstruct();
-                var elt = insertHTMLElement(value,arg3);
-                stack.pop();
-                var type = elt.getAttribute("type");
-                if (!type || type.toLowerCase() !== "hidden")
-                    frameset_ok = false;
-                return;
-
-            case "param":
-            case "source":
-            case "track":
-                insertHTMLElement(value,arg3);
-                stack.pop();
-                return;
-
-            case "hr":
-                if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                insertHTMLElement(value,arg3);
-                stack.pop();
-                frameset_ok = false;
-                return;
-
-            case "image":
-                in_body_mode(TAG, "img", arg3, arg4);
-                return;
-
-            case "isindex":
-                if (form_element_pointer) return;
-                (function handleIsIndexTag(attrs) {
-                    var actionAttribute = null, prompt, hasnameattr;
-                    for(var i = 0; i < attrs.length; i++) {
-                        var a = attrs[i];
-                        if (a[0] === "action") {
-                            actionAttribute = splice(attrs, i, 1);
-                            i--;
-                        }
-                        else if (a[0] === "prompt") {
-                            prompt = a[1];
-                            splice(attrs, i, 1);
-                            i--;
-                        }
-                        else if (a[0] === "name") {
-                            hasnameattr = true;
-                            a[1] = "isindex";
-                        }
-                    }
-                    if (!hasnameattr) attrs.push(["name", "isindex"]);
-                    
-                    // This default prompt presumably needs localization.
-                    // There space after the colon in this prompt is required
-                    // by the html5lib test cases
-                    if (!prompt)
-                        prompt = "This is a searchable index. " +
-                          "Enter search keywords: ";
-
-                    parser(TAG, "form", actionAttribute);
-                    parser(TAG, "hr", null);
-                    parser(TAG, "label", null);
-                    parser(TEXT, prompt);
-                    parser(TAG, "input", attrs);
-                    parser(ENDTAG, "label");
-                    parser(TAG, "hr", null);
-                    parser(ENDTAG, "form");
-                }(arg3));
-                return;
-                
-            case "textarea":
-                insertHTMLElement(value,arg3);
-                ignore_linefeed = true;
-                frameset_ok = false;
-                tokenizer = rcdata_state;
-                originalInsertionMode = parser;
-                parser = text_mode;
-                return;
-
-            case "xmp":
-                if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                afe.reconstruct();
-                frameset_ok = false;
-                parseRawText(value, arg3);
-                return;
-
-            case "iframe":
-                frameset_ok = false;
-                parseRawText(value, arg3);
-                return;
-
-            case "noembed":
-                parseRawText(value,arg3);
-                return;
-
-            case "noscript":
-                if (scripting_enabled) {
-                    parseRawText(value,arg3);
-                    return;
-                }
-                break;  // XXX Otherwise treat it as any other open tag?
-                
-            case "select":
-                afe.reconstruct();
-                insertHTMLElement(value,arg3);
-                frameset_ok = false;
-                if (parser === in_table_mode ||
-                    parser === in_caption_mode ||
-                    parser === in_table_body_mode ||
-                    parser === in_row_mode ||
-                    parser === in_cell_mode)
-                    parser = in_select_in_table_mode;
-                else
-                    parser = in_select_mode;
-                return;
-
-            case "optgroup":
-            case "option":
-                if (stack.top instanceof impl.HTMLOptionElement) {
-                    in_body_mode(ENDTAG, "option");
-                }
-                afe.reconstruct();
-                insertHTMLElement(value,arg3);
-                return;
-
-            case "rp":
-            case "rt":
-                if (stack.inScope("ruby")) {
-                    stack.generateImpliedEndTags();
-                }
-                insertHTMLElement(value,arg3);
-                return;
-
-            case "math":
-                afe.reconstruct();
-                adjustMathMLAttributes(arg3);
-                adjustForeignAttributes(arg3);
-                insertForeignElement(value, arg3, MATHML_NAMESPACE);
-                if (arg4) // self-closing flag
-                    stack.pop();
-                return;
-
-            case "svg":
-                afe.reconstruct();
-                adjustSVGAttributes(arg3);
-                adjustForeignAttributes(arg3);
-                insertForeignElement(value, arg3, SVG_NAMESPACE);
-                if (arg4) // self-closing flag
-                    stack.pop();
-                return;
-                
-            case "caption":
-            case "col":
-            case "colgroup":
-            case "frame":
-            case "head":
-            case "tbody":
-            case "td":
-            case "tfoot":
-            case "th":
-            case "thead":
-            case "tr":
-                // Ignore table tags if we're not in_table mode
-                return;
-            }
-
-            // Handle any other start tag here
-            // (and also noscript tags when scripting is disabled)
-            afe.reconstruct();
-            insertHTMLElement(value,arg3);
-            return;
-
-        case ENDTAG:
-            switch(value) {
-            case "body":
-                if (!stack.inScope("body")) return;
-                parser = after_body_mode;
-                return;
-            case "html":
-                if (!stack.inScope("body")) return;
-                parser = after_body_mode;
-                parser(t, value, arg3);
-                return;
-
-            case "address":
-            case "article":
-            case "aside":
-            case "blockquote":
-            case "button":
-            case "center":
-            case "details":
-            case "dir":
-            case "div":
-            case "dl":
-            case "fieldset":
-            case "figcaption":
-            case "figure":
-            case "footer":
-            case "header":
-            case "hgroup":
-            case "listing":
-            case "menu":
-            case "nav":
-            case "ol":
-            case "pre":
-            case "section":
-            case "summary":
-            case "ul":
-                // Ignore if there is not a matching open tag
-                if (!stack.inScope(value)) return;
-                stack.generateImpliedEndTags();
-                stack.popTag(value);
-                return;
-
-            case "form":
-                var openform = form_element_pointer;
-                form_element_pointer = null;
-                if (!openform || !stack.elementInScope(openform)) return;
-                stack.generateImpliedEndTags();
-                stack.removeElement(openform);
-                return;
-
-            case "p":
-                if (!stack.inButtonScope(value)) {
-                    in_body_mode(TAG, value, null);
-                    parser(t, value, arg3, arg4);
-                }
-                else {
-                    stack.generateImpliedEndTags(value);
-                    stack.popTag(value);
-                }
-                return;
-
-            case "li":
-                if (!stack.inListItemScope(value)) return;
-                stack.generateImpliedEndTags(value);
-                stack.popTag(value);
-                return;
-
-            case "dd":
-            case "dt":
-                if (!stack.inScope(value)) return;
-                stack.generateImpliedEndTags(value);
-                stack.popTag(value);
-                return;
-
-            case "h1":
-            case "h2":
-            case "h3":
-            case "h4":
-            case "h5":
-            case "h6":
-                if (!stack.elementTypeInScope(impl.HTMLHeadingElement)) return;
-                stack.generateImpliedEndTags();
-                stack.popElementType(impl.HTMLHeadingElement);
-                return;
-                
-            case "a":
-            case "b":
-            case "big":
-            case "code":
-            case "em":
-            case "font":
-            case "i":
-            case "nobr":
-            case "s":
-            case "small":
-            case "strike":
-            case "strong":
-            case "tt":
-            case "u":
-                var result = adoptionAgency(value);
-                if (result) return;  // If we did something we're done
-                break;               // Go to the "any other end tag" case
-
-            case "applet":
-            case "marquee":
-            case "object":
-                if (!stack.inScope(value)) return;
-                stack.generateImpliedEndTags();
-                stack.popTag(value);
-                afe.clearToMarker();
-                return;
-
-            case "br":
-                in_body_mode(TAG, value, null);  // Turn </br> into <br>
-                return;
-            }
-
-            // Any other end tag goes here
-            for(i = stack.elements.length-1; i >= 0; i--) {
-                node = stack.elements[i];
-                if (node.localName === value) {
-                    stack.generateImpliedEndTags(value);
-                    stack.popElement(node);
-                    break;
-                }
-                else if (isA(node, specialSet)) {
-                    return;
-                }
-            }
-
-            return;
-        }
-    }
-
-    function text_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            insertText(value);
-            return;
-        case EOF:
-            if (stack.top instanceof impl.HTMLScriptElement)
-                stack.top.already_started = true;
-            stack.pop();
-            parser = originalInsertionMode;
-            parser(t);
-            return;
-        case ENDTAG:
-            if (value === "script") {
-                handleScriptEnd();  
-            }
-            else {
-                stack.pop();
-                parser = originalInsertionMode;
-            }
-            return;
-        default: 
-            // We should never get any other token types
-            return;
-        }
-    }
-
-    function in_table_mode(t, value, arg3, arg4) {
-        function getTypeAttr(attrs) {
-            for(var i = 0, n = attrs.length; i < n; i++) {
-                if (attrs[i][0] === "type") return attrs[i][1].toLowerCase();
-            }
-            return null;
-        }
-
-        switch(t) {
-        case TEXT:
-            // XXX the text_integration_mode stuff is 
-            // just a hack I made up
-            if (text_integration_mode) {
-                in_body_mode(t, value, arg3, arg4) 
-            }
-            else {
-                pending_table_text = [];
-                originalInsertionMode = parser;
-                parser = in_table_text_mode;
-                parser(t, value, arg3, arg4);
-            }
-            return;
-        case COMMENT: 
-            insertComment(value);
-            return;
-        case DOCTYPE:
-            return;
-        case TAG:
-            switch(value) {
-            case "caption":
-                stack.clearToContext(impl.HTMLTableElement);
-                afe.insertMarker();
-                insertHTMLElement(value,arg3);
-                parser = in_caption_mode;
-                return;
-            case "colgroup":
-                stack.clearToContext(impl.HTMLTableElement);
-                insertHTMLElement(value,arg3);
-                parser = in_column_group_mode;
-                return;
-            case "col":
-                in_table_mode(TAG, "colgroup", null);
-                parser(t, value, arg3, arg4);
-                return;
-            case "tbody":
-            case "tfoot":
-            case "thead":
-                stack.clearToContext(impl.HTMLTableElement);
-                insertHTMLElement(value,arg3);
-                parser = in_table_body_mode;
-                return;
-            case "td":
-            case "th":
-            case "tr":
-                in_table_mode(TAG, "tbody", null);
-                parser(t, value, arg3, arg4);
-                return;
-
-            case "table":
-                var repro = stack.inTableScope(value);
-                in_table_mode(ENDTAG, value);
-                if (repro) parser(t, value, arg3, arg4);
-                return;
-
-            case "style":
-            case "script":
-                in_head_mode(t, value, arg3, arg4);
-                return;
-
-            case "input":
-                var type = getTypeAttr(arg3);
-                if (type !== "hidden") break;  // to the anything else case
-                insertHTMLElement(value,arg3);
-                stack.pop();
-                return;
-
-            case "form":
-                if (form_element_pointer) return;
-                form_element_pointer = insertHTMLElement(value, arg3);
-                stack.pop();
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "table":
-                if (!stack.inTableScope(value)) return;
-                stack.popTag(value);
-                stack.resetInsertionMode();
-                return;
-            case "body":
-            case "caption":
-            case "col":
-            case "colgroup":
-            case "html":
-            case "tbody":
-            case "td":
-            case "tfoot":
-            case "th":
-            case "thead":
-            case "tr":
-                return;
-            }
-
-            break;
-        case EOF:
-            stopParsing();
-            return;
-        default:
-            break;
-        }
-
-        // This is the anything else case
-        foster_parent_mode = true;
-        in_body_mode(t, value, arg3, arg4);
-        foster_parent_mode = false;
-    }
-
-    function in_table_text_mode(t, value, arg3, arg4) {
-        if (t === TEXT) {
-            if (textIncludesNUL) {
-                value = value.replace(NULCHARS, "");
-                if (value.length === 0) return;
-            }
-            pending_table_text.push(value);
-        }
-        else {
-            var s = pending_table_text.join("");
-            pending_table_text.length = 0;
-            if (NONWS.test(s)) { // If any non-whitespace characters
-                // This must be the same code as the "anything else"
-                // case of the in_table mode above.
-                foster_parent_mode = true;
-                in_body_mode(TEXT, s);
-                foster_parent_mode = false;
-            }
-            else {
-                insertText(s);
-            }
-            parser = originalInsertionMode;
-            parser(t, value, arg3, arg4);
-        }
-    }
-
-
-    function in_caption_mode(t, value, arg3, arg4) {
-        function end_caption() {
-            if (!stack.inTableScope("caption")) return false;
-            stack.generateImpliedEndTags();
-            stack.popTag("caption");
-            afe.clearToMarker();
-            parser = in_table_mode;
-            return true;
-        }
-
-        switch(t) {
-        case TAG:
-            switch(value) {
-            case "caption":
-            case "col":
-            case "colgroup":
-            case "tbody":
-            case "td":
-            case "tfoot":
-            case "th":
-            case "thead":
-            case "tr":
-                if (end_caption()) parser(t, value, arg3, arg4);
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "caption":
-                end_caption();
-                return;
-            case "table":
-                if (end_caption()) parser(t, value, arg3, arg4);
-                return;
-            case "body":
-            case "col":
-            case "colgroup":
-            case "html":
-            case "tbody":
-            case "td":
-            case "tfoot":
-            case "th":
-            case "thead":
-            case "tr":
-                return;
-            }
-            break;
-        }
-
-        // The Anything Else case
-        in_body_mode(t, value, arg3, arg4);
-    }
-
-    function in_column_group_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            var ws = value.match(LEADINGWS);
-            if (ws) {
-                insertText(ws[0]);
-                value = value.substring(ws[0].length);
-            }
-            if (value.length === 0) return;
-            break; // Handle non-whitespace below
-
-        case COMMENT:
-            insertComment(value);
-            return;
-        case DOCTYPE:
-            return;
-        case TAG:
-            switch(value) {
-            case "html":
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            case "col":
-                insertHTMLElement(value, arg3);
-                stack.pop();
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "colgroup":
-                if (stack.top instanceof impl.HTMLHtmlElement) return;
-                stack.pop();
-                parser = in_table_mode;
-                return;
-            case "col":
-                return;
-            }
-            break;
-        case EOF:
-            if (stack.top instanceof impl.HTMLHtmlElement) {
-                stopParsing();
-                return;
-            }
-            break;
-        }
-
-        // Anything else
-        if (!(stack.top instanceof impl.HTMLHtmlElement)) {
-            in_column_group_mode(ENDTAG, "colgroup");
-            parser(t, value, arg3, arg4);
-        }
-    }
-
-    function in_table_body_mode(t, value, arg3, arg4) {
-        function endsect() {
-            if (!stack.inTableScope("tbody") &&
-                !stack.inTableScope("thead") && 
-                !stack.inTableScope("tfoot")) 
-                return;
-            stack.clearToContext(impl.HTMLTableSectionElement);
-            in_table_body_mode(ENDTAG, stack.top.localName, null);
-            parser(t, value, arg3, arg4);
-        }
-
-        switch(t) {
-        case TAG:
-            switch(value) {
-            case "tr":
-                stack.clearToContext(impl.HTMLTableSectionElement);
-                insertHTMLElement(value, arg3);
-                parser = in_row_mode;
-                return;
-            case "th":
-            case "td":
-                in_table_body_mode(TAG, "tr", null);
-                parser(t, value, arg3, arg4);
-                return;
-            case "caption":
-            case "col":
-            case "colgroup":
-            case "tbody":
-            case "tfoot":
-            case "thead":
-                endsect();
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "table":
-                endsect();
-                return;
-            case "tbody":
-            case "tfoot":
-            case "thead":
-                if (stack.inTableScope(value)) {
-                    stack.clearToContext(impl.HTMLTableSectionElement);
-                    stack.pop();
-                    parser = in_table_mode;
-                }
-                return;
-            case "body":
-            case "caption":
-            case "col":
-            case "colgroup":
-            case "html":
-            case "td":
-            case "th":
-            case "tr":
-                return;
-            }
-            break;
-        }
-
-        // Anything else:
-        in_table_mode(t, value, arg3, arg4);
-    }
-
-    function in_row_mode(t, value, arg3, arg4) {
-        function endrow() {
-            if (!stack.inTableScope("tr")) return false;
-            stack.clearToContext(impl.HTMLTableRowElement);
-            stack.pop();
-            parser = in_table_body_mode;
-            return true;
-        }
-
-        switch(t) {
-        case TAG:
-            switch(value) {
-            case "th":
-            case "td":
-                stack.clearToContext(impl.HTMLTableRowElement);
-                insertHTMLElement(value, arg3);
-                parser = in_cell_mode;
-                afe.insertMarker();
-                return;
-            case "caption":
-            case "col":
-            case "colgroup":
-            case "tbody":
-            case "tfoot":
-            case "thead":
-            case "tr":
-                if (endrow()) parser(t, value, arg3, arg4);
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "tr":
-                endrow();
-                return;
-            case "table":
-                if (endrow()) parser(t, value, arg3, arg4);
-                return;
-            case "tbody":
-            case "tfoot":
-            case "thead":
-                if (stack.inTableScope(value)) {
-                    in_row_mode(ENDTAG, "tr");
-                    parser(t, value, arg3, arg4);
-                }
-                return;
-            case "body":
-            case "caption":
-            case "col":
-            case "colgroup":
-            case "html":
-            case "td":
-            case "th":
-                return;
-            }
-            break;
-        }
-
-        // anything else
-        in_table_mode(t, value, arg3, arg4);
-    }
-
-    function in_cell_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TAG:
-            switch(value) {
-            case "caption":
-            case "col":
-            case "colgroup":
-            case "tbody":
-            case "td":
-            case "tfoot":
-            case "th":
-            case "thead":
-            case "tr":
-                if (stack.inTableScope("td")) {
-                    in_cell_mode(ENDTAG, "td");
-                    parser(t, value, arg3, arg4);
-                }
-                else if (stack.inTableScope("th")) {
-                    in_cell_mode(ENDTAG, "th");
-                    parser(t, value, arg3, arg4);
-                }
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "td":
-            case "th":
-                if (!stack.inTableScope(value)) return;
-                stack.generateImpliedEndTags();
-                stack.popTag(value);
-                afe.clearToMarker();
-                parser = in_row_mode;
-                return;
-
-            case "body":
-            case "caption":
-            case "col":
-            case "colgroup":
-            case "html":
-                return;
-
-            case "table":
-            case "tbody":
-            case "tfoot":
-            case "thead":
-            case "tr":
-                if (!stack.inTableScope(value)) return;
-                in_cell_mode(ENDTAG, stack.inTableScope("td") ? "td" : "th");
-                parser(t, value, arg3, arg4);
-                return;
-            }
-            break;
-        }
-
-        // anything else
-        in_body_mode(t, value, arg3, arg4);
-    }
-
-    function in_select_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            if (textIncludesNUL) {
-                value = value.replace(NULCHARS, "");
-                if (value.length === 0) return;
-            }
-            insertText(value);
-            return;
-        case COMMENT:
-            insertComment(value);
-            return;
-        case DOCTYPE:
-            return;
-        case EOF:
-            stopParsing();
-            return;
-        case TAG:
-            switch(value) {
-            case "html":
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            case "option":
-                if (stack.top instanceof impl.HTMLOptionElement) 
-                    in_select_mode(ENDTAG, value);
-                insertHTMLElement(value, arg3);
-                return;
-            case "optgroup":
-                if (stack.top instanceof impl.HTMLOptionElement) 
-                    in_select_mode(ENDTAG, "option");
-                if (stack.top instanceof impl.HTMLOptGroupElement) 
-                    in_select_mode(ENDTAG, value);
-                insertHTMLElement(value, arg3);
-                return;
-            case "select":
-                in_select_mode(ENDTAG, value); // treat it as a close tag
-                return;
-
-            case "input":
-            case "keygen":
-            case "textarea":
-                if (!stack.inSelectScope("select")) return;
-                in_select_mode(ENDTAG, "select");
-                parser(t, value, arg3, arg4);
-                return;
-                
-            case "script":
-                in_head_mode(t, value, arg3, arg4);
-                return;
-            }
-            break;
-        case ENDTAG:
-            switch(value) {
-            case "optgroup":
-                if (stack.top instanceof impl.HTMLOptionElement &&
-                    stack.elements[stack.elements.length-2] instanceof
-                    impl.HTMLOptGroupElement) {
-                    in_select_mode(ENDTAG, "option");
-                }
-                if (stack.top instanceof impl.HTMLOptGroupElement) 
-                    stack.pop();
-
-                return;
-
-            case "option":
-                if (stack.top instanceof impl.HTMLOptionElement)
-                    stack.pop();
-                return;
-
-            case "select":
-                if (!stack.inSelectScope(value)) return;
-                stack.popTag(value);
-                stack.resetInsertionMode();
-                return;
-            }
-
-            break;
-        }
-
-        // anything else: just ignore the token
-    }
-
-    function in_select_in_table_mode(t, value, arg3, arg4) {
-        switch(value) {
-        case "caption":
-        case "table":
-        case "tbody":
-        case "tfoot":
-        case "thead":
-        case "tr":
-        case "td":
-        case "th":
-            switch(t) {
-            case TAG:
-                in_select_in_table_mode(ENDTAG, "select");
-                parser(t, value, arg3, arg4);
-                return;
-            case ENDTAG:
-                if (stack.inTableScope(value)) {
-                    in_select_in_table_mode(ENDTAG, "select");
-                    parser(t, value, arg3, arg4);
-                }
-                return;
-            }
-        }
-
-        // anything else
-        in_select_mode(t, value, arg3, arg4);
-    }
-
-    function after_body_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            if (NONWS.test(value)) break; // If any non-space chars, handle below
-            in_body_mode(t, value);
-            return;
-        case COMMENT:
-            // Append it to the <html> element
-            stack.elements[0].appendChild(doc.createComment(value));
-            return;
-        case DOCTYPE:
-            return;
-        case EOF:
-            stopParsing();
-            return;
-        case TAG:
-            if (value === "html") {
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            }
-            break; // for any other tags
-        case ENDTAG:
-            if (value === "html") {
-                if (fragment) return;
-                parser = after_after_body_mode;
-                return;
-            }
-            break; // for any other tags
-        }
-
-        // anything else
-        parser = in_body_mode;
-        parser(t, value, arg3, arg4);
-    }
-
-    function in_frameset_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            // Ignore any non-space characters
-            value = value.replace(ALLNONWS, "");
-            if (value.length > 0) insertText(value);
-            return;
-        case COMMENT:
-            insertComment(value);
-            return;
-        case DOCTYPE:
-            return;
-        case EOF:
-            stopParsing();
-            return;
-        case TAG:
-            switch(value) {
-            case "html":
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            case "frameset":
-                insertHTMLElement(value, arg3);
-                return;
-            case "frame":
-                insertHTMLElement(value, arg3);
-                stack.pop();
-                return;
-            case "noframes":
-                in_head_mode(t, value, arg3, arg4);
-                return;
-            }
-            break;
-        case ENDTAG:
-            if (value === "frameset") {
-                if (fragment && stack.top instanceof impl.HTMLHtmlElement) return;
-                stack.pop();
-                if (!fragment && !(stack.top instanceof impl.HTMLFrameSetElement))
-                    parser = after_frameset_mode;
-                return;
-            }
-            break;
-        }
-
-        // ignore anything else
-    }
-
-    function after_frameset_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            // Ignore any non-space characters
-            value = value.replace(ALLNONWS, "");
-            if (value.length > 0) insertText(value);
-            return;
-        case COMMENT:
-            insertComment(value);
-            return;
-        case DOCTYPE:
-            return;
-        case EOF:
-            stopParsing();
-            return;
-        case TAG:
-            switch(value) {
-            case "html":
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            case "noframes":
-                in_head_mode(t, value, arg3, arg4);
-                return;
-            }
-            break;
-        case ENDTAG:
-            if (value === "html") {
-                parser = after_after_frameset_mode;
-                return;
-            }
-            break;
-        }
-
-        // ignore anything else
-    }
-
-    function after_after_body_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            if (NONWS.test(value)) break; // If any non-space chars, handle below
-            in_body_mode(t, value, arg3, arg4);
-            return;
-        case COMMENT:
-            doc.appendChild(doc.createComment(value));
-            return;
-        case DOCTYPE:
-            in_body_mode(t, value, arg3, arg4);
-            return;
-        case EOF:
-            stopParsing();
-            return;
-        case TAG:
-            if (value === "html") {
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            }
-            break;
-        }
-
-        // anything else
-        parser = in_body_mode;
-        parser(t, value, arg3, arg4);
-    }
-
-    function after_after_frameset_mode(t, value, arg3, arg4) {
-        switch(t) {
-        case TEXT:
-            // Ignore any non-space characters
-            value = value.replace(ALLNONWS, "");
-            if (value.length > 0) 
-                in_body_mode(t, value, arg3, arg4);
-            return;
-        case COMMENT:
-            doc.appendChild(doc.createComment(value));
-            return;
-        case DOCTYPE:
-            in_body_mode(t, value, arg3, arg4);
-            return;
-        case EOF:
-            stopParsing();
-            return;
-        case TAG:
-            switch(value) {
-            case "html":
-                in_body_mode(t, value, arg3, arg4);
-                return;
-            case "noframes":
-                in_head_mode(t, value, arg3, arg4);
-                return;
-            }
-            break;
-        }
-
-        // ignore anything else
-    }
-
-
-    // 13.2.5.5 The rules for parsing tokens in foreign content
-    //
-    // This is like one of the insertion modes above, but is 
-    // invoked somewhat differently when the current token is not HTML.
-    // See the insertToken() function.
-    function insertForeignToken(t, value, arg3, arg4) {
-        // A <font> tag is an HTML font tag if it has a color, font, or size
-        // attribute.  Otherwise we assume it is foreign content
-        function isHTMLFont(attrs) {
-            for(var i = 0, n = attrs.length; i < n; i++) {
-                switch(attrs[i][0]) {
-                case "color":
-                case "font":
-                case "size":
-                    return true;
-                }
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+        ElementStack.prototype.contains = function(elt) {
+            return A.lastIndexOf(this.elements, elt) !== -1;
+        };
+
+        ElementStack.prototype.inSpecificScope = function(tag, set) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var elt = this.elements[i];
+                var ns = elt.namespaceURI;
+                var localname = elt.localName;
+                if (ns === HTML_NAMESPACE && localname === tag) return true;
+                var tags = set[ns];
+                if (tags && localname in tags) return false;
             }
             return false;
+        };
+
+        // Like the above, but for a specific element, not a tagname
+        ElementStack.prototype.elementInSpecificScope = function(target, set) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var elt = this.elements[i];
+                if (elt === target) return true;
+                var tags = set[elt.namespaceURI];
+                if (tags && elt.localName in tags) return false;
+            }
+            return false;
+        };
+
+        // Like the above, but for an element interface, not a tagname
+        ElementStack.prototype.elementTypeInSpecificScope = function(target,
+                                                                     set)
+        {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var elt = this.elements[i];
+                if (elt instanceof target) return true;
+                var tags = set[elt.namespaceURI];
+                if (tags && elt.localName in tags) return false;
+            }
+            return false;
+        };
+
+        ElementStack.prototype.inScope = function(tag) {
+            return this.inSpecificScope(tag, inScopeSet);
+        };
+
+        ElementStack.prototype.elementInScope = function(e) {
+            return this.elementInSpecificScope(e, inScopeSet);
+        };
+
+        ElementStack.prototype.elementTypeInScope = function(type) {
+            return this.elementTypeInSpecificScope(type, inScopeSet);
+        };
+
+        ElementStack.prototype.inButtonScope = function(tag) {
+            return this.inSpecificScope(tag, inButtonScopeSet);
+        };
+
+        ElementStack.prototype.inListItemScope = function(tag) {
+            return this.inSpecificScope(tag, inListItemScopeSet);
+        };
+
+        ElementStack.prototype.inTableScope = function(tag) {
+            return this.inSpecificScope(tag, inTableScopeSet);
+        };
+
+        ElementStack.prototype.inSelectScope = function(tag) {
+            // Can't implement this one with inSpecificScope, since it involves
+            // a set defined by inverting another set. So implement manually.
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var elt = this.elements[i];
+                if (elt.namespaceURI !== HTML_NAMESPACE) return false;
+                var localname = elt.localName;
+                if (localname === tag) return true;
+                if (localname !== "optgroup" && localname !== "option")
+                    return false;
+            }
+            return false;
+        };
+
+        ElementStack.prototype.generateImpliedEndTags = function(butnot) {
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var e = this.elements[i];
+                if (butnot && e.localName === butnot) break;
+                if (!isA(this.elements[i], impliedEndTagsSet)) break;
+            }
+
+            this.elements.length = i+1;
+            this.top = this.elements[i];
+        };
+
+
+        // Used by ElementStack.prototype.resetInsertionMode()
+        const tagToMode = {
+            select: in_select_mode,
+            tr: in_row_mode,
+            tbody: in_table_body_mode,
+            tfoot: in_table_body_mode,
+            thead: in_table_body_mode,
+            caption: in_caption_mode,
+            colgroup: in_column_group_mode,
+            table: in_table_mode,
+            head: in_body_mode,  // not in_head!
+            body: in_body_mode,
+            frameset: in_frameset_mode,
+            html: before_head_mode
+        };
+
+        ElementStack.prototype.resetInsertionMode = function() {
+            var last = false;
+            for(var i = this.elements.length-1; i >= 0; i--) {
+                var node = this.elements[i];
+                if (i === 0) {
+                    last = true;
+                    node = fragmentContext;
+                }
+                if (node.namespaceURI === HTML_NAMESPACE) {
+                    var tag = node.localName;
+                    if (tag in tagToMode) {
+                        parser = tagToMode[tag];
+                        return;
+                    }
+                    if (!last && (tag === "td" || tag === "th")) {
+                        parser = in_cell_mode;
+                        return;
+                    }
+                }
+                if (last) {
+                    parser = in_body_mode;
+                    return;
+                }
+            }
+        };
+
+
+        /***
+         * The ActiveFormattingElements class
+         */
+        function ActiveFormattingElements() {
+            this.list = [];
         }
 
-        var current;
+        ActiveFormattingElements.prototype.MARKER = { localName: "|" };
 
-        switch(t) {
-        case TEXT:
-            // If any non-space, non-nul characters
-            if (frameset_ok && NONWSNONNUL.test(value))
-                frameset_ok = false;
-            if (textIncludesNUL) {
-                value = value.replace(NULCHARS, "\uFFFD");
+        /*
+        // For debugging
+        ActiveFormattingElements.prototype.toString = function() {
+            return "AFE: " +
+                this.list.map(function(e) { return e.localName; }).join("-");
+        }
+        */
+
+        ActiveFormattingElements.prototype.insertMarker = function() {
+            push(this.list, this.MARKER);
+        };
+
+        ActiveFormattingElements.prototype.push = function(elt) {
+            // Scan backwards: if there are already 3 copies of this element before
+            // we encounter a marker, then drop the last one
+            var count = 0;
+            for(var i = this.list.length-1; i >= 0; i--) {
+                if (this.list[i] === this.MARKER) break;
+                if (equal(elt, this.list[i])) {  // equal() is defined below
+                    count++;
+                    if (count === 3) {
+                        splice(this.list, i, 1);
+                        break;
+                    }
+                }
             }
-            insertText(value);
-            return;
-        case COMMENT:
-            insertComment(value);
-            return;
-        case DOCTYPE:
-            // ignore it
-            return;
-        case TAG:
-            switch(value) {
-            case "font":
-                if (!isHTMLFont(arg3)) break;
-                /* falls through */
-            case "b":
-            case "big":
-            case "blockquote":
-            case "body":
-            case "br":
-            case "center":
-            case "code":
-            case "dd":
-            case "div":
-            case "dl":
-            case "dt":
-            case "em":
-            case "embed":
-            case "h1":
-            case "h2":
-            case "h3":
-            case "h4":
-            case "h5":
-            case "h6":
-            case "head":
-            case "hr":
-            case "i":
-            case "img":
-            case "li":
-            case "listing":
-            case "menu":
-            case "meta":
-            case "nobr":
-            case "ol":
-            case "p":
-            case "pre":
-            case "ruby":
-            case "s":
-            case "small":
-            case "span":
-            case "strong":
-            case "strike":
-            case "sub":
-            case "sup":
-            case "table":
-            case "tt":
-            case "u":
-            case "ul":
-            case "var":
-                do {
-                    stack.pop();
-                    current = stack.top;
-                } while(current.namespaceURI !== HTML_NAMESPACE &&
-                        !isMathmlTextIntegrationPoint(current) &&
-                        !isHTMLIntegrationPoint(current));
 
-                insertToken(t, value, arg3, arg4);  // reprocess
+            // Now push the element onto the list
+            push(this.list, elt);
+
+            // This function defines equality of two elements.
+            // It is different than Node.isEqualNode() because
+            // it doesn't check the namespace prefix, only the namespace.
+            // And it also doesn't check children.
+            function equal(a, b) {
+                if (a.localName !== b.localName ||
+                    a.namespaceURI !== b.namespaceURI) return false;
+                if (a._numattrs !== b._numattrs) return false;
+                for(var i = 0, n = a._numattrs; i < n; i++) {
+                    var aa = a._attr(i);
+                    if (aa.namespaceURI) {
+                        if (!b.hasAttributeNS(aa.namespaceURI, aa.localName))
+                            return false;
+                        if (b.getAttributeNS(aa.namespaceURI,aa.localName) !== aa.value)
+                            return false;
+                    }
+                    else {
+                        if (!b.hasAttribute(aa.localName))
+                            return false;
+                        if (b.getAttribute(aa.localName) !== aa.value)
+                            return false;
+                    }
+                }
+
+                return true;
+            }
+        };
+
+        ActiveFormattingElements.prototype.reconstruct = function() {
+            if (this.list.length === 0) return;
+            var entry = this.list[this.list.length-1];
+            // If the last is a marker , do nothing
+            if (entry === this.MARKER) return;
+            // Or if it is an open element, do nothing
+            if (A.lastIndexOf(stack.elements, entry) !== -1) return;
+
+            // Loop backward through the list until we find a marker or an
+            // open element, and then move forward one from there.
+            for(var i = this.list.length-2; i >= 0; i--) {
+                entry = this.list[i];
+                if (entry === this.MARKER) break;
+                if (A.lastIndexOf(stack.elements, entry) !== -1) break;
+            }
+
+            // Now loop forward, starting from the element after the current one,
+            // recreating formatting elements and pushing them back onto the
+            // list of open elements
+            for(i = i+1; i < this.list.length; i++) {
+                entry = this.list[i];
+                var newelt = entry.cloneNode(false); // shallow clone
+                //            stack.top.appendChild(newelt);
+                //            stack.push(newelt);
+                insertElement(newelt);
+                this.list[i] = newelt;
+            }
+        };
+
+        ActiveFormattingElements.prototype.clearToMarker = function() {
+            for(var i = this.list.length-1; i >= 0; i--) {
+                if (this.list[i] === this.MARKER) break;
+            }
+            this.list.length = (i < 0) ? 0 : i;
+        };
+
+        // Find and return the last element with the specified tag between the
+        // end of the list and the last marker on the list.
+        // Used when parsing <a> in_body_mode()
+        ActiveFormattingElements.prototype.findElementByTag = function(tag) {
+            for(var i = this.list.length-1; i >= 0; i--) {
+                var elt = this.list[i];
+                if (elt === this.MARKER) break;
+                if (elt.namespaceURI === HTML_NAMESPACE &&
+                    elt.localName === tag) 
+                    return elt;
+            }
+            return null;
+        };
+
+        ActiveFormattingElements.prototype.contains = function(e) {
+            var idx = A.lastIndexOf(this.list, e);
+            return idx !== -1;
+        };
+
+        // Find the element e in the list and remove it
+        // Used when parsing <a> in_body()
+        ActiveFormattingElements.prototype.remove = function(e) {
+            var idx = A.lastIndexOf(this.list, e);
+            if (idx !== -1) splice(this.list, idx, 1);
+        };
+
+        // Find element a in the list and replace it with element b
+        ActiveFormattingElements.prototype.replace = function(a, b) {
+            var idx = A.lastIndexOf(this.list, a);
+            if (idx !== -1) this.list[idx] = b;
+        };
+
+        // Find a in the list and insert b after it
+        ActiveFormattingElements.prototype.insertAfter = function(a,b) {
+            var idx = A.lastIndexOf(this.list, a);
+            if (idx !== -1) splice(this.list, idx, 0, b);
+        };
+
+
+        /***
+         * The actual code of the HTMLParser() factory function begins here.
+         */
+
+        if (mutationHandler) doc.mutationHandler = mutationHandler;
+
+        if (fragmentContext) { // for innerHTML parsing
+            if (fragmentContext.ownerDocument._quirks)
+                doc._quirks = true;
+            if (fragmentContext.ownerDocument._limitedQuirks)
+                doc._limitedQuirks = true;
+
+            // Set the initial tokenizer state
+            if (fragmentContext.namespaceURI === HTML_NAMESPACE) {
+                switch(fragmentContext.localName) {
+                case "title":
+                case "textarea":
+                    tokenizer = rcdata_state;
+                    break;
+                case "style":
+                case "xmp":
+                case "iframe":
+                case "noembed":
+                case "noframes":
+                case "script":
+                case "plaintext":
+                    tokenizer = plaintext_state;
+                    break;
+                case "noscript":
+                    if (scripting_enabled)
+                        tokenizer = plaintext_state;
+                }
+            }
+
+            var root = doc.createElement("html");
+            doc.appendChild(root);
+            stack.push(root);
+            stack.resetInsertionMode();
+
+            for(var e = fragmentContext; e !== null; e = e.parentElement) {
+                if (e instanceof impl.HTMLFormElement) {
+                    form_element_pointer = e;
+                    break;
+                }
+            }
+        }
+
+        /***
+         * Scanner functions
+         */
+
+        // Add the string s to the scanner.
+        // Pass true as the second argument if this is the end of the data.
+        function scannerAppend(s, eof) {
+            if (eof) {
+                s = s || "";
+                // Add a special marker character to the end of the buffer.
+                // If the scanner is at the end of the buffer and input_complete
+                // is set, then this character will transform into an EOF token.
+                // Having an actual character that represents EOF in the 
+                // character buffer makes lookahead regexp matching work 
+                // more easily, and this is important for character references.
+                s += "\uFFFF";
+                input_complete = true;  // Makes scanChars() send EOF
+            }
+
+            if (chars === null) { // If this is the first text appended
+                chars = s;
+                numchars = chars.length;
+                // Skip Byte Order Mark (\uFEFF) on first appended string
+                if (S.charCodeAt(chars, 0) === 0xFEFF) nextchar = 1;
+                else nextchar = 0;
+            }
+            else {
+                chars = substring(chars, nextchar) + s;
+                numchars = chars.length;
+                nextchar = 0;
+            }
+        }
+
+        // Insert characters into the input stream.
+        // document.write() does this.
+        function scannerInsert(s) {
+            chars = s + substring(chars, nextchar);
+            numchars = chars.length;
+            nextchar = 0;
+        }
+
+        // Loop through the characters in chars, and pass them one at a time
+        // to the tokenizer FSM. Return when no more characters can be processed
+        // (This may leave 1 or more characters in the buffer: like a CR
+        // waiting to see if the next char is LF, or for states that require
+        // lookahead...)
+        function scanChars() {
+            var codepoint, s, pattern, eof;
+            while(nextchar < numchars) {
+                switch(typeof tokenizer.lookahead) {
+                case 'undefined':
+                    codepoint = S.charCodeAt(chars, nextchar++);
+                    switch(codepoint) {
+                    case 0x000D:
+                        // Need to peek and see if next char is LF.
+                        // If we don't know the next char, we're done for now
+                        if (nextchar === numchars) {
+                            nextchar--;
+                            return;
+                        }
+                        var next = S.charCodeAt(chars, nextchar);
+                        // If CR/LF pair, just skip the CR
+                        if (next === 0x000A) nextchar++;
+                        // In either case, tokenize just one LF
+                        tokenizer(0x000A);
+                        break;
+                    case 0xFFFF:
+                        if (input_complete && nextchar === numchars) {
+                            tokenizer(EOF);  // codepoint will be 0xFFFF here
+                            break;
+                        }
+                        /* falls through */
+                    default:
+                        tokenizer(codepoint);
+                        break;
+                    }
+                    break;
+
+                case 'number':
+                    // tokenizer wants n chars of lookahead
+                    var n = tokenizer.lookahead;
+                    
+                    if (n < numchars - nextchar) {
+                        // If we can look ahead that far
+                        s = substring(chars, nextchar, nextchar+n);
+                        eof = false;
+                    }
+                    else { // if we don't have that many characters
+                        if (input_complete) { // If no more are coming
+                            // Just return what we have
+                            s = substring(chars, nextchar, numchars);
+                            eof = true;
+                        }
+                        else {
+                            // Return now and wait for more chars later
+                            return;
+                        }
+                    }
+                    codepoint = S.charCodeAt(chars, nextchar);
+                    tokenizer(codepoint, s, eof);
+                    break;
+                case 'string':
+                    // tokenizer wants characters up to a matching string
+                    pattern = tokenizer.lookahead;
+                    var pos = S.indexOf(chars, pattern, nextchar);
+                    codepoint = S.charCodeAt(chars, nextchar);
+                    if (pos !== -1) {
+                        s = substring(chars, nextchar, pos + pattern.length);
+                        eof = false;
+                    }
+                    else {  // No match
+                        // If more characters coming, wait for them
+                        if (!input_complete) return;
+
+                        // Otherwise, we've got to return what we've got
+                        s = substring(chars, nextchar, numchars);
+                        eof = true;
+                    }
+
+                    tokenizer(codepoint, s, eof);
+                    break;
+                case 'object':
+                    // tokenizer wants characters that match a regexp
+                    pattern = tokenizer.lookahead;
+                    codepoint = S.charCodeAt(chars, nextchar);
+                    pattern.lastIndex = nextchar;
+                    if (test(pattern, chars)) {
+                        // Found a match.
+                        // lastIndex now points to the first char after it
+                        s = substring(chars, nextchar, pattern.lastIndex);
+                        eof = false;
+                    }
+                    else {
+                        // No match.  If we're not at the end of input, then
+                        // wait for more chars
+                        if (!input_complete) return;
+
+                        // Otherwise, pass an empty string.  This is
+                        // different than the string-based lookahead
+                        // above. Regexp-based lookahead is only used
+                        // for character references, and a partial one
+                        // will not parse.  Also, a char ref
+                        // terminated with EOF will parse in the if
+                        // branch above, so here we're dealing with
+                        // things that really aren't char refs
+                        s = "";
+                        eof = true;
+                    }
+                    
+                    tokenizer(codepoint, s, eof);
+                    break;
+                }
+            }
+        }
+
+
+        /***
+         * Tokenizer utility functions
+         */
+        function addAttribute(namebuf,valuebuf) {
+            var name = buf2str(namebuf);
+            var value;
+
+            // Make sure there isn't already an attribute with this name
+            // If there is, ignore this one.
+            for(var i = 0; i < attributes.length; i++) {
+                if (attributes[i][0] === name) return;
+            }
+            
+            if (valuebuf) {
+                push(attributes, [name, buf2str(valuebuf)]);
+            }
+            else {
+                push(attributes, [name]);
+            }
+        }
+
+        // Shortcut for simple attributes
+        function handleSimpleAttribute() {
+            SIMPLEATTR.lastIndex = nextchar-1;
+            var match = exec(SIMPLEATTR, chars);
+            if (!match) return false;
+            
+            var name = match[1];
+            var value = match[2];
+            var len = value.length;
+            switch(value[0]) {
+            case '"':
+            case "'":
+                value = substring(value, 1, len-1);
+                nextchar += (match[0].length-1);
+                tokenizer = after_attribute_value_quoted_state;            
+                break;
+            default:
+                tokenizer = before_attribute_name_state;
+                nextchar += (match[0].length-1);
+                value = substring(value, 0, len-1);
+                break;
+            }
+
+            // Make sure there isn't already an attribute with this name
+            // If there is, ignore this one.
+            for(var i = 0; i < attributes.length; i++) {
+                if (attributes[i][0] === name) return true;
+            }
+
+            push(attributes, [name, value]);
+            return true;
+        }
+
+
+        function pushState() { push(savedTokenizerStates, tokenizer); }
+        function popState() { tokenizer = pop(savedTokenizerStates); }
+        function beginTagName() {
+            is_end_tag = false;
+            tagnamebuf.length = 0;
+            attributes.length = 0;
+        }
+        function beginEndTagName() {
+            is_end_tag = true;
+            tagnamebuf.length = 0;
+            attributes.length = 0;
+        }
+
+        function beginTempBuf() { tempbuf.length = 0; }
+        function beginAttrName() { attrnamebuf.length = 0; }
+        function beginAttrValue() { attrvaluebuf.length = 0; }
+        function beginComment() { commentbuf.length = 0; }
+        function beginDoctype() {
+            doctypenamebuf.length = 0;
+            doctypepublicbuf = null;
+            doctypesystembuf = null;
+        }
+        function beginDoctypePublicId() { doctypepublicbuf = []; }
+        function beginDoctypeSystemId() { doctypesystembuf = []; }
+        function appendChar(buf, char) { push(buf, char); }
+        function forcequirks() { force_quirks = true; }
+        function cdataAllowed() {
+            return stack.top &&
+                stack.top.namespaceURI !== "http://www.w3.org/1999/xhtml";
+        }
+
+        // Return true if the codepoints in the specified buffer match the
+        // characters of lasttagname
+        function appropriateEndTag(buf) {
+            if (buf.length !== lasttagname.length) return false;
+            for(var i = 0, n = buf.length; i < n; i++) {
+                if (buf[i] !== lasttagname.charCodeAt(i)) return false;
+            }
+            return true;
+        }
+
+        function flushText() {
+            if (textrun.length > 0) {
+                var s = buf2str(textrun);
+                textrun.length = 0;
+
+                if (ignore_linefeed) {
+                    ignore_linefeed = false;
+                    if (s[0] === "\n") s = substring(s, 1);
+                    if (s.length === 0) return;
+                }
+
+                insertToken(TEXT, s);
+                textIncludesNUL = false;
+            }
+            ignore_linefeed = false;
+        }
+
+        // emit a string of chars that match a regexp
+        // Returns false if no chars matched.
+        function emitCharsWhile(pattern) {
+            pattern.lastIndex = nextchar-1;
+            var match = exec(pattern, chars)[0];
+            if (!match) return false;
+            emitCharString(match);
+            nextchar += match.length - 1;
+            return true;
+        }
+
+        // This is used by CDATA sections 
+        function emitCharString(s) {
+            if (textrun.length > 0) flushText();
+
+            if (ignore_linefeed) {
+                ignore_linefeed = false;
+                if (s[0] === "\n") s = substring(s, 1);
+                if (s.length === 0) return;
+            }
+            
+            insertToken(TEXT, s);
+        }
+
+        function emitTag() {
+            if (is_end_tag) insertToken(ENDTAG, buf2str(tagnamebuf));
+            else {
+                // Remember the last open tag we emitted
+                var tagname = buf2str(tagnamebuf);
+                tagnamebuf.length = 0;
+                lasttagname = tagname;
+                insertToken(TAG, tagname, attributes);
+            }
+        }
+
+
+        // A shortcut: look ahead and if this is a open or close tag
+        // in lowercase with no spaces and no attributes, just emit it now.
+        function emitSimpleTag() {
+            SIMPLETAG.lastIndex = nextchar;
+            var match = exec(SIMPLETAG, chars);
+            if (!match) return false;
+            var tagname = match[2];
+            var endtag = match[1];
+            if (endtag) {
+                nextchar += (tagname.length+2);
+                insertToken(ENDTAG, tagname);
+            }
+            else {
+                nextchar += (tagname.length+1);
+                lasttagname = tagname;
+                insertToken(TAG, tagname, NOATTRS);
+            }
+            return true;
+        }
+
+        function emitSelfClosingTag() {
+            if (is_end_tag) insertToken(ENDTAG, buf2str(tagnamebuf), null, true);
+            else {
+                insertToken(TAG, buf2str(tagnamebuf), attributes, true);
+            }
+        }
+
+        function emitDoctype() {
+            insertToken(DOCTYPE,
+                        buf2str(doctypenamebuf), 
+                        doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined,
+                        doctypesystembuf ? buf2str(doctypesystembuf) : undefined);
+        }
+
+        function emitEOF() {
+            flushText();
+            parser(EOF);  // EOF never goes to insertForeignContent()
+        }
+
+        // Insert a token, either using the current parser insertio mode
+        // (for HTML stuff) or using the insertForeignToken() method.
+        function insertToken(t, value, arg3, arg4) {
+            flushText();
+            var current = stack.top;
+
+            if (!current || current.namespaceURI === HTML_NAMESPACE) {
+                // This is the common case
+                parser(t, value, arg3, arg4);
+            }
+            else {
+                // Otherwise we may need to insert this token as foreign content
+                if (t !== TAG && t !== TEXT) {
+                    insertForeignToken(t, value, arg3, arg4);
+                }
+                else {
+                    // But in some cases we treat it as regular content
+                    if ((isMathmlTextIntegrationPoint(current) &&
+                         (t === TEXT ||
+                          (t === TAG &&
+                           value !== "mglyph" && value !== "malignmark"))) ||
+                        (t === TAG &&
+                         value === "svg" &&
+                         current.namespaceURI === MATHML_NAMESPACE &&
+                         current.localName === "annotation-xml") ||
+                        isHTMLIntegrationPoint(current)) {
+
+                        // XXX: the text_integration_mode stuff is an 
+                        // attempted bug workaround of mine
+                        text_integration_mode = true;
+                        parser(t, value, arg3, arg4);
+                        text_integration_mode = false;
+                    }
+                    // Otherwise it is foreign content
+                    else {
+                        insertForeignToken(t, value, arg3, arg4);
+                    }
+                }
+            }
+        }
+
+
+        /***
+         * Tree building utility functions 
+         */
+        function insertComment(data) {
+            stack.top.appendChild(doc.createComment(data)); 
+        }
+
+        function insertText(s) {
+            if (foster_parent_mode && isA(stack.top, tablesectionrowSet)) {
+                fosterParent(doc.createTextNode(s));
+            }
+            else {
+                var lastChild = stack.top.lastChild;
+                if (lastChild && lastChild.nodeType === Node.TEXT_NODE) {
+                    lastChild.appendData(s);
+                }
+                else {
+                    stack.top.appendChild(doc.createTextNode(s));
+                }
+            }
+        }
+
+        function createHTMLElt(name, attrs, insert) {
+            // Create the element this way, rather than with 
+            // doc.createElement because createElement() does error
+            // checking on the element name that we need to avoid here.
+            var interfaceName = tagNameToInterfaceName[name] ||
+                "HTMLUnknownElement";
+            var elt = new impl[interfaceName](doc, name, null);
+
+            if (insert) {
+                insertElement(elt);
+            }
+
+            if (attrs) {
+                for(var i = 0, n = attrs.length; i < n; i++) {
+                    // Use the _ version to avoid testing the validity
+                    // of the attribute name
+                    elt._setAttribute(attrs[i][0], attrs[i][1]);
+                }
+            }
+            // XXX
+            // If the element is a resettable form element,
+            // run its reset algorithm now
+            return elt;
+        }
+        
+        // The in_table insertion mode turns on this flag, and that makes
+        // insertHTMLElement use the foster parenting algorithm for elements
+        // tags inside a table
+        var foster_parent_mode = false;
+
+        function insertHTMLElement(name, attrs) {
+            var elt = createHTMLElt(name, attrs, true);
+            // XXX
+            // If this is a form element, set its form attribute property
+
+            return elt;
+        }
+
+        // Insert the element into the open element or foster parent it
+        function insertElement(elt) {
+            if (foster_parent_mode && isA(stack.top, tablesectionrowSet)) {
+                fosterParent(elt);
+            }
+            else {
+                stack.top.appendChild(elt);
+            }
+
+            stack.push(elt);
+        }
+
+        function fosterParent(elt) {
+            var parent, before;
+
+            for(var i = stack.elements.length-1; i >= 0; i--) {
+                if (stack.elements[i] instanceof impl.HTMLTableElement) {
+                    parent = stack.elements[i].parentElement;
+                    if (parent)
+                        before = stack.elements[i];
+                    else 
+                        parent = stack.elements[i-1];
+                    
+                    break;
+                }
+            }
+            if (!parent) parent = stack.elements[0];
+
+            if (elt.nodeType === Node.TEXT_NODE) {
+                var prev;
+                if (before) prev = before.previousSibling;
+                else prev = parent.lastChild;
+                if (prev && prev.nodeType === Node.TEXT_NODE) {
+                    prev.appendData(elt.data);
+                    return;
+                }
+            }
+            if (before)
+                parent.insertBefore(elt, before);
+            else
+                parent.appendChild(elt);
+        }
+
+        function insertForeignElement(name, attrs, ns) {
+            var elt = doc.createElementNS(ns, name);
+            if (attrs) {
+                for(var i = 0, n = attrs.length; i < n; i++) {
+                    var attr = attrs[i];
+                    if (attr.length == 2) 
+                        elt._setAttribute(attr[0], attr[1]);
+                    else {
+                        elt._setAttributeNS(attr[2], attr[0], attr[1]);
+                    }
+                }
+            }
+
+            insertElement(elt);
+        }
+
+        function parseRawText(name, attrs) {
+            insertHTMLElement(name, attrs);
+            tokenizer = rawtext_state;
+            originalInsertionMode = parser;
+            parser = text_mode;
+        }
+
+        function parseRCDATA(name, attrs) {
+            insertHTMLElement(name, attrs);
+            tokenizer = rcdata_state;
+            originalInsertionMode = parser;
+            parser = text_mode;
+        }
+
+        const BOOKMARK = {localName:"BM"};  // Used by the adoptionAgency() function
+
+        function adoptionAgency(tag) {
+            // Let outer loop counter be zero.
+            var outer = 0;
+
+            // Outer loop: If outer loop counter is greater than or equal to eight,
+            // then abort these steps.
+            while(outer < 8) {
+                // Increment outer loop counter by one.
+                outer++;
+
+                // Let the formatting element be the last element in the list of
+                // active formatting elements that: is between the end of the list
+                // and the last scope marker in the list, if any, or the start of
+                // the list otherwise, and has the same tag name as the token.
+                var fmtelt = afe.findElementByTag(tag);
+
+                // If there is no such node, then abort these steps and instead
+                // act as described in the "any other end tag" entry below.
+                if (!fmtelt) {
+                    return false;  // false means handle by the default case
+                }
+                // Otherwise, if there is such a node, but that node is not in the
+                // stack of open elements, then this is a parse error; remove the
+                // element from the list, and abort these steps.
+                var index = A.lastIndexOf(stack.elements, fmtelt);
+                if (index === -1) {
+                    afe.remove(fmtelt);
+                    return true;   // true means no more handling required
+                }
+
+                // Otherwise, if there is such a node, and that node is also in
+                // the stack of open elements, but the element is not in scope,
+                // then this is a parse error; ignore the token, and abort these
+                // steps.
+                if (!stack.elementInScope(fmtelt)) {
+                    return true;
+                }
+
+                // Let the furthest block be the topmost node in the stack of open
+                // elements that is lower in the stack than the formatting
+                // element, and is an element in the special category. There might
+                // not be one.
+                var furthestblock = null, furthestblockindex;
+                for(var i = index+1; i < stack.elements.length; i++) {
+                    if (isA(stack.elements[i], specialSet)) {
+                        furthestblock = stack.elements[i];
+                        furthestblockindex = i;
+                        break;
+                    }
+                }
+
+                // If there is no furthest block, then the UA must
+                // skip the subsequent steps and instead just pop all
+                // the nodes from the bottom of the stack of open
+                // elements, from the current node up to and including
+                // the formatting element, and remove the formatting
+                // element from the list of active formatting
+                // elements.
+                if (!furthestblock) {
+                    stack.popElement(fmtelt);
+                    afe.remove(fmtelt);
+                }
+                else {
+                    // Let the common ancestor be the element immediately above
+                    // the formatting element in the stack of open elements.
+                    var ancestor = stack.elements[index-1];
+
+                    // Let a bookmark note the position of the formatting element
+                    // in the list of active formatting elements relative to the
+                    // elements on either side of it in the list.
+                    afe.insertAfter(fmtelt, BOOKMARK);
+                    
+                    // Let node and last node be the furthest block. 
+                    var node = furthestblock;
+                    var lastnode = furthestblock;
+                    var nodeindex = furthestblockindex;
+
+                    // Let inner loop counter be zero.
+                    var inner = 0; 
+
+                    // Inner loop: If inner loop counter is greater than
+                    // or equal to three, then abort these steps.
+                    while(inner < 3) {
+
+                        // Increment inner loop counter by one.
+                        inner++;
+
+                        // Let node be the element immediately above node in the
+                        // stack of open elements, or if node is no longer in the
+                        // stack of open elements (e.g. because it got removed by
+                        // the next step), the element that was immediately above
+                        // node in the stack of open elements before node was
+                        // removed.
+                        node = stack.elements[--nodeindex];
+
+                        // If node is not in the list of active formatting
+                        // elements, then remove node from the stack of open
+                        // elements and then go back to the step labeled inner
+                        // loop.
+                        if (!afe.contains(node)) {
+                            stack.removeElement(node);
+                            continue;
+                        }
+
+                        // Otherwise, if node is the formatting element, then go
+                        // to the next step in the overall algorithm.
+                        if (node === fmtelt) break;
+
+                        // Create an element for the token for which the element
+                        // node was created, replace the entry for node in the
+                        // list of active formatting elements with an entry for
+                        // the new element, replace the entry for node in the
+                        // stack of open elements with an entry for the new
+                        // element, and let node be the new element.
+                        var newelt = node.cloneNode(false);
+                        afe.replace(node, newelt);
+                        stack.elements[nodeindex] = newelt;
+                        node = newelt;
+
+                        // If last node is the furthest block, then move the
+                        // aforementioned bookmark to be immediately after the new
+                        // node in the list of active formatting elements.
+                        if (lastnode === furthestblock) {
+                            afe.remove(BOOKMARK);
+                            afe.insertAfter(newelt, BOOKMARK);
+                        }
+                        
+                        // Insert last node into node, first removing it from its
+                        // previous parent node if any.
+                        node.appendChild(lastnode);
+
+                        // Let last node be node.
+                        lastnode = node;
+                    }
+
+                    // If the common ancestor node is a table, tbody, tfoot,
+                    // thead, or tr element, then, foster parent whatever last
+                    // node ended up being in the previous step, first removing it
+                    // from its previous parent node if any.
+                    if (isA(ancestor, tablesectionrowSet)) {
+                        fosterParent(lastnode);
+                    }
+                    // Otherwise, append whatever last node ended up being in the
+                    // previous step to the common ancestor node, first removing
+                    // it from its previous parent node if any.
+                    else {
+                        ancestor.appendChild(lastnode);
+                    }
+
+                    // Create an element for the token for which the
+                    // formatting element was created.
+                    var newelt2 = fmtelt.cloneNode(false);
+
+                    // Take all of the child nodes of the furthest block and append
+                    // them to the element created in the last step.
+                    while(furthestblock.hasChildNodes()) {
+                        newelt2.appendChild(furthestblock.firstChild);
+                    }
+
+                    // Append that new element to the furthest block.
+                    furthestblock.appendChild(newelt2);
+
+                    // Remove the formatting element from the list of active
+                    // formatting elements, and insert the new element into the
+                    // list of active formatting elements at the position of the
+                    // aforementioned bookmark.
+                    afe.remove(fmtelt);
+                    afe.replace(BOOKMARK, newelt2);
+
+                    // Remove the formatting element from the stack of open
+                    // elements, and insert the new element into the stack of open
+                    // elements immediately below the position of the furthest
+                    // block in that stack.
+                    stack.removeElement(fmtelt);
+                    var pos = A.lastIndexOf(stack.elements, furthestblock);
+                    splice(stack.elements, pos+1, 0, newelt2);
+                }
+            }
+
+            return true;
+        }
+
+        // We do this when we get /script in in_text_mode
+        function handleScriptEnd() {
+            // XXX:
+            // This is just a stub implementation right now and doesn't run scripts.
+            // Getting this method right involves the event loop, URL resolution
+            // script fetching etc. For now I just want to be able to parse 
+            // documents and test the parser.
+
+            stack.pop();
+            parser = originalInsertionMode;
+            return;
+
+            // XXX: here is what this method is supposed to do
+
+            // Provide a stable state.
+
+            // Let script be the current node (which will be a script
+            // element).
+
+            // Pop the current node off the stack of open elements.
+
+            // Switch the insertion mode to the original insertion mode.
+
+            // Let the old insertion point have the same value as the current
+            // insertion point. Let the insertion point be just before the
+            // next input character.
+
+            // Increment the parser's script nesting level by one.
+
+            // Prepare the script. This might cause some script to execute,
+            // which might cause new characters to be inserted into the
+            // tokenizer, and might cause the tokenizer to output more tokens,
+            // resulting in a reentrant invocation of the parser.
+
+            // Decrement the parser's script nesting level by one. If the
+            // parser's script nesting level is zero, then set the parser
+            // pause flag to false.
+
+            // Let the insertion point have the value of the old insertion
+            // point. (In other words, restore the insertion point to its
+            // previous value. This value might be the "undefined" value.)
+
+            // At this stage, if there is a pending parsing-blocking script,
+            // then:
+
+            // If the script nesting level is not zero:
+
+            //     Set the parser pause flag to true, and abort the processing
+            //     of any nested invocations of the tokenizer, yielding
+            //     control back to the caller. (Tokenization will resume when
+            //     the caller returns to the "outer" tree construction stage.)
+
+            //     The tree construction stage of this particular parser is
+            //     being called reentrantly, say from a call to
+            //     document.write().  
+
+            // Otherwise:
+
+            //         Run these steps:
+
+            //             Let the script be the pending parsing-blocking
+            //             script. There is no longer a pending
+            //             parsing-blocking script.
+
+            //             Block the tokenizer for this instance of the HTML
+            //             parser, such that the event loop will not run tasks
+            //             that invoke the tokenizer.
+
+            //             If the parser's Document has a style sheet that is
+            //             blocking scripts or the script's "ready to be
+            //             parser-executed" flag is not set: spin the event
+            //             loop until the parser's Document has no style sheet
+            //             that is blocking scripts and the script's "ready to
+            //             be parser-executed" flag is set.
+
+            //             Unblock the tokenizer for this instance of the HTML
+            //             parser, such that tasks that invoke the tokenizer
+            //             can again be run.
+
+            //             Let the insertion point be just before the next
+            //             input character.
+
+            //             Increment the parser's script nesting level by one
+            //             (it should be zero before this step, so this sets
+            //             it to one).
+
+            //             Execute the script.
+
+            //             Decrement the parser's script nesting level by
+            //             one. If the parser's script nesting level is zero
+            //             (which it always should be at this point), then set
+            //             the parser pause flag to false.
+
+            //             Let the insertion point be undefined again.
+
+            //             If there is once again a pending parsing-blocking
+            //             script, then repeat these steps from step 1.
+
+
+        }
+
+        function stopParsing() {
+            // XXX This is just a temporary implementation to get the parser working.
+            // A full implementation involves scripts and events and the event loop.
+            stack.elements.length = 0;  // pop everything off
+        }
+
+        /****
+         * Tokenizer states 
+         */
+
+        /**
+         * This file was partially mechanically generated from 
+         * http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html
+         *
+         * After mechanical conversion, it was further converted from
+         * prose to JS by hand, but the intent is that it is a very
+         * faithful rendering of the HTML tokenization spec in
+         * JavaScript.
+         * 
+         * It is not a goal of this tokenizer to detect or report
+         * parse errors.
+         *
+         * XXX The tokenizer is supposed to work with straight UTF32
+         * codepoints. But I don't think it has any dependencies on
+         * any character outside of the BMP so I think it is safe to
+         * pass it UTF16 characters. I don't think it will ever change
+         * state in the middle of a surrogate pair.
+         */
+
+        /*
+         * Each state is represented by a function.  For most states, the
+         * scanner simply passes the next character (as an integer
+         * codepoint) to the current state function and automatically
+         * consumes the character.  If the state function can't process
+         * the character it can call pushback() to push it back to the
+         * scanner.
+         * 
+         * Some states require lookahead, though.  If a state function has
+         * a lookahead property, then it is invoked differently.  In this
+         * case, the scanner invokes the function with 3 arguments: 1) the
+         * next codepoint 2) a string of lookahead text 3) a boolean that
+         * is true if the lookahead goes all the way to the EOF. (XXX
+         * actually maybe this third is not necessary... the lookahead
+         * could just include \uFFFF?)
+         *
+         * If the lookahead property of a state function is an integer, it
+         * specifies the number of characters required. If it is a string,
+         * then the scanner will scan for that string and return all
+         * characters up to and including that sequence, or up to EOF.  If
+         * the lookahead property is a regexp, then the scanner will match
+         * the regexp at the current point and return the matching string.
+         * 
+         * States that require lookahead are responsible for explicitly
+         * consuming the characters they process. They do this by
+         * incrementing nextchar by the number of processed characters.
+         */
+
+        function data_state(c) {
+            switch(c) {
+            case 0x0026: //  AMPERSAND 
+                tokenizer = character_reference_in_data_state;
+                break; 
+            case 0x003C: //  LESS-THAN SIGN 
+                if (emitSimpleTag()) // Shortcut for <p>, <dl>, </div> etc.
+                    break;
+                tokenizer = tag_open_state;
+                break; 
+            case 0x0000: //  NULL 
+                // Usually null characters emitted by the tokenizer will be
+                // ignored by the tree builder, but sometimes they'll be 
+                // converted to \uFFFD.  I don't want to have the search every
+                // string emitted to replace NULs, so I'll set a flag
+                // if I've emitted a NUL.
+                push(textrun,c);
+                textIncludesNUL = true;
+                break; 
+            case EOF: 
+                emitEOF();
+                break; 
+            default: 
+                // Instead of just pushing a single character and then
+                // coming back to the very same place, lookahead and
+                // emit everything we can at once.
+                emitCharsWhile(DATATEXT) || push(textrun, c);
+                break; 
+            }
+        }
+
+        function character_reference_in_data_state(c, lookahead, eof) {
+            var char = parseCharRef(lookahead, false);
+            if (char !== null) {
+                if (typeof char === "number") push(textrun,char);
+                else pushAll(textrun, char);  // An array of characters
+            }
+            else
+                push(textrun,0x0026); // AMPERSAND;
+
+            tokenizer = data_state;
+        }
+        character_reference_in_data_state.lookahead = CHARREF;
+
+        function rcdata_state(c) {
+            // Save the open tag so we can find a matching close tag
+            switch(c) {
+            case 0x0026: //  AMPERSAND 
+                tokenizer = character_reference_in_rcdata_state;
+                break; 
+            case 0x003C: //  LESS-THAN SIGN 
+                tokenizer = rcdata_less_than_sign_state;
+                break; 
+            case 0x0000: //  NULL 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                textIncludesNUL = true;
+                break; 
+            case EOF: 
+                emitEOF();
+                break; 
+            default: 
+                push(textrun,c);
+                break; 
+            }
+        }
+
+        function character_reference_in_rcdata_state(c, lookahead, eof) {
+            var char = parseCharRef(lookahead, false);
+            if (char !== null) {
+                if (typeof char === "number") push(textrun,char);
+                else pushAll(textrun, char);  // An array of characters
+            }
+            else
+                push(textrun,0x0026); // AMPERSAND;
+
+            tokenizer = rcdata_state;
+        }
+        character_reference_in_rcdata_state.lookahead = CHARREF;
+
+        function rawtext_state(c) {
+            switch(c) {
+            case 0x003C: //  LESS-THAN SIGN 
+                tokenizer = rawtext_less_than_sign_state;
+                break; 
+            case 0x0000: //  NULL 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                break; 
+            case EOF: 
+                emitEOF();
+                break; 
+            default: 
+                emitCharsWhile(RAWTEXT) || push(textrun, c);
+                break; 
+            }
+        }
+
+        function script_data_state(c) {
+            switch(c) {
+            case 0x003C: //  LESS-THAN SIGN 
+                tokenizer = script_data_less_than_sign_state;
+                break; 
+            case 0x0000: //  NULL 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                break; 
+            case EOF: 
+                emitEOF();
+                break; 
+            default: 
+                emitCharsWhile(RAWTEXT) || push(textrun, c);
+                break; 
+            }
+        }
+
+        function plaintext_state(c) {
+            switch(c) {
+            case 0x0000: //  NULL 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                break; 
+            case EOF: 
+                emitEOF();
+                break; 
+            default: 
+                emitCharsWhile(PLAINTEXT) || push(textrun, c);
+                break; 
+            }
+        }
+
+        function tag_open_state(c) {
+            switch(c) {
+            case 0x0021: //  EXCLAMATION MARK 
+                tokenizer = markup_declaration_open_state;
+                break; 
+            case 0x002F: //  SOLIDUS 
+                tokenizer = end_tag_open_state;
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                c += 0x20;  // to lowercase
+                /* falls through */
+
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                beginTagName();
+                appendChar(tagnamebuf, c);
+                tokenizer = tag_name_state; 
+                break; 
+            case 0x003F: //  QUESTION MARK 
+                nextchar--;  // pushback
+                tokenizer = bogus_comment_state;
+                break; 
+            default: 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            }
+        }
+
+        function end_tag_open_state(c) {
+            switch(c) {
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                c += 0x20; // to lowercase
+                /* falls through */
+
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                beginEndTagName();
+                appendChar(tagnamebuf, c);
+                tokenizer = tag_name_state; 
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state;
+                break; 
+            case EOF: 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                push(textrun,0x002F); // SOLIDUS
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                nextchar--;  // pushback
+                tokenizer = bogus_comment_state;
+                break; 
+            }
+        }
+
+        function tag_name_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE 
+                tokenizer = before_attribute_name_state;
+                break; 
+            case 0x002F: //  SOLIDUS
+                tokenizer = self_closing_start_tag_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                emitTag();
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                appendChar(tagnamebuf, c + 0x0020);
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(tagnamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                appendChar(tagnamebuf, c);
+                // appendCharsWhile(tagnamebuf, TAGNAMECHARS) || appendChar(tagnamebuf, c);
+                break; 
+            }
+        }
+
+        function rcdata_less_than_sign_state(c) {
+            /* identical to the RAWTEXT less-than sign state, except s/RAWTEXT/RCDATA/g */
+            if (c === 0x002F) {  //  SOLIDUS
+                beginTempBuf();
+                tokenizer = rcdata_end_tag_open_state;
+            }
+            else {
+                push(textrun,0x003C); // LESS-THAN SIGN
+                nextchar--;  // pushback
+                tokenizer = rcdata_state;
+            }
+        }
+
+        function rcdata_end_tag_open_state(c) {
+            /* identical to the RAWTEXT (and Script data) end tag open state, except s/RAWTEXT/RCDATA/g */    
+            switch(c) {
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                beginEndTagName();
+                appendChar(tagnamebuf, c + 0x0020);
+                appendChar(tempbuf, c); 
+                tokenizer = rcdata_end_tag_name_state; 
+                break; 
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                beginEndTagName();
+                appendChar(tagnamebuf, c);
+                appendChar(tempbuf, c); 
+                tokenizer = rcdata_end_tag_name_state; 
+                break; 
+            default: 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                push(textrun,0x002F); // SOLIDUS 
+                nextchar--;  // pushback
+                tokenizer = rcdata_state;
+                break; 
+            }
+        }
+
+        function rcdata_end_tag_name_state(c) {
+            /* identical to the RAWTEXT (and Script data) end tag name state, except s/RAWTEXT/RCDATA/g */
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE
+                if (appropriateEndTag(tagnamebuf)) {
+                    tokenizer = before_attribute_name_state;
+                    return;
+                }
+                break;
+            case 0x002F: //  SOLIDUS 
+                if (appropriateEndTag(tagnamebuf)) {
+                    tokenizer = self_closing_start_tag_state;
+                    return;
+                }
+                break;
+            case 0x003E: //  GREATER-THAN SIGN 
+                if (appropriateEndTag(tagnamebuf)) {
+                    emitTag();
+                    tokenizer = data_state;
+                    return;
+                }
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+
+                appendChar(tagnamebuf, c + 0x0020); 
+                appendChar(tempbuf, c);
+                return;
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+
+                appendChar(tagnamebuf, c); 
+                appendChar(tempbuf, c);
+                return;
+            default: 
+                break;
+            }
+
+            // If we don't return in one of the cases above, then this was not 
+            // an appropriately matching close tag, so back out by emitting all
+            // the characters as text
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x002F); // SOLIDUS
+            pushAll(textrun, tempbuf);
+            nextchar--;  // pushback
+            tokenizer = rcdata_state;
+        }
+
+        function rawtext_less_than_sign_state(c) {
+            /* identical to the RCDATA less-than sign state, except s/RCDATA/RAWTEXT/g 
+             */    
+            if (c === 0x002F) { //  SOLIDUS 
+                beginTempBuf();
+                tokenizer = rawtext_end_tag_open_state;
+            }
+            else {
+                push(textrun,0x003C); // LESS-THAN SIGN
+                nextchar--;  // pushback
+                tokenizer = rawtext_state;
+            }
+        }
+
+        function rawtext_end_tag_open_state(c) {
+            /* identical to the RCDATA (and Script data) end tag open state, except s/RCDATA/RAWTEXT/g */
+            switch(c) {
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                beginEndTagName();
+                appendChar(tagnamebuf, c + 0x0020);
+                appendChar(tempbuf, c); 
+                tokenizer = rawtext_end_tag_name_state; 
+                break; 
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                beginEndTagName();
+                appendChar(tagnamebuf, c);
+                appendChar(tempbuf, c); 
+                tokenizer = rawtext_end_tag_name_state; 
+                break; 
+            default: 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                push(textrun,0x002F); // SOLIDUS 
+                nextchar--;  // pushback
+                tokenizer = rawtext_state;
+                break; 
+            }
+        }
+
+        function rawtext_end_tag_name_state(c) {
+            /* identical to the RCDATA (and Script data) end tag name state, except s/RCDATA/RAWTEXT/g */    
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
+                if (appropriateEndTag(tagnamebuf)) {
+                    tokenizer = before_attribute_name_state;
+                    return;
+                }
+                break;
+            case 0x002F: //  SOLIDUS 
+                if (appropriateEndTag(tagnamebuf)) {
+                    tokenizer = self_closing_start_tag_state;
+                    return;
+                }
+                break;
+            case 0x003E: //  GREATER-THAN SIGN 
+                if (appropriateEndTag(tagnamebuf)) {
+                    emitTag();
+                    tokenizer = data_state;
+                    return;
+                }
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                appendChar(tagnamebuf, c + 0x0020); 
+                appendChar(tempbuf, c);
+                return;
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                appendChar(tagnamebuf, c); 
+                appendChar(tempbuf, c);
+                return;
+            default: 
+                break;
+            }
+
+            // If we don't return in one of the cases above, then this was not 
+            // an appropriately matching close tag, so back out by emitting all
+            // the characters as text
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x002F); // SOLIDUS
+            pushAll(textrun,tempbuf);
+            nextchar--;  // pushback
+            tokenizer = rawtext_state;
+        }
+
+        function script_data_less_than_sign_state(c) {
+            switch(c) {
+            case 0x002F: //  SOLIDUS  
+                beginTempBuf();
+                tokenizer = script_data_end_tag_open_state;
+                break; 
+            case 0x0021: //  EXCLAMATION MARK 
+                tokenizer = script_data_escape_start_state; 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                push(textrun,0x0021); // EXCLAMATION MARK
+                break; 
+            default: 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                nextchar--;  // pushback
+                tokenizer = script_data_state;
+                break; 
+            }
+        }
+
+        function script_data_end_tag_open_state(c) {
+            /* identical to the RCDATA (and RAWTEXT) end tag open state, except s/RCDATA/Script data/g */    
+            switch(c) {
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                beginEndTagName();
+                appendChar(tagnamebuf, c + 0x0020);
+                appendChar(tempbuf, c); 
+                tokenizer = script_data_end_tag_name_state; 
+                break; 
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                beginEndTagName();
+                appendChar(tagnamebuf, c);
+                appendChar(tempbuf, c); 
+                tokenizer = script_data_end_tag_name_state; 
+                break; 
+            default: 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                push(textrun,0x002F); // SOLIDUS 
+                nextchar--;  // pushback
+                tokenizer = script_data_state;
+                break; 
+            }
+        }
+
+        function script_data_end_tag_name_state(c) {
+            /* identical to the RCDATA (and RAWTEXT) end tag name state, except s/RCDATA/Script data/g */    
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE
+                if (appropriateEndTag(tagnamebuf)) {
+                    tokenizer = before_attribute_name_state;
+                    return;
+                }
+                break;
+            case 0x002F: //  SOLIDUS 
+                if (appropriateEndTag(tagnamebuf)) {
+                    tokenizer = self_closing_start_tag_state;
+                    return;
+                }
+                break;
+            case 0x003E: //  GREATER-THAN SIGN 
+                if (appropriateEndTag(tagnamebuf)) {
+                    emitTag();
+                    tokenizer = data_state;
+                    return;
+                }
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+
+                appendChar(tagnamebuf, c + 0x0020); 
+                appendChar(tempbuf, c);
+                return;
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+
+                appendChar(tagnamebuf, c); 
+                appendChar(tempbuf, c);
+                return;
+            default: 
+                break;
+            }
+
+            // If we don't return in one of the cases above, then this was not 
+            // an appropriately matching close tag, so back out by emitting all
+            // the characters as text
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x002F); // SOLIDUS
+            pushAll(textrun,tempbuf);
+            nextchar--;  // pushback
+            tokenizer = script_data_state;
+        }
+
+        function script_data_escape_start_state(c) {
+            if (c === 0x002D) { //  HYPHEN-MINUS 
+                tokenizer = script_data_escape_start_dash_state; 
+                push(textrun,0x002D); // HYPHEN-MINUS
+            }
+            else {
+                nextchar--;  // pushback
+                tokenizer = script_data_state;
+            }
+        }
+
+        function script_data_escape_start_dash_state(c) {
+            if (c === 0x002D) { //  HYPHEN-MINUS 
+                tokenizer = script_data_escaped_dash_dash_state; 
+                push(textrun,0x002D); // HYPHEN-MINUS
+            }
+            else {
+                nextchar--;  // pushback
+                tokenizer = script_data_state;
+            }
+        }
+
+        function script_data_escaped_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                tokenizer = script_data_escaped_dash_state; 
+                push(textrun,0x002D); // HYPHEN-MINUS
+                break; 
+            case 0x003C: //  LESS-THAN SIGN 
+                tokenizer = script_data_escaped_less_than_sign_state;
+                break; 
+            case 0x0000: //  NULL 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                push(textrun,c);
+                break; 
+            }
+        }
+
+        function script_data_escaped_dash_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                tokenizer = script_data_escaped_dash_dash_state; 
+                push(textrun,0x002D); // HYPHEN-MINUS
+                break; 
+            case 0x003C: //  LESS-THAN SIGN 
+                tokenizer = script_data_escaped_less_than_sign_state;
+                break; 
+            case 0x0000: //  NULL 
+                tokenizer = script_data_escaped_state; 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                tokenizer = script_data_escaped_state; 
+                push(textrun,c);
+                break; 
+            }
+        }
+
+        function script_data_escaped_dash_dash_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                push(textrun,0x002D); // HYPHEN-MINUS
+                break; 
+            case 0x003C: //  LESS-THAN SIGN 
+                tokenizer = script_data_escaped_less_than_sign_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = script_data_state; 
+                push(textrun,0x003E); // GREATER-THAN SIGN
+                break; 
+            case 0x0000: //  NULL 
+                tokenizer = script_data_escaped_state; 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                tokenizer = script_data_escaped_state; 
+                push(textrun,c);
+                break; 
+            }
+        }
+
+        function script_data_escaped_less_than_sign_state(c) {
+            switch(c) {
+            case 0x002F: //  SOLIDUS  
+                beginTempBuf();
+                tokenizer = script_data_escaped_end_tag_open_state;
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                beginTempBuf();
+                appendChar(tempbuf, c + 0x0020); 
+                tokenizer = script_data_double_escape_start_state; 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                push(textrun,c);
+                break; 
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                beginTempBuf();
+                appendChar(tempbuf, c); 
+                tokenizer = script_data_double_escape_start_state; 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                push(textrun,c);
+                break; 
+            default: 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                nextchar--;  // pushback
+                tokenizer = script_data_escaped_state;
+                break; 
+            }
+        }
+
+        function script_data_escaped_end_tag_open_state(c) {
+            switch(c) {
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                beginEndTagName();
+                appendChar(tagnamebuf, c + 0x0020);
+                appendChar(tempbuf, c); 
+                tokenizer = script_data_escaped_end_tag_name_state; 
+                break; 
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                beginEndTagName();
+                appendChar(tagnamebuf, c);
+                appendChar(tempbuf, c); 
+                tokenizer = script_data_escaped_end_tag_name_state; 
+                break; 
+            default: 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                push(textrun,0x002F); // SOLIDUS 
+                nextchar--;  // pushback
+                tokenizer = script_data_escaped_state;
+                break; 
+            }
+        }
+
+        function script_data_escaped_end_tag_name_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE 
+                if (appropriateEndTag(tagnamebuf)) {
+                    tokenizer = before_attribute_name_state; 
+                    return;
+                }
+                break; 
+            case 0x002F: //  SOLIDUS  
+                if (appropriateEndTag(tagnamebuf)) {
+                    tokenizer = self_closing_start_tag_state; 
+                    return;
+                }
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                if (appropriateEndTag(tagnamebuf)) {
+                    emitTag();
+                    tokenizer = data_state; 
+                    return;
+                }
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                appendChar(tagnamebuf, c + 0x0020); 
+                appendChar(tempbuf, c);
+                return;
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                appendChar(tagnamebuf, c); 
+                appendChar(tempbuf, c);
+                return;
+            default: 
+                break;
+            }
+
+            // We get here in the default case, and if the closing tagname
+            // is not an appropriate tagname.
+            push(textrun,0x003C); // LESS-THAN SIGN
+            push(textrun,0x002F); // SOLIDUS 
+            pushAll(textrun,tempbuf);
+            nextchar--;  // pushback
+            tokenizer = script_data_escaped_state;
+        }
+
+        function script_data_double_escape_start_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+            case 0x002F: //  SOLIDUS  
+            case 0x003E: //  GREATER-THAN SIGN  
+                if (buf2str(tempbuf) === "script") {
+                    tokenizer = script_data_double_escaped_state;
+                }
+                else {
+                    tokenizer = script_data_escaped_state; 
+                }
+                push(textrun,c);
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                appendChar(tempbuf, c + 0x0020); 
+                push(textrun,c);
+                break; 
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                appendChar(tempbuf, c); 
+                push(textrun,c);
+                break; 
+            default: 
+                nextchar--;  // pushback
+                tokenizer = script_data_escaped_state;
+                break; 
+            }
+        }
+
+        function script_data_double_escaped_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                tokenizer = script_data_double_escaped_dash_state; 
+                push(textrun,0x002D); // HYPHEN-MINUS
+                break; 
+            case 0x003C: //  LESS-THAN SIGN 
+                tokenizer = script_data_double_escaped_less_than_sign_state; 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                break; 
+            case 0x0000: //  NULL 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                push(textrun,c);
+                break; 
+            }
+        }
+
+        function script_data_double_escaped_dash_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                tokenizer = script_data_double_escaped_dash_dash_state; 
+                push(textrun,0x002D); // HYPHEN-MINUS
+                break; 
+            case 0x003C: //  LESS-THAN SIGN 
+                tokenizer = script_data_double_escaped_less_than_sign_state; 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                break; 
+            case 0x0000: //  NULL 
+                tokenizer = script_data_double_escaped_state; 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                tokenizer = script_data_double_escaped_state; 
+                push(textrun,c);
+                break; 
+            }
+        }
+
+        function script_data_double_escaped_dash_dash_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                push(textrun,0x002D); // HYPHEN-MINUS
+                break; 
+            case 0x003C: //  LESS-THAN SIGN 
+                tokenizer = script_data_double_escaped_less_than_sign_state; 
+                push(textrun,0x003C); // LESS-THAN SIGN
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = script_data_state; 
+                push(textrun,0x003E); // GREATER-THAN SIGN
+                break; 
+            case 0x0000: //  NULL 
+                tokenizer = script_data_double_escaped_state; 
+                push(textrun,0xFFFD); // REPLACEMENT CHARACTER
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                tokenizer = script_data_double_escaped_state; 
+                push(textrun,c);
+                break; 
+            }
+        }
+
+        function script_data_double_escaped_less_than_sign_state(c) {
+            if (c === 0x002F) { //  SOLIDUS  
+                beginTempBuf();
+                tokenizer = script_data_double_escape_end_state; 
+                push(textrun,0x002F); // SOLIDUS
+            }
+            else {
+                nextchar--;  // pushback
+                tokenizer = script_data_double_escaped_state;
+            }
+        }
+
+        function script_data_double_escape_end_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+            case 0x002F: //  SOLIDUS  
+            case 0x003E: //  GREATER-THAN SIGN  
+                if (buf2str(tempbuf) === "script") {
+                    tokenizer = script_data_escaped_state;
+                }
+                else {
+                    tokenizer = script_data_double_escaped_state; 
+                }
+                push(textrun,c);
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                appendChar(tempbuf, c + 0x0020); 
+                push(textrun,c);
+                break; 
+            case 0x0061:  // [a-z]
+            case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
+            case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
+            case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
+            case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
+            case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
+                appendChar(tempbuf, c); 
+                push(textrun,c);
+                break; 
+            default: 
+                nextchar--;  // pushback
+                tokenizer = script_data_double_escaped_state;
+                break; 
+            }
+        }
+
+        function before_attribute_name_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                /* Ignore the character. */
+                break; 
+            case 0x002F: //  SOLIDUS  
+                tokenizer = self_closing_start_tag_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                emitTag();
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                beginAttrName();
+                appendChar(attrnamebuf, c + 0x0020);
+                tokenizer = attribute_name_state;
+                break; 
+            case 0x0000: //  NULL 
+                beginAttrName();
+                appendChar(attrnamebuf, 0xFFFD);
+                tokenizer = attribute_name_state;
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+            case 0x0027: //  APOSTROPHE  
+            case 0x003C: //  LESS-THAN SIGN 
+            case 0x003D: //  EQUALS SIGN 
+                /* falls through */
+            default: 
+                if (handleSimpleAttribute()) break;
+                beginAttrName();
+                appendChar(attrnamebuf, c);
+                tokenizer = attribute_name_state;
+                break; 
+            }
+        }
+
+        function attribute_name_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                tokenizer = after_attribute_name_state;
+                break; 
+            case 0x002F: //  SOLIDUS  
+                addAttribute(attrnamebuf);
+                tokenizer = self_closing_start_tag_state;
+                break; 
+            case 0x003D: //  EQUALS SIGN 
+                beginAttrValue();
+                tokenizer = before_attribute_value_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                addAttribute(attrnamebuf);
+                tokenizer = data_state; 
+                emitTag();
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                appendChar(attrnamebuf, c + 0x0020);
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(attrnamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+            case 0x0027: //  APOSTROPHE  
+            case 0x003C: //  LESS-THAN SIGN 
+                /* falls through */
+            default: 
+                appendChar(attrnamebuf, c);
+                break; 
+            }
+        }
+
+        function after_attribute_name_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                /* Ignore the character. */
+                break; 
+            case 0x002F: //  SOLIDUS  
+                addAttribute(attrnamebuf);
+                tokenizer = self_closing_start_tag_state;
+                break; 
+            case 0x003D: //  EQUALS SIGN 
+                beginAttrValue();
+                tokenizer = before_attribute_value_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                addAttribute(attrnamebuf);
+                emitTag();
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                addAttribute(attrnamebuf);
+                beginAttrName();
+                appendChar(attrnamebuf, c + 0x0020);
+                tokenizer = attribute_name_state;
+                break; 
+            case 0x0000: //  NULL 
+                addAttribute(attrnamebuf);
+                beginAttrName();
+                appendChar(attrnamebuf, 0xFFFD);
+                tokenizer = attribute_name_state;
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+            case 0x0027: //  APOSTROPHE  
+            case 0x003C: //  LESS-THAN SIGN 
+                /* falls through */
+            default: 
+                addAttribute(attrnamebuf);
+                beginAttrName();
+                appendChar(attrnamebuf, c);
+                tokenizer = attribute_name_state;
+                break; 
+            }
+        }
+
+        function before_attribute_value_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                /* Ignore the character. */
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+                tokenizer = attribute_value_double_quoted_state;
+                break; 
+            case 0x0026: //  AMPERSAND
+                nextchar--;  // pushback
+                tokenizer = attribute_value_unquoted_state;
+                break; 
+            case 0x0027: //  APOSTROPHE  
+                tokenizer = attribute_value_single_quoted_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */); 
+                tokenizer = attribute_value_unquoted_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                addAttribute(attrnamebuf);
+                emitTag();
+                tokenizer = data_state; 
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            case 0x003C: //  LESS-THAN SIGN 
+            case 0x003D: //  EQUALS SIGN 
+            case 0x0060: //  GRAVE ACCENT 
+                /* falls through */
+            default: 
+                appendChar(attrvaluebuf, c); 
+                tokenizer = attribute_value_unquoted_state;
+                break; 
+            }
+        }
+
+        function attribute_value_double_quoted_state(c) {
+            switch(c) {
+            case 0x0022: //  QUOTATION MARK  
+                addAttribute(attrnamebuf, attrvaluebuf);
+                tokenizer = after_attribute_value_quoted_state;
+                break; 
+            case 0x0026: //  AMPERSAND 
+                pushState();
+                tokenizer = character_reference_in_attribute_value_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                appendChar(attrvaluebuf, c);
+                // appendCharsWhile(attrvaluebuf, DBLQUOTEATTRVAL);
+                break; 
+            }
+        }
+
+        function attribute_value_single_quoted_state(c) {
+            switch(c) {
+            case 0x0027: //  APOSTROPHE  
+                addAttribute(attrnamebuf, attrvaluebuf);
+                tokenizer = after_attribute_value_quoted_state;
+                break; 
+            case 0x0026: //  AMPERSAND 
+                pushState();
+                tokenizer = character_reference_in_attribute_value_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                appendChar(attrvaluebuf, c);
+                // appendCharsWhile(attrvaluebuf, SINGLEQUOTEATTRVAL);
+                break; 
+            }
+        }
+
+        function attribute_value_unquoted_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                addAttribute(attrnamebuf, attrvaluebuf);
+                tokenizer = before_attribute_name_state;
+                break; 
+            case 0x0026: //  AMPERSAND 
+                pushState();
+                tokenizer = character_reference_in_attribute_value_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                addAttribute(attrnamebuf, attrvaluebuf);
+                tokenizer = data_state; 
+                emitTag();
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+            case 0x0027: //  APOSTROPHE  
+            case 0x003C: //  LESS-THAN SIGN 
+            case 0x003D: //  EQUALS SIGN 
+            case 0x0060: //  GRAVE ACCENT 
+                /* falls through */
+            default: 
+                appendChar(attrvaluebuf, c);
+                // appendCharsWhile(attrvaluebuf, UNQUOTEDATTRVAL);
+                break; 
+            }
+        }
+
+        function character_reference_in_attribute_value_state(c, lookahead, eof) {
+            var char = parseCharRef(lookahead, true);
+            if (char !== null) {
+                if (typeof char === "number")
+                    appendChar(attrvaluebuf, char);
+                else {
+                    // An array of numbers
+                    for(var i = 0; i < char.length; i++) {
+                        appendChar(attrvaluebuf, char[i]);
+                    }
+                }
+            }
+            else {
+                appendChar(attrvaluebuf, 0x0026); // AMPERSAND;
+            }
+
+            popState();
+        }
+        character_reference_in_attribute_value_state.lookahead = ATTRCHARREF;
+
+        function after_attribute_value_quoted_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                tokenizer = before_attribute_name_state;
+                break; 
+            case 0x002F: //  SOLIDUS  
+                tokenizer = self_closing_start_tag_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                emitTag();
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                nextchar--;  // pushback
+                tokenizer = before_attribute_name_state;
+                break; 
+            }
+        }
+
+        function self_closing_start_tag_state(c) {
+            switch(c) {
+            case 0x003E: //  GREATER-THAN SIGN  
+                // Set the <i>self-closing flag</i> of the current tag token. 
+                tokenizer = data_state; 
+                emitSelfClosingTag(true); 
+                break; 
+            case EOF: 
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                nextchar--;  // pushback
+                tokenizer = before_attribute_name_state;
+                break; 
+            }
+        }
+
+        function bogus_comment_state(c, lookahead, eof) {
+            var len = lookahead.length;
+
+            if (eof) {
+                nextchar += len-1;  // don't consume the eof
+            }
+            else {
+                nextchar += len;
+            }
+
+            insertToken(COMMENT,
+                     replace(substring(lookahead,0,len-1),/\u0000/g,"\uFFFD"));
+
+            tokenizer = data_state;
+        }
+        bogus_comment_state.lookahead = ">";
+
+        function markup_declaration_open_state(c, lookahead, eof) {
+            if (lookahead[0] === "-" && lookahead[1] === "-") {
+                nextchar += 2;
+                beginComment();
+                tokenizer = comment_start_state;
                 return;
             }
 
-            // Any other start tag case goes here
-            current = stack.top;
-            if (current.namespaceURI === MATHML_NAMESPACE) {
-                adjustMathMLAttributes(arg3);
+            if (toUpperCase(lookahead) === "DOCTYPE") {
+                nextchar += 7;
+                tokenizer = doctype_state;
             }
-            else if (current.namespaceURI === SVG_NAMESPACE) {
-                value = adjustSVGTagName(value);
-                adjustSVGAttributes(arg3);
-            }
-            adjustForeignAttributes(arg3)
-
-            insertForeignElement(value, arg3, current.namespaceURI);
-            if (arg4) // the self-closing flag
-                stack.pop();
-            return;
-
-        case ENDTAG:
-            current = stack.top;
-            if (value === "script" &&
-                current.namespaceURI === SVG_NAMESPACE &&
-                current.localName === "script") {
-
-                stack.pop();
-
-                // XXX
-                // Deal with SVG scripts here
+            else if (lookahead === "[CDATA[" && cdataAllowed()) {
+                nextchar += 7;
+                tokenizer = cdata_section_state;
             }
             else {
-                // The any other end tag case
-                var i = stack.elements.length-1;
-                var node = stack.elements[i];
-                for(;;) {
-                    if (node.localName.toLowerCase() === value) {
+                tokenizer = bogus_comment_state;        
+            }
+        }
+        markup_declaration_open_state.lookahead = 7;
+
+        function comment_start_state(c) {
+            beginComment();
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                tokenizer = comment_start_dash_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(commentbuf, 0xFFFD /* REPLACEMENT CHARACTER */); 
+                tokenizer = comment_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                insertToken(COMMENT, buf2str(commentbuf));
+                break; /* see comment in comment end state */ 
+            case EOF: 
+                insertToken(COMMENT, buf2str(commentbuf));
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                appendChar(commentbuf, c); 
+                tokenizer = comment_state;
+                break; 
+            }
+        }
+
+        function comment_start_dash_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS
+                tokenizer = comment_end_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
+                appendChar(commentbuf, 0xFFFD);
+                tokenizer = comment_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                insertToken(COMMENT, buf2str(commentbuf));
+                break; 
+            case EOF: 
+                insertToken(COMMENT, buf2str(commentbuf));
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; /* see comment in comment end state */ 
+            default: 
+                appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
+                appendChar(commentbuf, c);
+                tokenizer = comment_state;
+                break; 
+            }
+        }
+
+        function comment_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                tokenizer = comment_end_dash_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(commentbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case EOF: 
+                insertToken(COMMENT, buf2str(commentbuf));
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; /* see comment in comment end state */ 
+            default: 
+                appendChar(commentbuf, c);
+                break; 
+            }
+        }
+
+        function comment_end_dash_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                tokenizer = comment_end_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
+                appendChar(commentbuf, 0xFFFD);
+                tokenizer = comment_state;
+                break; 
+            case EOF: 
+                insertToken(COMMENT, buf2str(commentbuf));
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; /* see comment in comment end state */ 
+            default: 
+                appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
+                appendChar(commentbuf, c);
+                tokenizer = comment_state;
+                break; 
+            }
+        }
+
+        function comment_end_state(c) {
+            switch(c) {
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                insertToken(COMMENT, buf2str(commentbuf));
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, 0xFFFD);
+                tokenizer = comment_state;
+                break; 
+            case 0x0021: //  EXCLAMATION MARK 
+                tokenizer = comment_end_bang_state;
+                break; 
+            case 0x002D: //  HYPHEN-MINUS 
+                appendChar(commentbuf, 0x002D);
+                break; 
+            case EOF: 
+                insertToken(COMMENT, buf2str(commentbuf));
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; /* For security reasons: otherwise, hostile user could put a script in a comment e.g. in a blog comment and then DOS the server so that the end tag isn't read, and then the commented script tag would be treated as live code */ 
+            default: 
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, c);
+                tokenizer = comment_state;
+                break; 
+            }
+        }
+
+        function comment_end_bang_state(c) {
+            switch(c) {
+            case 0x002D: //  HYPHEN-MINUS 
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, 0x0021);
+                tokenizer = comment_end_dash_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state;
+                insertToken(COMMENT, buf2str(commentbuf));
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, 0x0021);
+                appendChar(commentbuf, 0xFFFD);
+                tokenizer = comment_state;
+                break; 
+            case EOF: 
+                insertToken(COMMENT, buf2str(commentbuf));
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; /* see comment in comment end state */ 
+            default: 
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, 0x002D);
+                appendChar(commentbuf, 0x0021);
+                appendChar(commentbuf, c);
+                tokenizer = comment_state;
+                break; 
+            }
+        }
+
+        function doctype_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                tokenizer = before_doctype_name_state;
+                break; 
+            case EOF: 
+                beginDoctype();
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                nextchar--;  // pushback
+                tokenizer = before_doctype_name_state;
+                break; 
+            }
+        }
+
+        function before_doctype_name_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                /* Ignore the character. */
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                beginDoctype();
+                appendChar(doctypenamebuf, c + 0x0020);
+                tokenizer = doctype_name_state;
+                break; 
+            case 0x0000: //  NULL 
+                beginDoctype();
+                appendChar(doctypenamebuf, 0xFFFD);
+                tokenizer = doctype_name_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                beginDoctype();
+                tokenizer = data_state;
+                forcequirks();
+                emitDoctype();
+                break; 
+            case EOF: 
+                beginDoctype();
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                beginDoctype();
+                appendChar(doctypenamebuf, c);
+                tokenizer = doctype_name_state;
+                break; 
+            }
+        }
+
+        function doctype_name_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                tokenizer = after_doctype_name_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                emitDoctype();
+                break; 
+            case 0x0041:  // [A-Z]
+            case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
+            case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
+            case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
+            case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
+            case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
+                appendChar(doctypenamebuf, c + 0x0020);
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(doctypenamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                appendChar(doctypenamebuf, c);
+                break; 
+            }
+        }
+
+        function after_doctype_name_state(c, lookahead, eof) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                /* Ignore the character. */
+                nextchar += 1;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state;
+                nextchar += 1;
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                tokenizer = data_state;
+                break; 
+            default:  
+                lookahead = toUpperCase(lookahead);
+                if (lookahead === "PUBLIC") {
+                    nextchar += 6;
+                    tokenizer = after_doctype_public_keyword_state;
+                }
+                else if (lookahead === "SYSTEM") {
+                    nextchar += 6;
+                    tokenizer = after_doctype_system_keyword_state;
+                }
+                else {
+                    forcequirks();
+                    tokenizer = bogus_doctype_state;
+                }
+                break; 
+            }
+        }
+        after_doctype_name_state.lookahead = 6;
+
+        function after_doctype_public_keyword_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                tokenizer = before_doctype_public_identifier_state;
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+                beginDoctypePublicId();
+                tokenizer = doctype_public_identifier_double_quoted_state;
+                break; 
+            case 0x0027: //  APOSTROPHE  
+                beginDoctypePublicId();
+                tokenizer = doctype_public_identifier_single_quoted_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                forcequirks();
+                tokenizer = data_state; 
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                forcequirks();
+                tokenizer = bogus_doctype_state;
+                break; 
+            }
+        }
+
+        function before_doctype_public_identifier_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                /* Ignore the character. */
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+                beginDoctypePublicId();
+                tokenizer = doctype_public_identifier_double_quoted_state;
+                break; 
+            case 0x0027: //  APOSTROPHE  
+                beginDoctypePublicId();
+                tokenizer = doctype_public_identifier_single_quoted_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                forcequirks();
+                tokenizer = data_state; 
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                forcequirks();
+                tokenizer = bogus_doctype_state;
+                break; 
+            }
+        }
+
+        function doctype_public_identifier_double_quoted_state(c) {
+            switch(c) {
+            case 0x0022: //  QUOTATION MARK  
+                tokenizer = after_doctype_public_identifier_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(doctypepublicbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                forcequirks();
+                tokenizer = data_state; 
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                appendChar(doctypepublicbuf, c);
+                break; 
+            }
+        }
+
+        function doctype_public_identifier_single_quoted_state(c) {
+            switch(c) {
+            case 0x0027: //  APOSTROPHE  
+                tokenizer = after_doctype_public_identifier_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(doctypepublicbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                forcequirks();
+                tokenizer = data_state;
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                appendChar(doctypepublicbuf, c);
+                break; 
+            }
+        }
+
+        function after_doctype_public_identifier_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                tokenizer = between_doctype_public_and_system_identifiers_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                emitDoctype();
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+                beginDoctypeSystemId();
+                tokenizer = doctype_system_identifier_double_quoted_state;
+                break; 
+            case 0x0027: //  APOSTROPHE  
+                beginDoctypeSystemId();
+                tokenizer = doctype_system_identifier_single_quoted_state;
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                forcequirks();
+                tokenizer = bogus_doctype_state;
+                break; 
+            }
+        }
+
+        function between_doctype_public_and_system_identifiers_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE Ignore the character.
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                emitDoctype();
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+                beginDoctypeSystemId();
+                tokenizer = doctype_system_identifier_double_quoted_state;
+                break; 
+            case 0x0027: //  APOSTROPHE  
+                beginDoctypeSystemId();
+                tokenizer = doctype_system_identifier_single_quoted_state;
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                forcequirks();
+                tokenizer = bogus_doctype_state;
+                break; 
+            }
+        }
+
+        function after_doctype_system_keyword_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE 
+                tokenizer = before_doctype_system_identifier_state;
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+                beginDoctypeSystemId();
+                tokenizer = doctype_system_identifier_double_quoted_state;
+                break; 
+            case 0x0027: //  APOSTROPHE  
+                beginDoctypeSystemId();
+                tokenizer = doctype_system_identifier_single_quoted_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                forcequirks();
+                tokenizer = data_state; 
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                forcequirks();
+                tokenizer = bogus_doctype_state;
+                break; 
+            }
+        }
+
+        function before_doctype_system_identifier_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF) 
+            case 0x0020: //  SPACE Ignore the character.
+                break; 
+            case 0x0022: //  QUOTATION MARK  
+                beginDoctypeSystemId();
+                tokenizer = doctype_system_identifier_double_quoted_state;
+                break; 
+            case 0x0027: //  APOSTROPHE 
+                beginDoctypeSystemId();
+                tokenizer = doctype_system_identifier_single_quoted_state;
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                forcequirks();
+                tokenizer = data_state;
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                forcequirks();
+                tokenizer = bogus_doctype_state;
+                break; 
+            }
+        }
+
+        function doctype_system_identifier_double_quoted_state(c) {
+            switch(c) {
+            case 0x0022: //  QUOTATION MARK  
+                tokenizer = after_doctype_system_identifier_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(doctypesystembuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                forcequirks();
+                tokenizer = data_state;
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                appendChar(doctypesystembuf, c);
+                break; 
+            }
+        }
+
+        function doctype_system_identifier_single_quoted_state(c) {
+            switch(c) {
+            case 0x0027: //  APOSTROPHE  
+                tokenizer = after_doctype_system_identifier_state;
+                break; 
+            case 0x0000: //  NULL 
+                appendChar(doctypesystembuf, 0xFFFD /* REPLACEMENT CHARACTER */);
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                forcequirks();
+                tokenizer = data_state;
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                appendChar(doctypesystembuf, c);
+                break; 
+            }
+        }
+
+        function after_doctype_system_identifier_state(c) {
+            switch(c) {
+            case 0x0009: //  CHARACTER TABULATION (tab) 
+            case 0x000A: //  LINE FEED (LF) 
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE 
+                /* Ignore the character. */
+                break; 
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state;
+                emitDoctype();
+                break; 
+            case EOF: 
+                forcequirks();
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                tokenizer = bogus_doctype_state;
+                /* This does *not* set the DOCTYPE token's force-quirks flag. */
+                break; 
+            }
+        }
+
+        function bogus_doctype_state(c) {
+            switch(c) {
+            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = data_state; 
+                emitDoctype();
+                break; 
+            case EOF: 
+                emitDoctype();
+                nextchar--;  // pushback
+                tokenizer = data_state;
+                break; 
+            default: 
+                /* Ignore the character. */
+                break; 
+            }
+        }
+
+        function cdata_section_state(c, lookahead, eof) {
+            var len = lookahead.length;
+            var output;
+            if (eof) {
+                nextchar += len-1; // leave the EOF in the scanner
+                output = substring(lookahead,0, len-1); // don't include the EOF
+            }
+            else {
+                nextchar += len;
+                output = substring(lookahead,0,len-3); // don't emit the ]]>
+            }
+
+            if (output.length > 0) {
+                if (output.indexOf("\u0000") !== -1) 
+                    textIncludesNUL = true;
+                emitCharString(output);
+            }
+
+            tokenizer = data_state;
+        }
+        cdata_section_state.lookahead = "]]>";
+
+
+        /***
+         * The tree builder insertion modes
+         */
+
+        // 11.2.5.4.1 The "initial" insertion mode
+        function initial_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                value = replace(value,LEADINGWS, ""); // Ignore spaces
+                if (value.length === 0) return; // Are we done?
+                break;  // Handle anything non-space text below
+            case COMMENT:
+                doc.appendChild(doc.createComment(value));
+                return;
+            case DOCTYPE:
+                var name = value;
+                var publicid = arg3;
+                var systemid = arg4;
+                // Use the constructor directly instead of 
+                // implementation.createDocumentType because the create
+                // function throws errors on invalid characters, and 
+                // we don't want the parser to throw them.
+                doc.appendChild(new impl.DocumentType(name,publicid, systemid));
+
+                // Note that there is no public API for setting quirks mode We can
+                // do this here because we have access to implementation details
+                if (force_quirks || 
+                    toLowerCase(name) !== "html" ||
+                    test(quirkyPublicIds, publicid) ||
+                    (systemid && toLowerCase(systemid) === quirkySystemId) ||
+                    (systemid === undefined &&
+                     test(conditionallyQuirkyPublicIds, publicid)))
+                    doc._quirks = true;
+                else if (test(limitedQuirkyPublicIds, publicid) ||
+                         (systemid !== undefined &&
+                          test(conditionallyQuirkyPublicIds, publicid)))
+                    doc._limitedQuirks = true;
+                parser = before_html_mode;
+                return;
+            }
+
+            // tags or non-whitespace text
+            doc._quirks = true;
+            parser = before_html_mode;
+            parser(t,value,arg3,arg4);
+        }
+
+        // 11.2.5.4.2 The "before html" insertion mode
+        function before_html_mode(t,value,arg3,arg4) {
+            var elt;
+            switch(t) {
+            case TEXT:
+                value = replace(value, LEADINGWS, ""); // Ignore spaces
+                if (value.length === 0) return; // Are we done?
+                break;  // Handle anything non-space text below
+            case DOCTYPE:
+                /* ignore the token */
+                return;
+            case COMMENT:
+                doc.appendChild(doc.createComment(value));
+                return;
+            case TAG:
+                if (value === "html") {
+                    elt = createHTMLElt(value, arg3);
+                    stack.push(elt);
+                    doc.appendChild(elt);
+                    // XXX: handle application cache here
+                    parser = before_head_mode;
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "html":
+                case "head":
+                case "body":
+                case "br":
+                    break;   // fall through on these
+                default:
+                    return;  // ignore most end tags
+                }
+            }
+
+            // Anything that didn't get handled above is handled like this:
+            elt = createHTMLElt("html", null);
+            stack.push(elt);
+            doc.appendChild(elt);
+            // XXX: handle application cache here
+            parser = before_head_mode;
+            parser(t,value,arg3,arg4);
+        }
+
+        // 11.2.5.4.3 The "before head" insertion mode
+        function before_head_mode(t,value,arg3,arg4) {
+            switch(t) {
+            case TEXT:
+                value = replace(value, LEADINGWS, "");  // Ignore spaces
+                if (value.length === 0) return; // Are we done?
+                break;  // Handle anything non-space text below
+            case DOCTYPE:
+                /* ignore the token */
+                return;
+            case COMMENT:
+                insertComment(value);
+                return;
+            case TAG:
+                switch(value) {
+                case "html":
+                    in_body_mode(t,value,arg3,arg4);
+                    return;
+                case "head":
+                    var elt = insertHTMLElement(value, arg3);
+                    head_element_pointer = elt;
+                    parser = in_head_mode;
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "html":
+                case "head":
+                case "body":
+                case "br":
+                    break;
+                default: 
+                    return; // ignore most end tags
+                }
+            }
+
+            // If not handled explicitly above
+            before_head_mode(TAG, "head", null);  // create a head tag
+            parser(t, value, arg3, arg4);  // then try again with this token
+        }
+
+        function in_head_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                var ws = match(value, LEADINGWS);
+                if (ws) {
+                    insertText(ws[0]);
+                    value = substring(value,ws[0].length);
+                }
+                if (value.length === 0) return;
+                break; // Handle non-whitespace below
+            case COMMENT:
+                insertComment(value);
+                return;
+            case DOCTYPE:
+                return;
+            case TAG:
+                switch(value) {
+                case "html":
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                case "meta":
+                    // XXX: 
+                    // May need to change the encoding based on this tag
+                    /* falls through */
+                case "base":
+                case "basefont":
+                case "bgsound":
+                case "command":
+                case "link":
+                    insertHTMLElement(value, arg3);
+                    stack.pop();
+                    return;
+                case "title":
+                    parseRCDATA(value, arg3);
+                    return;
+                case "noscript":
+                    if (!scripting_enabled) {
+                        insertHTMLElement(value, arg3);
+                        parser = in_head_noscript_mode;
+                        return;
+                    }
+                    // Otherwise, if scripting is enabled...
+                    /* falls through */
+                case "noframes":
+                case "style":
+                    parseRawText(value,arg3);
+                    return;
+                case "script":
+                    var elt = createHTMLElt(value, arg3);
+                    elt.parser_inserted = true;
+                    elt.force_async = false;
+                    if (fragment) elt.already_started = true;
+                    flushText();
+                    stack.top.appendChild(elt);
+                    stack.push(elt);
+
+                    tokenizer = script_data_state;
+                    originalInsertionMode = parser;
+                    parser = text_mode;
+                    return;
+                case "head":
+                    return; // ignore it
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "head":
+                    stack.pop();
+                    parser = after_head_mode;
+                    return;
+                case "body":
+                case "html":
+                case "br":
+                    break; // handle these at the bottom of the function
+                default: 
+                    // ignore any other end tag
+                    return;
+                }
+                break;
+            }
+
+            // If not handled above
+            in_head_mode(ENDTAG, "head", null);     // synthetic </head>
+            parser(t, value, arg3, arg4);   // Then redo this one
+        }
+
+        // 13.2.5.4.5 The "in head noscript" insertion mode
+        function in_head_noscript_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case DOCTYPE:
+                return;
+            case COMMENT:
+                in_head_mode(t, value);
+                return;
+            case TEXT:
+                var ws = match(value, LEADINGWS);
+                if (ws) {
+                    in_head_mode(t, ws[0]);
+                    value = substring(value,ws[0].length);
+                }
+                if (value.length === 0) return; // no more text
+                break; // Handle non-whitespace below
+            case TAG:
+                switch(value) {
+                case "html":
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                case "basefont":
+                case "bgsound":
+                case "link":
+                case "meta":
+                case "noframes":
+                case "style":
+                    in_head_mode(t, value, arg3);
+                    return;
+                case "head":
+                case "noscript":
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "noscript":
+                    stack.pop();
+                    parser = in_head_mode;
+                    return;
+                case "br":
+                    break;  // goes to the outer default
+                default:
+                    return; // ignore other end tags
+                }
+                break;
+            }
+
+            // If not handled above
+            in_head_noscript_mode(ENDTAG, "noscript", null);
+            parser(t, value, arg3, arg4);
+        }
+
+        function after_head_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                var ws = match(value, LEADINGWS);
+                if (ws) {
+                    insertText(ws[0]);
+                    value = substring(value,ws[0].length);
+                }
+                if (value.length === 0) return;
+                break; // Handle non-whitespace below
+            case COMMENT:
+                insertComment(value);
+                return;
+            case DOCTYPE:
+                return;
+            case TAG:
+                switch(value) {
+                case "html":
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                case "body":
+                    insertHTMLElement(value, arg3);
+                    frameset_ok = false;
+                    parser = in_body_mode;
+                    return;
+                case "frameset":
+                    insertHTMLElement(value, arg3);
+                    parser = in_frameset_mode;
+                    return;
+                case "base":
+                case "basefont":
+                case "bgsound":
+                case "link":
+                case "meta":
+                case "noframes":
+                case "script":
+                case "style":
+                case "title":
+                    stack.push(head_element_pointer);
+                    in_head_mode(TAG, value, arg3);
+                    stack.removeElement(head_element_pointer);
+                    return;
+                case "head":
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "body":
+                case "html":
+                case "br":
+                    break;
+                default:
+                    return;  // ignore any other end tag
+                }
+                break;
+            }
+
+            after_head_mode(TAG, "body", null);
+            frameset_ok = true;
+            parser(t, value, arg3, arg4);
+        }
+
+        // 13.2.5.4.7 The "in body" insertion mode
+        function in_body_mode(t,value,arg3,arg4) {
+            var body, i, node;
+            switch(t) {
+            case TEXT:
+                if (textIncludesNUL) {
+                    value = replace(value, NULCHARS, "");
+                    if (value.length === 0) return;
+                }
+                // If any non-space characters
+                if (frameset_ok && test(NONWS, value))  
+                    frameset_ok = false;
+                afe.reconstruct();
+                insertText(value);
+                return;
+            case DOCTYPE:
+                return;
+            case COMMENT:
+                insertComment(value);
+                return;
+            case EOF:
+                stopParsing();
+                return;
+            case TAG:
+                switch(value) {
+                case "html":
+                    transferAttributes(arg3, stack.elements[0]);
+                    return;
+                case "base":
+                case "basefont":
+                case "bgsound":
+                case "command":
+                case "link":
+                case "meta":
+                case "noframes":
+                case "script":
+                case "style":
+                case "title":
+                    in_head_mode(TAG, value, arg3);
+                    return;
+                case "body":
+                    body = stack.elements[1];
+                    if (!body || !(body instanceof impl.HTMLBodyElement))
+                        return;
+                    frameset_ok = false;
+                    transferAttributes(arg3, body);
+                    return;
+                case "frameset":
+                    if (!frameset_ok) return;
+                    body = stack.elements[1];
+                    if (!body || !(body instanceof impl.HTMLBodyElement))
+                        return;
+                    if (body.parentNode) body.parentNode.removeChild(body);
+                    while(!(stack.top instanceof impl.HTMLHtmlElement))
+                        stack.pop();
+                    insertHTMLElement(value, arg3);
+                    parser = in_frameset_mode;
+                    return;
+
+                case "address":
+                case "article":
+                case "aside":
+                case "blockquote":
+                case "center":
+                case "details":
+                case "dir":
+                case "div":
+                case "dl":
+                case "fieldset":
+                case "figcaption":
+                case "figure":
+                case "footer":
+                case "header":
+                case "hgroup":
+                case "menu":
+                case "nav":
+                case "ol":
+                case "p":
+                case "section":
+                case "summary":
+                case "ul":
+                    if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+                    insertHTMLElement(value, arg3);
+                    return;
+
+                case "h1":
+                case "h2":
+                case "h3":
+                case "h4":
+                case "h5":
+                case "h6":
+                    if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+                    if (stack.top instanceof impl.HTMLHeadingElement)
+                        stack.pop();
+                    insertHTMLElement(value, arg3);
+                    return;
+                    
+                case "pre":
+                case "listing":
+                    if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+                    insertHTMLElement(value, arg3);
+                    ignore_linefeed = true;
+                    frameset_ok = false;
+                    return;
+
+                case "form":
+                    if (form_element_pointer) return;
+                    if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+                    form_element_pointer = insertHTMLElement(value, arg3);
+                    return;
+
+                case "li":
+                    frameset_ok = false;
+                    for(i = stack.elements.length-1; i >= 0; i--) {
+                        node = stack.elements[i];
+                        if (node instanceof impl.HTMLLIElement) {
+                            in_body_mode(ENDTAG, "li");
+                            break;
+                        }
+                        if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
+                            break;
+                    }
+                    if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+                    insertHTMLElement(value, arg3);
+                    return;
+
+                case "dd":
+                case "dt":
+                    frameset_ok = false;
+                    for(i = stack.elements.length-1; i >= 0; i--) {
+                        node = stack.elements[i];
+                        if (isA(node, dddtSet)) {
+                            in_body_mode(ENDTAG, node.localName);
+                            break;
+                        }
+                        if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
+                            break;
+                    }
+                    if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+                    insertHTMLElement(value, arg3);
+                    return;
+                    
+                case "plaintext":
+                    if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+                    insertHTMLElement(value, arg3);
+                    tokenizer = plaintext_state;
+                    return;
+                    
+                case "button":
+                    if (stack.inScope("button")) {
+                        in_body_mode(ENDTAG, "button");
+                        parser(t, value, arg3, arg4);
+                    }
+                    else {
+                        afe.reconstruct();
+                        insertHTMLElement(value, arg3);
+                        frameset_ok = false;
+                    }
+                    return;
+
+                case "a":
+                    var activeElement = afe.findElementByTag("a");
+                    if (activeElement) {
+                        in_body_mode(ENDTAG, value);
+                        afe.remove(activeElement);
+                        stack.removeElement(activeElement);
+                    }
+                    /* falls through */
+
+                case "b":
+                case "big":
+                case "code":
+                case "em":
+                case "font":
+                case "i":
+                case "s":
+                case "small":
+                case "strike":
+                case "strong":
+                case "tt":
+                case "u":
+                    afe.reconstruct();
+                    afe.push(insertHTMLElement(value,arg3));
+                    return;
+
+                case "nobr":
+                    afe.reconstruct();
+
+                    if (stack.inScope(value)) {
+                        in_body_mode(ENDTAG, value);
+                        afe.reconstruct();
+                    }
+                    afe.push(insertHTMLElement(value,arg3));
+                    return;
+
+                case "applet":
+                case "marquee":
+                case "object":
+                    afe.reconstruct();
+                    insertHTMLElement(value,arg3);
+                    afe.insertMarker();
+                    frameset_ok = false;
+                    return;
+
+                case "table":
+                    if (!doc._quirks && stack.inButtonScope("p")) {
+                        in_body_mode(ENDTAG, "p");
+                    }
+                    insertHTMLElement(value,arg3);
+                    frameset_ok = false;
+                    parser = in_table_mode;
+                    return;
+
+                case "area":
+                case "br":
+                case "embed":
+                case "img":
+                case "keygen":
+                case "wbr":
+                    afe.reconstruct();
+                    insertHTMLElement(value,arg3);
+                    stack.pop();
+                    frameset_ok = false;
+                    return;
+                    
+                case "input":
+                    afe.reconstruct();
+                    var elt = insertHTMLElement(value,arg3);
+                    stack.pop();
+                    var type = elt.getAttribute("type");
+                    if (!type || toLowerCase(type) !== "hidden")
+                        frameset_ok = false;
+                    return;
+
+                case "param":
+                case "source":
+                case "track":
+                    insertHTMLElement(value,arg3);
+                    stack.pop();
+                    return;
+
+                case "hr":
+                    if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+                    insertHTMLElement(value,arg3);
+                    stack.pop();
+                    frameset_ok = false;
+                    return;
+
+                case "image":
+                    in_body_mode(TAG, "img", arg3, arg4);
+                    return;
+
+                case "isindex":
+                    if (form_element_pointer) return;
+                    (function handleIsIndexTag(attrs) {
+                        var prompt = null;
+                        var formattrs = [];
+                        var newattrs = [["name", "isindex"]];
+                        for(var i = 0; i < attrs.length; i++) {
+                            var a = attrs[i];
+                            if (a[0] === "action") {
+                                push(formattrs, a);
+                            }
+                            else if (a[0] === "prompt") {
+                                prompt = a[1];
+                            }
+                            else if (a[0] !== "name") {
+                                push(newattrs, a);
+                            }
+                        }
+                        
+                        // This default prompt presumably needs localization.
+                        // The space after the colon in this prompt is required
+                        // by the html5lib test cases
+                        if (!prompt)
+                            prompt = "This is a searchable index. " +
+                            "Enter search keywords: ";
+
+                        parser(TAG, "form", formattrs);
+                        parser(TAG, "hr", null);
+                        parser(TAG, "label", null);
+                        parser(TEXT, prompt);
+                        parser(TAG, "input", newattrs);
+                        parser(ENDTAG, "label");
+                        parser(TAG, "hr", null);
+                        parser(ENDTAG, "form");
+                    }(arg3));
+                    return;
+                    
+                case "textarea":
+                    insertHTMLElement(value,arg3);
+                    ignore_linefeed = true;
+                    frameset_ok = false;
+                    tokenizer = rcdata_state;
+                    originalInsertionMode = parser;
+                    parser = text_mode;
+                    return;
+
+                case "xmp":
+                    if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
+                    afe.reconstruct();
+                    frameset_ok = false;
+                    parseRawText(value, arg3);
+                    return;
+
+                case "iframe":
+                    frameset_ok = false;
+                    parseRawText(value, arg3);
+                    return;
+
+                case "noembed":
+                    parseRawText(value,arg3);
+                    return;
+
+                case "noscript":
+                    if (scripting_enabled) {
+                        parseRawText(value,arg3);
+                        return;
+                    }
+                    break;  // XXX Otherwise treat it as any other open tag?
+                    
+                case "select":
+                    afe.reconstruct();
+                    insertHTMLElement(value,arg3);
+                    frameset_ok = false;
+                    if (parser === in_table_mode ||
+                        parser === in_caption_mode ||
+                        parser === in_table_body_mode ||
+                        parser === in_row_mode ||
+                        parser === in_cell_mode)
+                        parser = in_select_in_table_mode;
+                    else
+                        parser = in_select_mode;
+                    return;
+
+                case "optgroup":
+                case "option":
+                    if (stack.top instanceof impl.HTMLOptionElement) {
+                        in_body_mode(ENDTAG, "option");
+                    }
+                    afe.reconstruct();
+                    insertHTMLElement(value,arg3);
+                    return;
+
+                case "rp":
+                case "rt":
+                    if (stack.inScope("ruby")) {
+                        stack.generateImpliedEndTags();
+                    }
+                    insertHTMLElement(value,arg3);
+                    return;
+
+                case "math":
+                    afe.reconstruct();
+                    adjustMathMLAttributes(arg3);
+                    adjustForeignAttributes(arg3);
+                    insertForeignElement(value, arg3, MATHML_NAMESPACE);
+                    if (arg4) // self-closing flag
+                        stack.pop();
+                    return;
+
+                case "svg":
+                    afe.reconstruct();
+                    adjustSVGAttributes(arg3);
+                    adjustForeignAttributes(arg3);
+                    insertForeignElement(value, arg3, SVG_NAMESPACE);
+                    if (arg4) // self-closing flag
+                        stack.pop();
+                    return;
+                    
+                case "caption":
+                case "col":
+                case "colgroup":
+                case "frame":
+                case "head":
+                case "tbody":
+                case "td":
+                case "tfoot":
+                case "th":
+                case "thead":
+                case "tr":
+                    // Ignore table tags if we're not in_table mode
+                    return;
+                }
+
+                // Handle any other start tag here
+                // (and also noscript tags when scripting is disabled)
+                afe.reconstruct();
+                insertHTMLElement(value,arg3);
+                return;
+
+            case ENDTAG:
+                switch(value) {
+                case "body":
+                    if (!stack.inScope("body")) return;
+                    parser = after_body_mode;
+                    return;
+                case "html":
+                    if (!stack.inScope("body")) return;
+                    parser = after_body_mode;
+                    parser(t, value, arg3);
+                    return;
+
+                case "address":
+                case "article":
+                case "aside":
+                case "blockquote":
+                case "button":
+                case "center":
+                case "details":
+                case "dir":
+                case "div":
+                case "dl":
+                case "fieldset":
+                case "figcaption":
+                case "figure":
+                case "footer":
+                case "header":
+                case "hgroup":
+                case "listing":
+                case "menu":
+                case "nav":
+                case "ol":
+                case "pre":
+                case "section":
+                case "summary":
+                case "ul":
+                    // Ignore if there is not a matching open tag
+                    if (!stack.inScope(value)) return;
+                    stack.generateImpliedEndTags();
+                    stack.popTag(value);
+                    return;
+
+                case "form":
+                    var openform = form_element_pointer;
+                    form_element_pointer = null;
+                    if (!openform || !stack.elementInScope(openform)) return;
+                    stack.generateImpliedEndTags();
+                    stack.removeElement(openform);
+                    return;
+
+                case "p":
+                    if (!stack.inButtonScope(value)) {
+                        in_body_mode(TAG, value, null);
+                        parser(t, value, arg3, arg4);
+                    }
+                    else {
+                        stack.generateImpliedEndTags(value);
+                        stack.popTag(value);
+                    }
+                    return;
+
+                case "li":
+                    if (!stack.inListItemScope(value)) return;
+                    stack.generateImpliedEndTags(value);
+                    stack.popTag(value);
+                    return;
+
+                case "dd":
+                case "dt":
+                    if (!stack.inScope(value)) return;
+                    stack.generateImpliedEndTags(value);
+                    stack.popTag(value);
+                    return;
+
+                case "h1":
+                case "h2":
+                case "h3":
+                case "h4":
+                case "h5":
+                case "h6":
+                    if (!stack.elementTypeInScope(impl.HTMLHeadingElement)) return;
+                    stack.generateImpliedEndTags();
+                    stack.popElementType(impl.HTMLHeadingElement);
+                    return;
+                    
+                case "a":
+                case "b":
+                case "big":
+                case "code":
+                case "em":
+                case "font":
+                case "i":
+                case "nobr":
+                case "s":
+                case "small":
+                case "strike":
+                case "strong":
+                case "tt":
+                case "u":
+                    var result = adoptionAgency(value);
+                    if (result) return;  // If we did something we're done
+                    break;               // Go to the "any other end tag" case
+
+                case "applet":
+                case "marquee":
+                case "object":
+                    if (!stack.inScope(value)) return;
+                    stack.generateImpliedEndTags();
+                    stack.popTag(value);
+                    afe.clearToMarker();
+                    return;
+
+                case "br":
+                    in_body_mode(TAG, value, null);  // Turn </br> into <br>
+                    return;
+                }
+
+                // Any other end tag goes here
+                for(i = stack.elements.length-1; i >= 0; i--) {
+                    node = stack.elements[i];
+                    if (node.localName === value) {
+                        stack.generateImpliedEndTags(value);
                         stack.popElement(node);
                         break;
                     }
-                    node = stack.elements[--i];
-                    // If non-html, keep looping
-                    if (node.namespaceURI !== HTML_NAMESPACE)
-                        continue;
-                    // Otherwise process the end tag as html
-                    parser(t, value, arg3, arg4);
-                    break;
+                    else if (isA(node, specialSet)) {
+                        return;
+                    }
                 }
+
+                return;
             }
-            return;
         }
-    }
 
+        function text_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                insertText(value);
+                return;
+            case EOF:
+                if (stack.top instanceof impl.HTMLScriptElement)
+                    stack.top.already_started = true;
+                stack.pop();
+                parser = originalInsertionMode;
+                parser(t);
+                return;
+            case ENDTAG:
+                if (value === "script") {
+                    handleScriptEnd();  
+                }
+                else {
+                    stack.pop();
+                    parser = originalInsertionMode;
+                }
+                return;
+            default: 
+                // We should never get any other token types
+                return;
+            }
+        }
 
-    /*
-     * parsing code for character references
-     */
+        function in_table_mode(t, value, arg3, arg4) {
+            function getTypeAttr(attrs) {
+                for(var i = 0, n = attrs.length; i < n; i++) {
+                    if (attrs[i][0] === "type")
+                        return toLowerCase(attrs[i][1]);
+                }
+                return null;
+            }
 
-    // Parse a character reference from s and return a codepoint or an
-    // array of codepoints or null if there is no valid char ref in s.
-    function parseCharRef(s, isattr) {
-        var len = s.length;
-        var rv;
-        if (len === 0) return null;  // No character reference matched
+            switch(t) {
+            case TEXT:
+                // XXX the text_integration_mode stuff is 
+                // just a hack I made up
+                if (text_integration_mode) {
+                    in_body_mode(t, value, arg3, arg4) 
+                }
+                else {
+                    pending_table_text = [];
+                    originalInsertionMode = parser;
+                    parser = in_table_text_mode;
+                    parser(t, value, arg3, arg4);
+                }
+                return;
+            case COMMENT: 
+                insertComment(value);
+                return;
+            case DOCTYPE:
+                return;
+            case TAG:
+                switch(value) {
+                case "caption":
+                    stack.clearToContext(impl.HTMLTableElement);
+                    afe.insertMarker();
+                    insertHTMLElement(value,arg3);
+                    parser = in_caption_mode;
+                    return;
+                case "colgroup":
+                    stack.clearToContext(impl.HTMLTableElement);
+                    insertHTMLElement(value,arg3);
+                    parser = in_column_group_mode;
+                    return;
+                case "col":
+                    in_table_mode(TAG, "colgroup", null);
+                    parser(t, value, arg3, arg4);
+                    return;
+                case "tbody":
+                case "tfoot":
+                case "thead":
+                    stack.clearToContext(impl.HTMLTableElement);
+                    insertHTMLElement(value,arg3);
+                    parser = in_table_body_mode;
+                    return;
+                case "td":
+                case "th":
+                case "tr":
+                    in_table_mode(TAG, "tbody", null);
+                    parser(t, value, arg3, arg4);
+                    return;
 
-        if (s[0] === "#") {               // Numeric character reference
-            var codepoint;
+                case "table":
+                    var repro = stack.inTableScope(value);
+                    in_table_mode(ENDTAG, value);
+                    if (repro) parser(t, value, arg3, arg4);
+                    return;
 
-            if (s[1] === "x" || s[1] === "X") {
-                // Hex
-                codepoint = parseInt(s.substring(2), 16);
+                case "style":
+                case "script":
+                    in_head_mode(t, value, arg3, arg4);
+                    return;
+
+                case "input":
+                    var type = getTypeAttr(arg3);
+                    if (type !== "hidden") break;  // to the anything else case
+                    insertHTMLElement(value,arg3);
+                    stack.pop();
+                    return;
+
+                case "form":
+                    if (form_element_pointer) return;
+                    form_element_pointer = insertHTMLElement(value, arg3);
+                    stack.pop();
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "table":
+                    if (!stack.inTableScope(value)) return;
+                    stack.popTag(value);
+                    stack.resetInsertionMode();
+                    return;
+                case "body":
+                case "caption":
+                case "col":
+                case "colgroup":
+                case "html":
+                case "tbody":
+                case "td":
+                case "tfoot":
+                case "th":
+                case "thead":
+                case "tr":
+                    return;
+                }
+
+                break;
+            case EOF:
+                stopParsing();
+                return;
+            default:
+                break;
+            }
+
+            // This is the anything else case
+            foster_parent_mode = true;
+            in_body_mode(t, value, arg3, arg4);
+            foster_parent_mode = false;
+        }
+
+        function in_table_text_mode(t, value, arg3, arg4) {
+            if (t === TEXT) {
+                if (textIncludesNUL) {
+                    value = replace(value, NULCHARS, "");
+                    if (value.length === 0) return;
+                }
+                push(pending_table_text,value);
             }
             else {
-                // Decimal
-                codepoint = parseInt(s.substring(1), 10);
+                var s = join(pending_table_text,"");
+                pending_table_text.length = 0;
+                if (test(NONWS, s)) { // If any non-whitespace characters
+                    // This must be the same code as the "anything else"
+                    // case of the in_table mode above.
+                    foster_parent_mode = true;
+                    in_body_mode(TEXT, s);
+                    foster_parent_mode = false;
+                }
+                else {
+                    insertText(s);
+                }
+                parser = originalInsertionMode;
+                parser(t, value, arg3, arg4);
             }
-            
-            if (s[len-1] === ";")  // If the string ends with a semicolon
-                nextchar += len;   // Consume all the chars
-            else
-                nextchar += len-1; // Otherwise, all but the last character
-
-            if (codepoint in numericCharRefReplacements) {
-                codepoint = numericCharRefReplacements[codepoint];
-            }
-            else if (codepoint > 0x10FFFF ||
-                     (codepoint >= 0xD800 && codepoint < 0xE000)) {
-                codepoint = 0xFFFD;
-            }
-
-            if (codepoint <= 0xFFFF) return codepoint;
-
-            codepoint = codepoint - 0x10000;
-            return [0xD800 + (codepoint >> 10), 
-                    0xDC00 + (codepoint & 0x03FF)];
         }
-        else {                           // Named character reference
-            // We have to be able to parse some named char refs even when
-            // the semicolon is omitted, but have to match the longest one 
-            // possible.  So if the lookahead doesn't end with semicolon
-            // then we have to loop backward looking for longest to shortest
-            // matches.  Fortunately, the names that don't require semis
-            // are all between 2 and 6 characters long.
 
-            if (s[len-1] === ";") {
-                rv = namedCharRefs[s];
-                if (rv !== undefined) {
-                    nextchar += len;  // consume all the characters
-                    return rv;
+
+        function in_caption_mode(t, value, arg3, arg4) {
+            function end_caption() {
+                if (!stack.inTableScope("caption")) return false;
+                stack.generateImpliedEndTags();
+                stack.popTag("caption");
+                afe.clearToMarker();
+                parser = in_table_mode;
+                return true;
+            }
+
+            switch(t) {
+            case TAG:
+                switch(value) {
+                case "caption":
+                case "col":
+                case "colgroup":
+                case "tbody":
+                case "td":
+                case "tfoot":
+                case "th":
+                case "thead":
+                case "tr":
+                    if (end_caption()) parser(t, value, arg3, arg4);
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "caption":
+                    end_caption();
+                    return;
+                case "table":
+                    if (end_caption()) parser(t, value, arg3, arg4);
+                    return;
+                case "body":
+                case "col":
+                case "colgroup":
+                case "html":
+                case "tbody":
+                case "td":
+                case "tfoot":
+                case "th":
+                case "thead":
+                case "tr":
+                    return;
+                }
+                break;
+            }
+
+            // The Anything Else case
+            in_body_mode(t, value, arg3, arg4);
+        }
+
+        function in_column_group_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                var ws = match(value, LEADINGWS);
+                if (ws) {
+                    insertText(ws[0]);
+                    value = substring(value,ws[0].length);
+                }
+                if (value.length === 0) return;
+                break; // Handle non-whitespace below
+
+            case COMMENT:
+                insertComment(value);
+                return;
+            case DOCTYPE:
+                return;
+            case TAG:
+                switch(value) {
+                case "html":
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                case "col":
+                    insertHTMLElement(value, arg3);
+                    stack.pop();
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "colgroup":
+                    if (stack.top instanceof impl.HTMLHtmlElement) return;
+                    stack.pop();
+                    parser = in_table_mode;
+                    return;
+                case "col":
+                    return;
+                }
+                break;
+            case EOF:
+                if (stack.top instanceof impl.HTMLHtmlElement) {
+                    stopParsing();
+                    return;
+                }
+                break;
+            }
+
+            // Anything else
+            if (!(stack.top instanceof impl.HTMLHtmlElement)) {
+                in_column_group_mode(ENDTAG, "colgroup");
+                parser(t, value, arg3, arg4);
+            }
+        }
+
+        function in_table_body_mode(t, value, arg3, arg4) {
+            function endsect() {
+                if (!stack.inTableScope("tbody") &&
+                    !stack.inTableScope("thead") && 
+                    !stack.inTableScope("tfoot")) 
+                    return;
+                stack.clearToContext(impl.HTMLTableSectionElement);
+                in_table_body_mode(ENDTAG, stack.top.localName, null);
+                parser(t, value, arg3, arg4);
+            }
+
+            switch(t) {
+            case TAG:
+                switch(value) {
+                case "tr":
+                    stack.clearToContext(impl.HTMLTableSectionElement);
+                    insertHTMLElement(value, arg3);
+                    parser = in_row_mode;
+                    return;
+                case "th":
+                case "td":
+                    in_table_body_mode(TAG, "tr", null);
+                    parser(t, value, arg3, arg4);
+                    return;
+                case "caption":
+                case "col":
+                case "colgroup":
+                case "tbody":
+                case "tfoot":
+                case "thead":
+                    endsect();
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "table":
+                    endsect();
+                    return;
+                case "tbody":
+                case "tfoot":
+                case "thead":
+                    if (stack.inTableScope(value)) {
+                        stack.clearToContext(impl.HTMLTableSectionElement);
+                        stack.pop();
+                        parser = in_table_mode;
+                    }
+                    return;
+                case "body":
+                case "caption":
+                case "col":
+                case "colgroup":
+                case "html":
+                case "td":
+                case "th":
+                case "tr":
+                    return;
+                }
+                break;
+            }
+
+            // Anything else:
+            in_table_mode(t, value, arg3, arg4);
+        }
+
+        function in_row_mode(t, value, arg3, arg4) {
+            function endrow() {
+                if (!stack.inTableScope("tr")) return false;
+                stack.clearToContext(impl.HTMLTableRowElement);
+                stack.pop();
+                parser = in_table_body_mode;
+                return true;
+            }
+
+            switch(t) {
+            case TAG:
+                switch(value) {
+                case "th":
+                case "td":
+                    stack.clearToContext(impl.HTMLTableRowElement);
+                    insertHTMLElement(value, arg3);
+                    parser = in_cell_mode;
+                    afe.insertMarker();
+                    return;
+                case "caption":
+                case "col":
+                case "colgroup":
+                case "tbody":
+                case "tfoot":
+                case "thead":
+                case "tr":
+                    if (endrow()) parser(t, value, arg3, arg4);
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "tr":
+                    endrow();
+                    return;
+                case "table":
+                    if (endrow()) parser(t, value, arg3, arg4);
+                    return;
+                case "tbody":
+                case "tfoot":
+                case "thead":
+                    if (stack.inTableScope(value)) {
+                        in_row_mode(ENDTAG, "tr");
+                        parser(t, value, arg3, arg4);
+                    }
+                    return;
+                case "body":
+                case "caption":
+                case "col":
+                case "colgroup":
+                case "html":
+                case "td":
+                case "th":
+                    return;
+                }
+                break;
+            }
+
+            // anything else
+            in_table_mode(t, value, arg3, arg4);
+        }
+
+        function in_cell_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TAG:
+                switch(value) {
+                case "caption":
+                case "col":
+                case "colgroup":
+                case "tbody":
+                case "td":
+                case "tfoot":
+                case "th":
+                case "thead":
+                case "tr":
+                    if (stack.inTableScope("td")) {
+                        in_cell_mode(ENDTAG, "td");
+                        parser(t, value, arg3, arg4);
+                    }
+                    else if (stack.inTableScope("th")) {
+                        in_cell_mode(ENDTAG, "th");
+                        parser(t, value, arg3, arg4);
+                    }
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "td":
+                case "th":
+                    if (!stack.inTableScope(value)) return;
+                    stack.generateImpliedEndTags();
+                    stack.popTag(value);
+                    afe.clearToMarker();
+                    parser = in_row_mode;
+                    return;
+
+                case "body":
+                case "caption":
+                case "col":
+                case "colgroup":
+                case "html":
+                    return;
+
+                case "table":
+                case "tbody":
+                case "tfoot":
+                case "thead":
+                case "tr":
+                    if (!stack.inTableScope(value)) return;
+                    in_cell_mode(ENDTAG, stack.inTableScope("td") ? "td" : "th");
+                    parser(t, value, arg3, arg4);
+                    return;
+                }
+                break;
+            }
+
+            // anything else
+            in_body_mode(t, value, arg3, arg4);
+        }
+
+        function in_select_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                if (textIncludesNUL) {
+                    value = replace(value, NULCHARS, "");
+                    if (value.length === 0) return;
+                }
+                insertText(value);
+                return;
+            case COMMENT:
+                insertComment(value);
+                return;
+            case DOCTYPE:
+                return;
+            case EOF:
+                stopParsing();
+                return;
+            case TAG:
+                switch(value) {
+                case "html":
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                case "option":
+                    if (stack.top instanceof impl.HTMLOptionElement) 
+                        in_select_mode(ENDTAG, value);
+                    insertHTMLElement(value, arg3);
+                    return;
+                case "optgroup":
+                    if (stack.top instanceof impl.HTMLOptionElement) 
+                        in_select_mode(ENDTAG, "option");
+                    if (stack.top instanceof impl.HTMLOptGroupElement) 
+                        in_select_mode(ENDTAG, value);
+                    insertHTMLElement(value, arg3);
+                    return;
+                case "select":
+                    in_select_mode(ENDTAG, value); // treat it as a close tag
+                    return;
+
+                case "input":
+                case "keygen":
+                case "textarea":
+                    if (!stack.inSelectScope("select")) return;
+                    in_select_mode(ENDTAG, "select");
+                    parser(t, value, arg3, arg4);
+                    return;
+                    
+                case "script":
+                    in_head_mode(t, value, arg3, arg4);
+                    return;
+                }
+                break;
+            case ENDTAG:
+                switch(value) {
+                case "optgroup":
+                    if (stack.top instanceof impl.HTMLOptionElement &&
+                        stack.elements[stack.elements.length-2] instanceof
+                        impl.HTMLOptGroupElement) {
+                        in_select_mode(ENDTAG, "option");
+                    }
+                    if (stack.top instanceof impl.HTMLOptGroupElement) 
+                        stack.pop();
+
+                    return;
+
+                case "option":
+                    if (stack.top instanceof impl.HTMLOptionElement)
+                        stack.pop();
+                    return;
+
+                case "select":
+                    if (!stack.inSelectScope(value)) return;
+                    stack.popTag(value);
+                    stack.resetInsertionMode();
+                    return;
+                }
+
+                break;
+            }
+
+            // anything else: just ignore the token
+        }
+
+        function in_select_in_table_mode(t, value, arg3, arg4) {
+            switch(value) {
+            case "caption":
+            case "table":
+            case "tbody":
+            case "tfoot":
+            case "thead":
+            case "tr":
+            case "td":
+            case "th":
+                switch(t) {
+                case TAG:
+                    in_select_in_table_mode(ENDTAG, "select");
+                    parser(t, value, arg3, arg4);
+                    return;
+                case ENDTAG:
+                    if (stack.inTableScope(value)) {
+                        in_select_in_table_mode(ENDTAG, "select");
+                        parser(t, value, arg3, arg4);
+                    }
+                    return;
                 }
             }
 
-            // If it didn't end with a semicolon, see if we can match 
-            // everything but the terminating character
-            len--;  // Ignore whatever the terminating character is
-            rv = namedCharRefsNoSemi[s.substring(0, len)];
-            if (rv !== undefined) {
-                nextchar += len;
-                return rv;
+            // anything else
+            in_select_mode(t, value, arg3, arg4);
+        }
+
+        function after_body_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                // If any non-space chars, handle below
+                if (test(NONWS, value)) break; 
+                in_body_mode(t, value);
+                return;
+            case COMMENT:
+                // Append it to the <html> element
+                stack.elements[0].appendChild(doc.createComment(value));
+                return;
+            case DOCTYPE:
+                return;
+            case EOF:
+                stopParsing();
+                return;
+            case TAG:
+                if (value === "html") {
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                }
+                break; // for any other tags
+            case ENDTAG:
+                if (value === "html") {
+                    if (fragment) return;
+                    parser = after_after_body_mode;
+                    return;
+                }
+                break; // for any other tags
             }
-            
-            // If it still didn't match, and we're not parsing a
-            // character reference in an attribute value, then try 
-            // matching shorter substrings.
-            if (!isattr) {
-                len--;
-                if (len > 6) len = 6; // Maximum possible match length
-                while(len >= 2) {
-                    rv = namedCharRefsNoSemi[s.substring(0, len)];
+
+            // anything else
+            parser = in_body_mode;
+            parser(t, value, arg3, arg4);
+        }
+
+        function in_frameset_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                // Ignore any non-space characters
+                value = replace(value, ALLNONWS, "");
+                if (value.length > 0) insertText(value);
+                return;
+            case COMMENT:
+                insertComment(value);
+                return;
+            case DOCTYPE:
+                return;
+            case EOF:
+                stopParsing();
+                return;
+            case TAG:
+                switch(value) {
+                case "html":
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                case "frameset":
+                    insertHTMLElement(value, arg3);
+                    return;
+                case "frame":
+                    insertHTMLElement(value, arg3);
+                    stack.pop();
+                    return;
+                case "noframes":
+                    in_head_mode(t, value, arg3, arg4);
+                    return;
+                }
+                break;
+            case ENDTAG:
+                if (value === "frameset") {
+                    if (fragment && stack.top instanceof impl.HTMLHtmlElement)
+                        return;
+                    stack.pop();
+                    if (!fragment &&
+                        !(stack.top instanceof impl.HTMLFrameSetElement))
+                        parser = after_frameset_mode;
+                    return;
+                }
+                break;
+            }
+
+            // ignore anything else
+        }
+
+        function after_frameset_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                // Ignore any non-space characters
+                value = replace(value, ALLNONWS, "");
+                if (value.length > 0) insertText(value);
+                return;
+            case COMMENT:
+                insertComment(value);
+                return;
+            case DOCTYPE:
+                return;
+            case EOF:
+                stopParsing();
+                return;
+            case TAG:
+                switch(value) {
+                case "html":
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                case "noframes":
+                    in_head_mode(t, value, arg3, arg4);
+                    return;
+                }
+                break;
+            case ENDTAG:
+                if (value === "html") {
+                    parser = after_after_frameset_mode;
+                    return;
+                }
+                break;
+            }
+
+            // ignore anything else
+        }
+
+        function after_after_body_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                // If any non-space chars, handle below
+                if (test(NONWS, value)) break; 
+                in_body_mode(t, value, arg3, arg4);
+                return;
+            case COMMENT:
+                doc.appendChild(doc.createComment(value));
+                return;
+            case DOCTYPE:
+                in_body_mode(t, value, arg3, arg4);
+                return;
+            case EOF:
+                stopParsing();
+                return;
+            case TAG:
+                if (value === "html") {
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                }
+                break;
+            }
+
+            // anything else
+            parser = in_body_mode;
+            parser(t, value, arg3, arg4);
+        }
+
+        function after_after_frameset_mode(t, value, arg3, arg4) {
+            switch(t) {
+            case TEXT:
+                // Ignore any non-space characters
+                value = replace(value, ALLNONWS, "");
+                if (value.length > 0) 
+                    in_body_mode(t, value, arg3, arg4);
+                return;
+            case COMMENT:
+                doc.appendChild(doc.createComment(value));
+                return;
+            case DOCTYPE:
+                in_body_mode(t, value, arg3, arg4);
+                return;
+            case EOF:
+                stopParsing();
+                return;
+            case TAG:
+                switch(value) {
+                case "html":
+                    in_body_mode(t, value, arg3, arg4);
+                    return;
+                case "noframes":
+                    in_head_mode(t, value, arg3, arg4);
+                    return;
+                }
+                break;
+            }
+
+            // ignore anything else
+        }
+
+
+        // 13.2.5.5 The rules for parsing tokens in foreign content
+        //
+        // This is like one of the insertion modes above, but is 
+        // invoked somewhat differently when the current token is not HTML.
+        // See the insertToken() function.
+        function insertForeignToken(t, value, arg3, arg4) {
+            // A <font> tag is an HTML font tag if it has a color, font, or size
+            // attribute.  Otherwise we assume it is foreign content
+            function isHTMLFont(attrs) {
+                for(var i = 0, n = attrs.length; i < n; i++) {
+                    switch(attrs[i][0]) {
+                    case "color":
+                    case "font":
+                    case "size":
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            var current;
+
+            switch(t) {
+            case TEXT:
+                // If any non-space, non-nul characters
+                if (frameset_ok && test(NONWSNONNUL, value))
+                    frameset_ok = false;
+                if (textIncludesNUL) {
+                    value = replace(value, NULCHARS, "\uFFFD");
+                }
+                insertText(value);
+                return;
+            case COMMENT:
+                insertComment(value);
+                return;
+            case DOCTYPE:
+                // ignore it
+                return;
+            case TAG:
+                switch(value) {
+                case "font":
+                    if (!isHTMLFont(arg3)) break;
+                    /* falls through */
+                case "b":
+                case "big":
+                case "blockquote":
+                case "body":
+                case "br":
+                case "center":
+                case "code":
+                case "dd":
+                case "div":
+                case "dl":
+                case "dt":
+                case "em":
+                case "embed":
+                case "h1":
+                case "h2":
+                case "h3":
+                case "h4":
+                case "h5":
+                case "h6":
+                case "head":
+                case "hr":
+                case "i":
+                case "img":
+                case "li":
+                case "listing":
+                case "menu":
+                case "meta":
+                case "nobr":
+                case "ol":
+                case "p":
+                case "pre":
+                case "ruby":
+                case "s":
+                case "small":
+                case "span":
+                case "strong":
+                case "strike":
+                case "sub":
+                case "sup":
+                case "table":
+                case "tt":
+                case "u":
+                case "ul":
+                case "var":
+                    do {
+                        stack.pop();
+                        current = stack.top;
+                    } while(current.namespaceURI !== HTML_NAMESPACE &&
+                            !isMathmlTextIntegrationPoint(current) &&
+                            !isHTMLIntegrationPoint(current));
+
+                    insertToken(t, value, arg3, arg4);  // reprocess
+                    return;
+                }
+
+                // Any other start tag case goes here
+                current = stack.top;
+                if (current.namespaceURI === MATHML_NAMESPACE) {
+                    adjustMathMLAttributes(arg3);
+                }
+                else if (current.namespaceURI === SVG_NAMESPACE) {
+                    value = adjustSVGTagName(value);
+                    adjustSVGAttributes(arg3);
+                }
+                adjustForeignAttributes(arg3)
+
+                insertForeignElement(value, arg3, current.namespaceURI);
+                if (arg4) // the self-closing flag
+                    stack.pop();
+                return;
+
+            case ENDTAG:
+                current = stack.top;
+                if (value === "script" &&
+                    current.namespaceURI === SVG_NAMESPACE &&
+                    current.localName === "script") {
+
+                    stack.pop();
+
+                    // XXX
+                    // Deal with SVG scripts here
+                }
+                else {
+                    // The any other end tag case
+                    var i = stack.elements.length-1;
+                    var node = stack.elements[i];
+                    for(;;) {
+                        if (toLowerCase(node.localName) === value) {
+                            stack.popElement(node);
+                            break;
+                        }
+                        node = stack.elements[--i];
+                        // If non-html, keep looping
+                        if (node.namespaceURI !== HTML_NAMESPACE)
+                            continue;
+                        // Otherwise process the end tag as html
+                        parser(t, value, arg3, arg4);
+                        break;
+                    }
+                }
+                return;
+            }
+        }
+
+
+        /***
+         * parsing code for character references
+         */
+
+        // Parse a character reference from s and return a codepoint or an
+        // array of codepoints or null if there is no valid char ref in s.
+        function parseCharRef(s, isattr) {
+            var len = s.length;
+            var rv;
+            if (len === 0) return null;  // No character reference matched
+
+            if (s[0] === "#") {               // Numeric character reference
+                var codepoint;
+
+                if (s[1] === "x" || s[1] === "X") {
+                    // Hex
+                    codepoint = parseInt(substring(s,2), 16);
+                }
+                else {
+                    // Decimal
+                    codepoint = parseInt(substring(s,1), 10);
+                }
+                
+                if (s[len-1] === ";")  // If the string ends with a semicolon
+                    nextchar += len;   // Consume all the chars
+                else
+                    nextchar += len-1; // Otherwise, all but the last character
+
+                if (codepoint in numericCharRefReplacements) {
+                    codepoint = numericCharRefReplacements[codepoint];
+                }
+                else if (codepoint > 0x10FFFF ||
+                         (codepoint >= 0xD800 && codepoint < 0xE000)) {
+                    codepoint = 0xFFFD;
+                }
+
+                if (codepoint <= 0xFFFF) return codepoint;
+
+                codepoint = codepoint - 0x10000;
+                return [0xD800 + (codepoint >> 10), 
+                        0xDC00 + (codepoint & 0x03FF)];
+            }
+            else {                           // Named character reference
+                // We have to be able to parse some named char refs even when
+                // the semicolon is omitted, but have to match the longest one 
+                // possible.  So if the lookahead doesn't end with semicolon
+                // then we have to loop backward looking for longest to shortest
+                // matches.  Fortunately, the names that don't require semis
+                // are all between 2 and 6 characters long.
+
+                if (s[len-1] === ";") {
+                    rv = namedCharRefs[s];
                     if (rv !== undefined) {
-                        nextchar += len;
+                        nextchar += len;  // consume all the characters
                         return rv;
                     }
+                }
+
+                // If it didn't end with a semicolon, see if we can match 
+                // everything but the terminating character
+                len--;  // Ignore whatever the terminating character is
+                rv = namedCharRefsNoSemi[substring(s,0, len)];
+                if (rv !== undefined) {
+                    nextchar += len;
+                    return rv;
+                }
+                
+                // If it still didn't match, and we're not parsing a
+                // character reference in an attribute value, then try 
+                // matching shorter substrings.
+                if (!isattr) {
                     len--;
+                    if (len > 6) len = 6; // Maximum possible match length
+                    while(len >= 2) {
+                        rv = namedCharRefsNoSemi[substring(s,0, len)];
+                        if (rv !== undefined) {
+                            nextchar += len;
+                            return rv;
+                        }
+                        len--;
+                    }
                 }
-            }
 
-            // Couldn't find any match
-            return null;
+                // Couldn't find any match
+                return null;
+            }
         }
+
+        /***
+         * Finally, this is the end of the HTMLParser() factory function.
+         * It returns this parser object with append() and end() methods.
+         */
+        return {
+            append: function(s) {
+                scannerAppend(s);
+                scanChars();
+            },
+
+            end: function(s) {
+                s = s || "";
+                scannerAppend(s, true);
+                scanChars();
+                // For the fragment case, return the document unwrapped.
+                // Otherwise, return a wrapped document
+                if (fragment) return doc;
+                else return wrap(doc);
+            },
+
+            // This is a hook for testing the tokenizer. It has to be here 
+            // because the tokenizer details are all hidden away within the closure.
+            // It should return an array of tokens generated while parsing the
+            // input string.  
+            // XXX: comment this out in production code
+            testTokenizer: function(input, initialState, lastStartTag, charbychar) {
+                var tokens = [];
+
+                switch(initialState) {
+                case "PCDATA state":
+                    tokenizer = data_state;
+                    break;
+                case "RCDATA state":
+                    tokenizer = rcdata_state;
+                    break;
+                case "RAWTEXT state":
+                    tokenizer = rawtext_state;
+                    break;
+                case "PLAINTEXT state":
+                    tokenizer = plaintext_state;
+                    break;
+                }
+
+                if (lastStartTag) {
+                    lasttagname = lastStartTag;
+                }
+
+                insertToken = function(t, value, arg3, arg4) {
+                    flushText();
+                    switch(t) {
+                    case TEXT:
+                        if (tokens.length > 0 &&
+                            tokens[tokens.length-1][0] === "Character") {
+                            tokens[tokens.length-1][1] += value;
+                        }
+                        else push(tokens, ["Character", value]);
+                        break;
+                    case COMMENT:
+                        push(tokens,["Comment", value]);
+                        break;
+                    case DOCTYPE:
+                        push(tokens,["DOCTYPE", value,
+                                     arg3 === undefined ? null : arg3,
+                                     arg4 === undefined ? null : arg4,
+                                     !force_quirks]);
+                        break;
+                    case TAG:
+                        var attrs = {};
+                        for(var i = 0; i < arg3.length; i++) {
+                            // XXX: does attribute order matter?
+                            var a = arg3[i];
+                            if (a.length === 1) {
+                                attrs[a[0]] = "";
+                            }
+                            else {
+                                attrs[a[0]] = a[1];
+                            }
+                        }
+                        var token = ["StartTag", value, attrs];
+                        if (arg4) push(token, true);
+                        push(tokens,token);
+                        break;
+                    case ENDTAG:
+                        push(tokens,["EndTag", value]);
+                        break;
+                    case EOF:
+                        break;
+                    }
+                }
+
+                if (!charbychar) { 
+                    this.end(input);
+                }
+                else {
+                    for(var i = 0; i < input.length; i++) {
+                        this.append(input[i]);
+                    }
+                    this.end();
+                }
+                return tokens;
+            }
+        };
     }
-
-    // Return a parser object
-    return {
-        append: function(s) {
-            scannerAppend(s);
-            scanChars();
-        },
-
-        end: function(s) {
-            s = s || "";
-            scannerAppend(s, true);
-            scanChars();
-            // For the fragment case, return the document unwrapped.
-            // Otherwise, return a wrapped document
-            if (fragment) return doc;
-            else return wrap(doc);
-        },
-
-        // This is a hook for testing the tokenizer. It has to be here 
-        // because the tokenizer details are all hidden away within the closure.
-        // It should return an array of tokens generated while parsing the
-        // input string.  
-        // XXX: comment this out in production code
-        testTokenizer: function(input, initialState, lastStartTag, charbychar) {
-            var tokens = [];
-
-            switch(initialState) {
-            case "PCDATA state":
-                tokenizer = data_state;
-                break;
-            case "RCDATA state":
-                tokenizer = rcdata_state;
-                break;
-            case "RAWTEXT state":
-                tokenizer = rawtext_state;
-                break;
-            case "PLAINTEXT state":
-                tokenizer = plaintext_state;
-                break;
-            }
-
-            if (lastStartTag) {
-                lasttagname = lastStartTag;
-            }
-
-            insertToken = function(t, value, arg3, arg4) {
-                flushText();
-                switch(t) {
-                case TEXT:
-                    if (tokens.length > 0 &&
-                        tokens[tokens.length-1][0] === "Character") {
-                        tokens[tokens.length-1][1] += value;
-                    }
-                    else tokens.push(["Character", value]);
-                    break;
-                case COMMENT:
-                    tokens.push(["Comment", value]);
-                    break;
-                case DOCTYPE:
-                    tokens.push(["DOCTYPE", value,
-                                 arg3 === undefined ? null : arg3,
-                                 arg4 === undefined ? null : arg4,
-                                 !force_quirks]);
-                    break;
-                case TAG:
-                    var attrs = {};
-                    for(var i = 0; i < arg3.length; i++) {
-                        // XXX: does attribute order matter?
-                        var a = arg3[i];
-                        if (a.length === 1) {
-                            attrs[a[0]] = "";
-                        }
-                        else {
-                            attrs[a[0]] = a[1];
-                        }
-                    }
-                    var token = ["StartTag", value, attrs];
-                    if (arg4) token.push(true);
-                    tokens.push(token);
-                    break;
-                case ENDTAG:
-                    tokens.push(["EndTag", value]);
-                    break;
-                case EOF:
-                    break;
-                }
-            }
-
-            if (!charbychar) { 
-                this.end(input);
-            }
-            else {
-                for(var i = 0; i < input.length; i++) {
-                    this.append(input[i]);
-                }
-                this.end();
-            }
-            return tokens;
-        }
-    };
-}
+    
+    return HTMLParser;
+}());
