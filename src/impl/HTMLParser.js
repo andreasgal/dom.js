@@ -2424,17 +2424,13 @@ const HTMLParser = (function() {
             }
         }
 
-        function createHTMLElt(name, attrs, insert) {
+        function createHTMLElt(name, attrs) {
             // Create the element this way, rather than with 
             // doc.createElement because createElement() does error
             // checking on the element name that we need to avoid here.
             var interfaceName = tagNameToInterfaceName[name] ||
                 "HTMLUnknownElement";
             var elt = new impl[interfaceName](doc, name, null);
-
-            if (insert) {
-                insertElement(elt);
-            }
 
             if (attrs) {
                 for(var i = 0, n = attrs.length; i < n; i++) {
@@ -2455,9 +2451,11 @@ const HTMLParser = (function() {
         var foster_parent_mode = false;
 
         function insertHTMLElement(name, attrs) {
-            var elt = createHTMLElt(name, attrs, true);
+            var elt = createHTMLElt(name, attrs);
+            insertElement(elt);
+
             // XXX
-            // If this is a form element, set its form attribute property
+            // If this is a form element, set its form attribute property here
 
             return elt;
         }
