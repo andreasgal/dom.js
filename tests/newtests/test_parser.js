@@ -1,5 +1,3 @@
-load("../../dom.js");
-
 const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
 const MATHML_NAMESPACE = "http://www.w3.org/1998/Math/MathML";
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -7,22 +5,73 @@ const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
 const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
 const XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
 
+var parserInputFiles = [
+    "parsertestdata/tree-construction/adoption01.dat",
+    "parsertestdata/tree-construction/adoption02.dat",
+    "parsertestdata/tree-construction/comments01.dat",
+    "parsertestdata/tree-construction/doctype01.dat",
+    "parsertestdata/tree-construction/entities01.dat",
+    "parsertestdata/tree-construction/entities02.dat",
+    "parsertestdata/tree-construction/html5test-com.dat",
+    "parsertestdata/tree-construction/inbody01.dat",
+    "parsertestdata/tree-construction/isindex.dat",
+    "parsertestdata/tree-construction/pending-spec-changes-plain-text-unsafe.dat",
+    "parsertestdata/tree-construction/pending-spec-changes.dat",
+    "parsertestdata/tree-construction/plain-text-unsafe.dat",
+    "parsertestdata/tree-construction/scriptdata01.dat",
+    "parsertestdata/tree-construction/tables01.dat",
+    "parsertestdata/tree-construction/tests1.dat",
+    "parsertestdata/tree-construction/tests10.dat",
+    "parsertestdata/tree-construction/tests11.dat",
+    "parsertestdata/tree-construction/tests12.dat",
+    "parsertestdata/tree-construction/tests14.dat",
+    "parsertestdata/tree-construction/tests15.dat",
+    "parsertestdata/tree-construction/tests16.dat",
+    "parsertestdata/tree-construction/tests17.dat",
+    "parsertestdata/tree-construction/tests18.dat",
+    "parsertestdata/tree-construction/tests19.dat",
+    "parsertestdata/tree-construction/tests2.dat",
+    "parsertestdata/tree-construction/tests20.dat",
+    "parsertestdata/tree-construction/tests21.dat",
+    "parsertestdata/tree-construction/tests22.dat",
+    "parsertestdata/tree-construction/tests23.dat",
+    "parsertestdata/tree-construction/tests24.dat",
+    "parsertestdata/tree-construction/tests25.dat",
+    "parsertestdata/tree-construction/tests26.dat",
+    "parsertestdata/tree-construction/tests3.dat",
+    "parsertestdata/tree-construction/tests4.dat",
+    "parsertestdata/tree-construction/tests5.dat",
+    "parsertestdata/tree-construction/tests6.dat",
+    "parsertestdata/tree-construction/tests7.dat",
+    "parsertestdata/tree-construction/tests8.dat",
+    "parsertestdata/tree-construction/tests9.dat",
+    "parsertestdata/tree-construction/tests_innerHTML_1.dat",
+    "parsertestdata/tree-construction/tricky01.dat",
+    "parsertestdata/tree-construction/webkit01.dat",
+    "parsertestdata/tree-construction/webkit02.dat"
+];
+
 var numtests = 0;
 var numpassed = 0;
 var numaborted = 0;
 var failures = [];
 
-arguments.forEach(runTestFile);
-report();
+parserInputFiles.forEach(runTestFile);
+
+// If anything failed, print out details
+if (numtests !== numpassed) report();
+
+// And use an assertion to make these tests play nice with the test runner
+assert(numtests === numpassed);
 
 // Run the tests in a single named file
 function runTestFile(filename) {
-    putstr(filename);
     // tests separated by blank line
+    // putstr(filename);
     var tests = snarf(filename).split("\n#data\n"); 
     tests.forEach(runTest);
-    print();
-
+    // print();
+    
     // Run a single test described by the string s
     function runTest(s, n) {
         var match = s.match(/^(?:#data\n)?((.|\n|\r)*)#errors\n((.|\n)*?)(#document-fragment\n(.*)\n)?#document\n((.|\n|\r)*)/);
@@ -74,10 +123,10 @@ function test(input, context, expected, filename, testnum, charbychar) {
         }
         if (output === expected) {
             numpassed++;
-            putstr('.');
+            // putstr('.');
         }
         else {
-            putstr('!');
+            // putstr('!');
             failures.push({
                 filename: filename,
                 testnum: testnum,
@@ -87,16 +136,11 @@ function test(input, context, expected, filename, testnum, charbychar) {
                 expected: expected,
                 charbychar: charbychar
             });
-/*
-            print("FAIL: test", testnum, "in file", filename);
-            print("Got:\n" + output);
-            print("Expected:\n" + expected);
-*/
         }
     }
     catch(e) {
         numaborted++;
-        putstr('?');
+        // putstr('?');
         failures.push({
             filename: filename,
             input: input,

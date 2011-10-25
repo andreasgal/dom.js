@@ -140,7 +140,9 @@ notYetImplemented(function() { document.referrer; });
 notYetImplemented(function() { document.cookie; });
 notYetImplemented(function() { document.cookie = "foo"; });
 notYetImplemented(function() { document.lastModified; });
-notYetImplemented(function() { document.readyState; });
+// Commenting out this test because we've stubbed in a temporary
+// implementation, but it still really isn't implemented
+// notYetImplemented(function() { document.readyState; });
 notYetImplemented(function() { document.title; });
 notYetImplemented(function() { document.title = "foo" });
 notYetImplemented(function() { document.dir; });

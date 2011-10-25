@@ -1,18 +1,32 @@
-load("../../dom.js");
-
 var numtests = 0;
 var numpassed = 0;
 var numaborted = 0;
 var failures = [];
 var testfile;
+var tokenizerTestFiles = [
+    "parsertestdata/tokenizer/contentModelFlags.test",
+    "parsertestdata/tokenizer/entities.test",
+    "parsertestdata/tokenizer/escapeFlag.test",
+    "parsertestdata/tokenizer/namedEntities.test",
+    "parsertestdata/tokenizer/numericEntities.test",
+    "parsertestdata/tokenizer/pendingSpecChanges.test",
+    "parsertestdata/tokenizer/test1.test",
+    "parsertestdata/tokenizer/test2.test",
+    "parsertestdata/tokenizer/test3.test",
+    "parsertestdata/tokenizer/test4.test",
+    "parsertestdata/tokenizer/unicodeChars.test"
+];
 
-arguments.forEach(runTestFile);
-report();
+tokenizerTestFiles.forEach(runTestFile);
+
+// If any tests failed, display errors
+if (numtests !== numpassed) report();
+// And call assert because that is what the test framework wants
+assert(numtests === numpassed);
 
 // Run the tests in a single named file
 function runTestFile(filename) {
     testfile = filename;
-    putstr(filename);
     var testsobj = JSON.parse(snarf(filename));
     var tests = testsobj.tests;
     if (tests) {
@@ -35,8 +49,6 @@ function runTestFile(filename) {
             test(t, n, true);
         });
     }
-
-    print();
 }
 
 function test(t, n, charbychar) {
