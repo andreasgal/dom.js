@@ -811,12 +811,21 @@ defineLazyProperty(impl, "Element", function() {
 
 
     // The attributes property of an Element will be an instance of this class.
-    // This class is really just a dummy, though. The AttrArrayProxy that
+    // This class is really just a dummy, though. It only defines a length
+    // property and an item() method. The AttrArrayProxy that
     // defines the public API just uses the Element object itself.  But in
     // order to get wrapped properly, we need to return an object with the
     // right _idlName property
     function AttributesArray(elt) { this.element = elt; }
-    AttributesArray.prototype = { _idlName: "AttrArray" };
+    AttributesArray.prototype = {
+        _idlName: "AttrArray",
+        get length() {
+            return this.element._attrKeys.length;
+        },
+        item: function(n) {
+            return this.element._attrsByLName[this.element._attrKeys[n]];
+        }
+    };
 
 
     // The children property of an Element will be an instance of this class.

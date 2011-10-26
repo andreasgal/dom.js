@@ -45,7 +45,7 @@ var DOMSTR = (function() {
             // Number of attributes
             s += stringifyLength(n.attributes.length);
             for(var i = 0, l = n.attributes.length; i < l; i++) {
-                s += stringifyAttr(n.attributes[i]);
+                s += stringifyAttr(n.attributes.item(i));
             }
 
             // Now the children
