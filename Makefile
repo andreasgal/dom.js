@@ -29,6 +29,7 @@ FILES= \
 	src/impl/Event.js \
 	src/impl/CustomEvent.js \
 	src/impl/HTMLElement.js \
+	src/impl/HTMLScriptElement.js \
 	src/impl/HTMLParser.js \
 	src/main.js
 

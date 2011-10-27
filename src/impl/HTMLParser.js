@@ -5057,9 +5057,9 @@ const HTMLParser = (function() {
                     return;
                 case "script":
                     var elt = createHTMLElt(value, arg3);
-                    elt.parser_inserted = true;
-                    elt.force_async = false;
-                    if (fragment) elt.already_started = true;
+                    elt._parser_inserted = true;
+                    elt._force_async = false;
+                    if (fragment) elt._already_started = true;
                     flushText();
                     stack.top.appendChild(elt);
                     stack.push(elt);
@@ -5742,7 +5742,7 @@ const HTMLParser = (function() {
                 return;
             case EOF:
                 if (stack.top instanceof impl.HTMLScriptElement)
-                    stack.top.already_started = true;
+                    stack.top._already_started = true;
                 stack.pop();
                 parser = originalInsertionMode;
                 parser(t);

@@ -541,6 +541,10 @@ defineLazyProperty(impl, "Document", function() {
         if (n.nodeType === ELEMENT_NODE) {
             var id = n.getAttribute("id");
             if (id) n.ownerDocument.addId(id, n);
+
+            // Script elements need to know when they're inserted
+            // into the document
+            if (n._roothook) n._roothook();
         }
     }
 

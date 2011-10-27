@@ -347,8 +347,10 @@ defineLazyProperty(impl, "Element", function() {
             // on the local name, but I think that is an error.
             // email pending on www-dom about it.
             var attr = this._attrsByQName[qname];
+            var isnew;
             if (!attr) {
                 attr = this._newattr(qname);
+                isnew = true;
             }
             else {
                 if (isArray(attr)) attr = attr[0];
@@ -357,6 +359,8 @@ defineLazyProperty(impl, "Element", function() {
             // Now set the attribute value on the new or existing Attr object.
             // The Attr.value setter method handles mutation events, etc.
             attr.value = value;
+
+            if (isnew && this._newattrhook) this._newattrhook(qname, value);
         }),
 
         // Check for errors, and then set the attribute
@@ -384,8 +388,10 @@ defineLazyProperty(impl, "Element", function() {
             if (ns === "") ns = null;
 
             var attr = this._attrsByLName[key];
+            var isnew;
             if (!attr) {
                 var attr = new Attr(this, lname, prefix, ns);
+                isnew = true;
                 this._attrsByLName[key] = attr;
                 this._attrKeys = O.keys(this._attrsByLName);
 
@@ -404,9 +410,12 @@ defineLazyProperty(impl, "Element", function() {
                     attr.prefix = prefix;
                     // Bind the new qname
                     this._addQName(attr);
+
                 }
+
             }
             attr.value = value; // Automatically sends mutation event
+            if (isnew && this._newattrhook) this._newattrhook(qname, value);
         }),
 
         // Do error checking then call _setAttributeNS
@@ -501,8 +510,13 @@ defineLazyProperty(impl, "Element", function() {
         // The raw version of setAttribute for reflected idl attributes.
         _setattr: constant(function _setattr(qname, value) {
             var attr = this._attrsByQName[qname];  
-            if (!attr) attr = this._newattr(qname);
+            var isnew;
+            if (!attr) {
+                attr = this._newattr(qname);
+                isnew = true;
+            }
             attr.value = value;
+            if (isnew && this._newattrhook) this._newattrhook(qname, value);
         }),
 
         // Create a new Attr object, insert it, and return it.

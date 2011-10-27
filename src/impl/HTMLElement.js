@@ -1177,23 +1177,7 @@ defineLazyProperty(impl, "HTMLQuoteElement", function() {
     return HTMLQuoteElement;
 });
 
-defineLazyProperty(impl, "HTMLScriptElement", function() {
-    function HTMLScriptElement(doc, localName, prefix) {
-        impl.HTMLElement.call(this, doc, localName, prefix);
-    }
-
-    HTMLScriptElement.prototype = O.create(impl.HTMLElement.prototype, {
-        _idlName: constant("HTMLScriptElement"),
-    });
-
-    // XXX impl.Element.reflectURLAttribute(HTMLScriptElement, "src");
-    impl.Element.reflectStringAttribute(HTMLScriptElement, "type");
-    impl.Element.reflectStringAttribute(HTMLScriptElement, "charset");
-    impl.Element.reflectBooleanAttribute(HTMLScriptElement, "defer");
-    // XXX async sometimes reflects the async property, but its complicated
-
-    return HTMLScriptElement;
-});
+// HTMLScriptElement used to be here, but now has its own file.
 
 defineLazyProperty(impl, "HTMLSelectElement", function() {
     function HTMLSelectElement(doc, localName, prefix) {
