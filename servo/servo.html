@@ -9,8 +9,16 @@ worker.onmessage = function(event) {
     child.appendChild(document.createTextNode(event.data));
     document.getElementById('output').appendChild(child);
 }
-// Tell the worker to load a url. Unfortunately due to same-origin policy, must be relative.
-worker.postMessage({url: 'foo.html'});
+
+var xhr = new XMLHttpRequest();
+xhr.onreadystatechange = function() {
+    if (this.readyState === 4) {
+        worker.postMessage({body: this.responseText});
+    }
+}
+xhr.open('GET', 'foo.html');
+xhr.send();
+
         </script>
     </head>
     <body>
