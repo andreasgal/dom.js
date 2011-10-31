@@ -17,15 +17,16 @@
  * final chunk of text to end(). end() returns a new Document object
  * that holds the parsed representation of the html text.
  * 
+ * The first argument to mozHTMLParser is the absolute URL of the document.
  * If you want mutation events for the document that is being created,
- * pass a mutationHandler as the first argument to mozHTMLParser(). This
+ * pass a mutationHandler as the second argument to mozHTMLParser(). This
  * is just like the mutation handler you'd use with
  * document.implementation.mozSetOutputMutationHandler().
  * 
- * The second argument is optional and is for internal use only.  Pass an
+ * The third argument is optional and is for internal use only.  Pass an
  * element as the fragmentContext to do innerHTML parsing for the
  * element.  To do innerHTML parsing on a document, pass null. Otherwise,
- * omit the 2nd argument. See HTMLElement.innerHTML for an example.  Note
+ * omit the 3rd argument. See HTMLElement.innerHTML for an example.  Note
  * that if you pass a context element, the end() method will return an
  * unwrapped document instead of a wrapped one.
  * 
@@ -1533,7 +1534,7 @@ const HTMLParser = (function() {
      * the outer closure that it is defined within.  Most of the parser 
      * implementation details are inside this function.
      */
-    function HTMLParser(mutationHandler, fragmentContext) {
+    function HTMLParser(address, mutationHandler, fragmentContext) {
 
         /***
          * These are the parser's state variables
@@ -1582,7 +1583,13 @@ const HTMLParser = (function() {
         var ignore_linefeed = false;
 
         // This is the document we'll be building up
-        var doc = new impl.Document(true);
+        var doc = new impl.Document(true, address);
+
+        // XXX I think that any document we use this parser on should support
+        // scripts. But I may need to configure that through a parser parameter
+        // Only documents with windows ("browsing contexts" to be precise)
+        // allow scripting.
+        doc._scripting_enabled = scripting_enabled;
 
         /***
          * The ElementStack class

@@ -7,9 +7,13 @@ defineLazyProperty(impl, "Text", function() {
     
     var nodeValue = attribute(function() { return this._data; },
                               function(v) { 
+                                  if (v === this._data) return;
                                   this._data = v;
                                   if (this.rooted)
                                       this.ownerDocument.mutateValue(this);
+                                  if (this.parentNode &&
+                                      this.parentNode._textchangehook)
+                                      this.parentNode._textchangehook(this);
                               });
     
     Text.prototype = O.create(impl.CharacterData.prototype, {
@@ -29,7 +33,7 @@ defineLazyProperty(impl, "Text", function() {
 
             var newdata = substring(this._data, offset),
                 newnode = this.ownerDocument.createTextNode(newdata);
-            this._data = substring(this.data, 0, offset);
+            this.data = substring(this.data, 0, offset);
 
             var parent = this.parentNode;
             if (parent !== null)

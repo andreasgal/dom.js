@@ -102,3 +102,9 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
 function documentOrder(n,m) {
     return 3 - (n.compareDocumentPosition(m) & 6); 
 }
+
+// Like String.trim(), but uses HTML's definition of whitespace
+// instead of using Unicode's definition of whitespace.
+function htmlTrim(s) {
+    return s.replace(/^[ \t\n\r\f]+|[ \t\n\r\f]+$/g, "");
+}

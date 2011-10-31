@@ -234,8 +234,9 @@ defineLazyProperty(impl, "HTMLElement", function() {
             return "reading innerHTML is not yet implemented";
         },
         function(v) {
-            var parser = this.ownerDocument.implementation.mozHTMLParser(null,
-                                                                         this);
+            var parser = this.ownerDocument.implementation.mozHTMLParser(
+                this.ownerDocument._address,
+                null, this);
             var tmpdoc = parser.end(v);
             var root = tmpdoc.firstChild;
 

@@ -92,7 +92,7 @@ function test(t, n, charbychar) {
         try {
             numtests++;
             var initialState = states[s];
-            var parser = document.implementation.mozHTMLParser();
+            var parser = document.implementation.mozHTMLParser("about:blank");
             var output = JSON.stringify(parser.testTokenizer(input,
                                                              initialState,
                                                              lasttag,

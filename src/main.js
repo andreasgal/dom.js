@@ -1,5 +1,6 @@
 // The document object is the entry point to the entire DOM
 defineLazyProperty(global, "document", function() {
-    return wrap(new impl.DOMImplementation().createHTMLDocument(""),
-               idl.Document);
+    var doc = new impl.DOMImplementation().createHTMLDocument("");
+    doc._scripting_enabled = true;
+    return wrap(doc);
 });

@@ -43,7 +43,11 @@ defineLazyProperty(impl, "DOMImplementation", function() {
             // namespace and doctype are propertly set.  See this thread:
             // http://lists.w3.org/Archives/Public/www-dom/2011AprJun/0132.html
             // 
-            var d = new impl.Document(false), e;
+            var address = null;
+            if (currentlyExecutingScript) 
+                address = currentlyExecutingScript.ownerDocument._address
+            var d = new impl.Document(false, address);
+            var e;
             
             if (qualifiedName) 
                 e = d.createElementNS(namespace, qualifiedName);
@@ -61,7 +65,10 @@ defineLazyProperty(impl, "DOMImplementation", function() {
         },
 
         createHTMLDocument: function createHTMLDocument(titleText) {
-            var d = new impl.Document(true);
+            var address = null;
+            if (currentlyExecutingScript) 
+                address = currentlyExecutingScript.ownerDocument._address
+            var d = new impl.Document(true, address);
             d.appendChild(new impl.DocumentType("html"));
             var html = d.createElement("html");
             d.appendChild(html);

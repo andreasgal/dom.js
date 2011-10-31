@@ -1,8 +1,9 @@
 defineLazyProperty(impl, "Document", function() {
 
-    function Document(isHTML) {
+    function Document(isHTML, address) {
         this.nodeType = DOCUMENT_NODE;
         this.isHTML = isHTML;
+        this._address = address || "about:blank";
         this.implementation = new impl.DOMImplementation();
 
         // DOMCore says that documents are always associated with themselves.

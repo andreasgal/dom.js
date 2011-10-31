@@ -363,6 +363,10 @@ defineLazyProperty(impl, "Node", function() {
             }
 
             // Special case for document fragments
+            // XXX: it is not at all clear that I'm handling this correctly.
+            // Scripts should never get to see partially
+            // inserted fragments, I think.  See:
+            // http://lists.w3.org/Archives/Public/www-dom/2011OctDec/0130.html
             if (child.nodeType === DOCUMENT_FRAGMENT_NODE) {
                 var  c;
                 while(c = child.firstChild)
@@ -402,6 +406,9 @@ defineLazyProperty(impl, "Node", function() {
                 // And root the child if necessary
                 if (parent.rooted) parent.ownerDocument.mutateInsert(child);
             }
+
+            // Script tags use this hook
+            if (parent._addchildhook) parent._addchildhook(this);
         }),
 
 

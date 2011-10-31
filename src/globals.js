@@ -17,3 +17,6 @@ const impl = {}; // implementation construtors defined here
 const idl = {};  // interface constructors defined here
 
 
+// Sometimes we need to know the document of the current script.
+// So this global is the <script> element that's running if there is one.
+var currentlyExecutingScript = null;
