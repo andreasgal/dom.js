@@ -29,9 +29,11 @@ worker.onmessage = function(event) {
 
     switch (domjsNodeStr.charAt(0)) {
       case 'T':
-        out("Text", JSON.stringify(
-            domjsNodeStr.substr(1).split(NULL)[0]).substr(1, domjsNodeStr.length - 2)
-        );
+        var val = domjsNodeStr.substr(1).split(NULL)[0];
+        // don't show whitespace-only text nodes.
+        if (!val.match(/\s+/)) {
+            out("Text", JSON.stringify(val).substr(1, domjsNodeStr.length - 2));
+        }
         break;
       case 'C':
         out("Comment node", JSON.stringify(
@@ -50,10 +52,11 @@ worker.onmessage = function(event) {
 
         if (l === l) {
             var attributes = {}
-            var attrstr = domjsNodeStr.substr(domjsNodeStr.indexOf(NULL) + 3);
+            var attrstr = domjsNodeStr.substr(domjsNodeStr.indexOf(NULL) + 2);
             var attrsplit = attrstr.split(NULL);
             for (var i = 0; i < attrsplit.length / 2; i += 2) {
-                attributes[attrsplit[i]] = attrsplit[i + 1];
+                var attrname = attrsplit[i].substr(1)
+                attributes[attrname] = attrsplit[i + 1];
             }
             out("Element", spl[0], JSON.stringify(attributes));
         } else {
