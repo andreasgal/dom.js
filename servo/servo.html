@@ -3,10 +3,74 @@
         <title>Servo WebWorkers</title>
         <script type="text/javascript; version=1.8">
 var worker = new Worker('servo-worker.js');
+var depths = {1: 0};
+
 worker.onmessage = function(event) {
-    var msg = JSON.parse(event.data);
+    var evt = JSON.parse(event.data);
     var child = document.createElement('div');
-    child.appendChild(document.createTextNode(event.data));
+
+    function out() {
+        var output = '';
+        for (var i = 0; i < arguments.length; i++) {
+            output += arguments[i].toString() + ' ';
+        }
+        child.appendChild(document.createTextNode(output));
+    }
+    depths[evt.nid] = depths[evt.parent] + 1;
+
+    child.setAttribute('style', 'padding-left: ' + (depths[evt.nid] - 1) + 'em');
+
+    var domjsNodeStr = evt.child;
+    if (domjsNodeStr === undefined) {
+        return;
+    }
+
+    var NULL = '\0';
+
+    switch (domjsNodeStr.charAt(0)) {
+      case 'T':
+        var val = domjsNodeStr.substr(1).split(NULL)[0];
+        // don't show whitespace-only text nodes.
+        if (!val.match(/\s+/)) {
+            out("Text", JSON.stringify(val).substr(1, domjsNodeStr.length - 2));
+        }
+        break;
+      case 'C':
+        out("Comment node", JSON.stringify(
+            domjsNodeStr.substr(1).split(NULL)[0])
+        );
+        break;
+      case 'H':
+          // html node
+      case 'E':
+        var spl = domjsNodeStr.substr(1).split(NULL);
+        //out(JSON.stringify(domjsNodeStr));
+        var attrstr = spl[1];
+        var l = attrstr.charCodeAt(0);
+        if (l === 0xFFFF) l = parseInt(attrstr.charCodeAt(1));
+        // todo print out attributes
+
+        if (l === l) {
+            var attributes = {}
+            var attrstr = domjsNodeStr.substr(domjsNodeStr.indexOf(NULL) + 2);
+            var attrsplit = attrstr.split(NULL);
+            for (var i = 0; i < attrsplit.length / 2; i += 2) {
+                var attrname = attrsplit[i].substr(1)
+                attributes[attrname] = attrsplit[i + 1];
+            }
+            out("Element", spl[0], JSON.stringify(attributes));
+        } else {
+            out("Element", spl[0]);
+        }
+
+        break;
+    case 'D':
+        var spl = domjsNodeStr.substr(1).split(NULL);
+        out("Document node", JSON.stringify(spl[0]));
+        break;
+      default:
+        throw new Error('Unhandled case of stringified node: ' + domjsNodeStr.charAt(0));
+    }
     document.getElementById('output').appendChild(child);
 }
 
