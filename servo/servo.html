@@ -1,0 +1,22 @@
+<html>
+    <head>
+        <title>Servo WebWorkers</title>
+        <script type="text/javascript; version=1.8">
+var worker = new Worker('servo-worker.js');
+worker.onmessage = function(event) {
+    var msg = JSON.parse(event.data);
+    var child = document.createElement('div');
+    child.appendChild(document.createTextNode(event.data));
+    document.getElementById('output').appendChild(child);
+}
+// Tell the worker to load a url. Unfortunately due to same-origin policy, must be relative.
+worker.postMessage({url: 'foo.html'});
+        </script>
+    </head>
+    <body>
+        <h1>Servo WebWorkers</h1>
+        <div id="output">
+
+        </div>
+    </body>
+</html>
