@@ -2,16 +2,35 @@
     <head>
         <title>Servo WebWorkers</title>
         <style type="text/css">
+body {
+    padding: 1em;
+}
+
 div {
     padding: 0.5em; margin: 0px; border: 1px solid black;
 }
 
+.element {
+    display: block;
+    padding: 0.5em;
+}
+
 .node-id {
     padding-right: 1em;
-    font-size: x-small;
-    color: #cdcdcd;
+    color: #cccccc;
+    cursor: pointer;
+}
+
+.collapsed:after {
+    content: "...";
+}
+
+.hidden {
+    display: none;
 }
         </style>
+        <script type="text/javascript" src="http://code.jquery.com/jquery-1.6.4.min.js">
+        </script>
         <script type="text/javascript; version=1.8">
 var worker = new Worker('servo-worker.js');
 var depths = {1: 0};
@@ -32,6 +51,26 @@ worker.onmessage = function(event) {
     var append = true;
     var evt = JSON.parse(event.data);
 
+    if (evt === "complete") {
+        console.log("complete");
+        $('.node-id').click(
+            function() {
+                var self = $(this);
+                if (self.hasClass('collapsed')) {
+                    self.removeClass('collapsed');
+                    self.nextAll().removeClass('hidden');
+                } else {
+                    self.addClass('collapsed');
+                    self.nextAll().addClass('hidden');
+                }
+                console.log('click');
+            }
+        );
+
+
+        return;
+    }
+
     if (evt.nid === undefined) {
         evt.nid = -1;
     }
@@ -51,7 +90,6 @@ worker.onmessage = function(event) {
     child.appendChild(nodeId);
     child.appendChild(node);
 
-
     function out() {
         var output = '';
         for (var i = 0; i < arguments.length; i++) {
@@ -70,11 +108,12 @@ worker.onmessage = function(event) {
     switch (domjsNodeStr.charAt(0)) {
       case 'T':
         var val = domjsNodeStr.substr(1).split(NULL)[0];
+        nodeId.setAttribute('title', JSON.stringify(val));
         // don't show whitespace-only text nodes.
-        if (!val.match(/\s+/)) {
+        if (!val.match(/^\s+$/)) {
             node.setAttribute('style',
-                'font-family: monospace; margin: 0.5em; ');
-            out(JSON.stringify(val).substr(1, domjsNodeStr.length - 2));
+                'white-space: pre; font-family: monospace; margin: 0.5em; ');
+            out(val.trim());
         } else {
             append = false;
             previous.appendChild(child);
@@ -107,11 +146,11 @@ worker.onmessage = function(event) {
         } else {
             out("<", spl[0], ">");
         }
-        var style = 'display: block; margin: 1em';
+        child.setAttribute('class', 'element');
+
         if (colors[spl[0]] !== undefined) {
-            style += '; color: ' + colors[spl[0]];
+            child.setAttribute('style', 'color: ' + colors[spl[0]]);
         }
-        child.setAttribute('style', style);
 
         break;
     case 'D':
