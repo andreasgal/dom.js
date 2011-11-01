@@ -1,24 +1,64 @@
 <html>
     <head>
         <title>Servo WebWorkers</title>
+        <style type="text/css">
+div {
+    padding: 0.5em; margin: 0px; border: 1px solid black;
+}
+
+.node-id {
+    padding-right: 1em;
+    font-size: x-small;
+    color: #cdcdcd;
+}
+        </style>
         <script type="text/javascript; version=1.8">
 var worker = new Worker('servo-worker.js');
 var depths = {1: 0};
+var colors = {
+    html: 'green',
+    head: 'maroon',
+    title: 'red',
+    style: 'purple',
+    script: 'blueviolet',
+    body: 'orange',
+    div: 'blue',
+    span: 'darkgreen'
+};
+
+var previous = null;
 
 worker.onmessage = function(event) {
+    var append = true;
     var evt = JSON.parse(event.data);
-    var child = document.createElement('div');
+
+    if (evt.nid === undefined) {
+        evt.nid = -1;
+    }
+    if (evt.parent !== undefined) {
+        depths[evt.nid] = depths[evt.parent] + 1;
+    } else {
+        return;
+    }
+
+    var child = document.createElement('span');
+    child.setAttribute('id', evt.nid);
+    var node = document.createElement('span');
+    child.setAttribute('style', 'margin-left: 0.5em; ');
+    var nodeId = document.createElement('span');
+    nodeId.setAttribute('class', 'node-id');
+    nodeId.appendChild(document.createTextNode(evt.nid));
+    child.appendChild(nodeId);
+    child.appendChild(node);
+
 
     function out() {
         var output = '';
         for (var i = 0; i < arguments.length; i++) {
             output += arguments[i].toString() + ' ';
         }
-        child.appendChild(document.createTextNode(output));
+        node.appendChild(document.createTextNode(output));
     }
-    depths[evt.nid] = depths[evt.parent] + 1;
-
-    child.setAttribute('style', 'padding-left: ' + (depths[evt.nid] - 1) + 'em');
 
     var domjsNodeStr = evt.child;
     if (domjsNodeStr === undefined) {
@@ -32,7 +72,12 @@ worker.onmessage = function(event) {
         var val = domjsNodeStr.substr(1).split(NULL)[0];
         // don't show whitespace-only text nodes.
         if (!val.match(/\s+/)) {
-            out("Text", JSON.stringify(val).substr(1, domjsNodeStr.length - 2));
+            node.setAttribute('style',
+                'font-family: monospace; margin: 0.5em; ');
+            out(JSON.stringify(val).substr(1, domjsNodeStr.length - 2));
+        } else {
+            append = false;
+            previous.appendChild(child);
         }
         break;
       case 'C':
@@ -50,7 +95,7 @@ worker.onmessage = function(event) {
         if (l === 0xFFFF) l = parseInt(attrstr.charCodeAt(1));
         // todo print out attributes
 
-        if (l === l) {
+        if (l === l) { // if l is not NaN
             var attributes = {}
             var attrstr = domjsNodeStr.substr(domjsNodeStr.indexOf(NULL) + 2);
             var attrsplit = attrstr.split(NULL);
@@ -58,10 +103,15 @@ worker.onmessage = function(event) {
                 var attrname = attrsplit[i].substr(1)
                 attributes[attrname] = attrsplit[i + 1];
             }
-            out("Element", spl[0], JSON.stringify(attributes));
+            out("<", spl[0], JSON.stringify(attributes), ">");
         } else {
-            out("Element", spl[0]);
+            out("<", spl[0], ">");
         }
+        var style = 'display: block; margin: 1em';
+        if (colors[spl[0]] !== undefined) {
+            style += '; color: ' + colors[spl[0]];
+        }
+        child.setAttribute('style', style);
 
         break;
     case 'D':
@@ -71,24 +121,38 @@ worker.onmessage = function(event) {
       default:
         throw new Error('Unhandled case of stringified node: ' + domjsNodeStr.charAt(0));
     }
-    document.getElementById('output').appendChild(child);
+    if (append) {
+        if (evt['parent'] !== undefined) {
+            var parent = document.getElementById(evt.parent);
+            if (parent) {
+                parent.appendChild(child);
+            } else {
+                document.body.appendChild(child);
+            }
+        } else {
+            document.body.appendChild(child);
+        }
+    }
+    previous = child;
 }
 
-var xhr = new XMLHttpRequest();
-xhr.onreadystatechange = function() {
-    if (this.readyState === 4) {
-        worker.postMessage({body: this.responseText});
+
+function GET(url) {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (this.readyState === 4) {
+            worker.postMessage({url: url, body: this.responseText});
+        }
     }
+    xhr.open('GET', url);
+    xhr.send();
 }
-xhr.open('GET', 'foo.html');
-xhr.send();
+
+GET("foo.html");
 
         </script>
     </head>
     <body>
         <h1>Servo WebWorkers</h1>
-        <div id="output">
-
-        </div>
     </body>
 </html>

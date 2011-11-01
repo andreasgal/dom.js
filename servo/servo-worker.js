@@ -7,5 +7,6 @@ function mutation(evt) {
 
 onmessage = function(message) {
     var body = message.data.body.toString();
-    var newdoc = document.implementation.mozHTMLParser(mutation).end(body);
+    var url = message.data.url.toString();
+    var newdoc = document.implementation.mozHTMLParser(url, mutation).end(body);
 }
