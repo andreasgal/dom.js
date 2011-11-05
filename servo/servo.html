@@ -8,7 +8,18 @@ body {
 }
 
 #url>input[type="text"] {
-	width: 75%;
+	width: 20em;
+}
+
+#output {
+}
+
+#tree-view {
+	position: absolute;
+	top: 1 em;
+	right: 1em;
+	border: 1px solid black;
+	background: white;
 }
 
 .element {
@@ -36,6 +47,8 @@ body {
         <script type="text/javascript; version=1.8">
 
 var start_time = null;
+var canvas = null;
+var ctx = null;
 
 var worker = new Worker('servo-worker.js');
 var depths = {1: 0};
@@ -51,6 +64,7 @@ var colors = {
 };
 
 var previous = null;
+var tree_offset = 0;
 
 worker.onmessage = function(event) {
     var append = true;
@@ -60,7 +74,7 @@ worker.onmessage = function(event) {
 		start_time = new Date();
 	}
     if (evt === "complete") {
-		document.getElementById('parse-time').innerHTML = new Date().getTime() - start_time.getTime();
+		console.log(new Date().getTime() - start_time.getTime());
         console.log("complete");
         $('.node-id').on('click',
             function() {
@@ -75,9 +89,7 @@ worker.onmessage = function(event) {
                 console.log('click');
             }
         );
-
-
-        return;
+		return;
     }
 
     if (evt.nid === undefined) {
@@ -157,14 +169,20 @@ worker.onmessage = function(event) {
         }
         child.setAttribute('class', 'element');
 
+		ctx.fillStyle = "rgb(150,0,0)";  
+
         if (colors[spl[0]] !== undefined) {
             child.setAttribute('style', 'color: ' + colors[spl[0]]);
+			ctx.fillStyle = colors[spl[0]];  
         }
 
+		tree_offset += 1;
+        ctx.fillRect(5 * (depths[evt.nid] - 1), (tree_offset - 1), 5, 1); 
+		//canvas.height = 5 * tree_offset;
         break;
     case 'D':
         var spl = domjsNodeStr.substr(1).split(NULL);
-        out("Document node", JSON.stringify(spl[0]));
+        out("< !DOCTYPE", spl[0], ">");
         break;
       default:
         throw new Error('Unhandled case of stringified node: ' + domjsNodeStr.charAt(0));
@@ -198,27 +216,27 @@ function GET(url) {
 }
 
 $(document).ready(function () {
+	canvas = document.getElementById('tree-view');
+	ctx = canvas.getContext('2d');
 	$('#url').on('submit', function() {
+		tree_offset = 0;
+		ctx.clearRect (0 , 0 , canvas.width, canvas.height);
 		document.getElementById('output').innerHTML = '';
 		GET(this.url.value);
 		return false;
 	});
+	$('#url').submit();
 });
         </script>
     </head>
     <body>
-        <h1>Servo WebWorkers</h1>
-		<dl>
-			<dt>url</dt>
-			<dd>
-				<form id="url">
-					<input type="text" name="url" value="foo.html" />
-					<input type="submit" value="fetch" />
-				</form>
-			</dd>
-			<dt>parse time</dt>
-			<dd id="parse-time">--</dd>
-		</dl>
-		<span id="output" />
+		<canvas id="tree-view" width="100" height="18000"></canvas>
+		<div style="margin: 0.5em">
+			<form id="url">
+				<input type="text" name="url" value="foo.html" />
+				<input type="submit" value="fetch" />
+			</form>
+		</div>
+		<span id="output"></span>
     </body>
 </html>
