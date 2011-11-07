@@ -4,6 +4,7 @@ var numaborted = 0;
 var failures = [];
 var testfile;
 var tokenizerTestFiles = [
+    "parsertestdata/tokenizer/domjs.test",
     "parsertestdata/tokenizer/contentModelFlags.test",
     "parsertestdata/tokenizer/entities.test",
     "parsertestdata/tokenizer/escapeFlag.test",

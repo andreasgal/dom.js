@@ -18,15 +18,11 @@
  * that holds the parsed representation of the html text.
  * 
  * The first argument to mozHTMLParser is the absolute URL of the document.
- * If you want mutation events for the document that is being created,
- * pass a mutationHandler as the second argument to mozHTMLParser(). This
- * is just like the mutation handler you'd use with
- * document.implementation.mozSetOutputMutationHandler().
- * 
- * The third argument is optional and is for internal use only.  Pass an
+ *
+ * The second argument is optional and is for internal use only.  Pass an
  * element as the fragmentContext to do innerHTML parsing for the
  * element.  To do innerHTML parsing on a document, pass null. Otherwise,
- * omit the 3rd argument. See HTMLElement.innerHTML for an example.  Note
+ * omit the 2nd argument. See HTMLElement.innerHTML for an example.  Note
  * that if you pass a context element, the end() method will return an
  * unwrapped document instead of a wrapped one.
  * 
@@ -1534,7 +1530,7 @@ const HTMLParser = (function() {
      * the outer closure that it is defined within.  Most of the parser 
      * implementation details are inside this function.
      */
-    function HTMLParser(address, mutationHandler, fragmentContext) {
+    function HTMLParser(address, fragmentContext) {
 
         /***
          * These are the parser's state variables
@@ -1544,6 +1540,11 @@ const HTMLParser = (function() {
         var numchars = 0;     // Length of chars
         var nextchar = 0;     // Index of next char 
         var input_complete = false; // Becomes true when end() called.
+        var scanner_skip_newline = false;  // If previous char was CR
+        var reentrant_invocations = 0;
+        var saved_scanner_state = [];
+        var leftovers = "";
+        var first_batch = true;
 
         // Tokenizer state
         var tokenizer = data_state;     // Current tokenizer state
@@ -1582,8 +1583,109 @@ const HTMLParser = (function() {
         var textIncludesNUL = false;
         var ignore_linefeed = false;
 
+        /***
+         * This is the parser object that will be the return value of this
+         * factory function, which is some 5000 lines below.
+         * Note that the variable "parser" is the current state of the 
+         * parser's state machine.  This variable "htmlparser" is the
+         * return value and defines the public API of the parser
+         */
+        var htmlparser = {
+            document: function() { 
+                // For the fragment case, return the document unwrapped.
+                // Otherwise, return a wrapped document
+                if (fragment) return doc;
+                else return wrap(doc);
+            },
+
+            // Parse the HTML text s.
+            // The second argument should be true if there is no more
+            // text to be parsed, and should be false or omitted otherwise.
+            // The second argument must not be set for recursive invocations
+            // from document.write()
+            parse: function(s, end) {
+                if (reentrant_invocations === 0) {
+                    // A normal, top-level invocation
+                    if (leftovers) {
+                        s = leftovers + s;
+                        leftovers = "";
+                    }
+
+                    // Add a special marker character to the end of
+                    // the buffer.  If the scanner is at the end of
+                    // the buffer and input_complete is set, then this
+                    // character will transform into an EOF token.
+                    // Having an actual character that represents EOF
+                    // in the character buffer makes lookahead regexp
+                    // matching work more easily, and this is
+                    // important for character references.
+                    if (end) {
+                        s += "\uFFFF";
+                        input_complete = true;  // Makes scanChars() send EOF
+                    }
+
+                    chars = s;
+                    numchars = s.length;
+                    nextchar = 0;
+
+                    if (first_batch) {
+                        // We skip a leading Byte Order Mark (\uFEFF)
+                        // on first batch of text we're given
+                        first_batch = false;
+                        if (S.charCodeAt(chars, 0) === 0xFEFF) nextchar = 1;
+                    }
+
+                    reentrant_invocations++;
+                    scanChars();
+                    leftovers = chars.substring(nextchar, numchars);
+                    reentrant_invocations--;
+                }
+                else {
+                    // This is the re-entrant case, which we have to
+                    // handle a little differently.
+                    reentrant_invocations++;
+                    
+                    // Save current scanner state
+                    saved_scanner_state.push(chars, numchars, nextchar);
+
+                    // Set new scanner state
+                    chars = s;
+                    numchars = s.length;
+                    nextchar = 0;
+
+                    // Now scan as many of these new chars as we can
+                    scanChars();
+
+                    leftovers = chars.substring(nextchar, numchars);
+
+                    // restore old scanner state
+                    nextchar = saved_scanner_state.pop();
+                    numchars = saved_scanner_state.pop();
+                    chars = saved_scanner_state.pop();
+
+                    // If there were leftover chars from this invocation
+                    // insert them into the pending invocation's buffer
+                    // and trim already processed chars at the same time
+                    if (leftovers) {
+                        chars = leftovers + chars.substring(nextchar);
+                        numchars = chars.length;
+                        nextchar = 0;
+                        leftovers = "";
+                    }
+
+                    // Decrement the counter
+                    reentrant_invocations--;
+                }
+            }
+        };
+
+
         // This is the document we'll be building up
         var doc = new impl.Document(true, address);
+
+        // The document needs to know about the parser, for document.write().
+        // This _parser property will be deleted when we're done parsing.
+        doc._parser = htmlparser;
 
         // XXX I think that any document we use this parser on should support
         // scripts. But I may need to configure that through a parser parameter
@@ -1838,7 +1940,8 @@ const HTMLParser = (function() {
          * The ActiveFormattingElements class
          */
         function ActiveFormattingElements() {
-            this.list = [];
+            this.list = [];    // elements
+            this.attrs = [];   // attribute tokens for cloning
         }
 
         ActiveFormattingElements.prototype.MARKER = { localName: "|" };
@@ -1853,50 +1956,52 @@ const HTMLParser = (function() {
 
         ActiveFormattingElements.prototype.insertMarker = function() {
             push(this.list, this.MARKER);
+            push(this.attrs, this.MARKER);
         };
 
-        ActiveFormattingElements.prototype.push = function(elt) {
-            // Scan backwards: if there are already 3 copies of this element before
-            // we encounter a marker, then drop the last one
+        ActiveFormattingElements.prototype.push = function(elt, attrs) {
+            // Scan backwards: if there are already 3 copies of this element
+            // before we encounter a marker, then drop the last one
             var count = 0;
             for(var i = this.list.length-1; i >= 0; i--) {
                 if (this.list[i] === this.MARKER) break;
-                if (equal(elt, this.list[i])) {  // equal() is defined below
+                // equal() is defined below
+                if (equal(elt, this.list[i], this.attrs[i])) {  
                     count++;
                     if (count === 3) {
                         splice(this.list, i, 1);
+                        splice(this.attrs, i, 1);
                         break;
                     }
                 }
             }
 
+
             // Now push the element onto the list
             push(this.list, elt);
 
-            // This function defines equality of two elements.
-            // It is different than Node.isEqualNode() because
-            // it doesn't check the namespace prefix, only the namespace.
-            // And it also doesn't check children.
-            function equal(a, b) {
-                if (a.localName !== b.localName ||
-                    a.namespaceURI !== b.namespaceURI) return false;
-                if (a._numattrs !== b._numattrs) return false;
-                for(var i = 0, n = a._numattrs; i < n; i++) {
-                    var aa = a._attr(i);
-                    if (aa.namespaceURI) {
-                        if (!b.hasAttributeNS(aa.namespaceURI, aa.localName))
-                            return false;
-                        if (b.getAttributeNS(aa.namespaceURI,aa.localName) !== aa.value)
-                            return false;
-                    }
-                    else {
-                        if (!b.hasAttribute(aa.localName))
-                            return false;
-                        if (b.getAttribute(aa.localName) !== aa.value)
-                            return false;
-                    }
-                }
+            // Copy the attributes and push those on, too
+            var attrcopy = [];
+            for(var i = 0; i < attrs.length; i++) {
+                attrcopy[i] = attrs[i];
+            }
 
+            push(this.attrs, attrcopy);
+
+            // This function defines equality of two elements for the purposes
+            // of the AFE list.  Note that it compares the new elements 
+            // attributes to the saved array of attributes associated with
+            // the old element because a script could have changed the
+            // old element's set of attributes
+            function equal(newelt, oldelt, oldattrs) {
+                if (newelt.localName !== oldelt.localName) return false;
+                if (newelt._numattrs !== oldattrs.length) return false;
+                for(var i = 0, n = oldattrs.length; i < n; i++) {
+                    var oldname = oldattrs[i][0];
+                    var oldval = oldattrs[i][1];
+                    if (!newelt.hasAttribute(oldname)) return false;
+                    if (newelt.getAttribute(oldname) !== oldval) return false;
+                }
                 return true;
             }
         };
@@ -1917,24 +2022,30 @@ const HTMLParser = (function() {
                 if (A.lastIndexOf(stack.elements, entry) !== -1) break;
             }
 
-            // Now loop forward, starting from the element after the current one,
-            // recreating formatting elements and pushing them back onto the
-            // list of open elements
+            // Now loop forward, starting from the element after the current
+            // one, recreating formatting elements and pushing them back onto 
+            // the list of open elements
             for(i = i+1; i < this.list.length; i++) {
-                entry = this.list[i];
-                var newelt = entry.cloneNode(false); // shallow clone
-                //            stack.top.appendChild(newelt);
-                //            stack.push(newelt);
+                var newelt = this.clone(i);
                 insertElement(newelt);
                 this.list[i] = newelt;
             }
+        };
+
+        // Make a copy of element i, using its original attributes,
+        // not current attributes (which may have been modified
+        // by a script)
+        ActiveFormattingElements.prototype.clone = function(i) {
+            return createHTMLElt(this.list[i].localName, this.attrs[i]);
         };
 
         ActiveFormattingElements.prototype.clearToMarker = function() {
             for(var i = this.list.length-1; i >= 0; i--) {
                 if (this.list[i] === this.MARKER) break;
             }
-            this.list.length = (i < 0) ? 0 : i;
+            if (i < 0) i = 0;
+            this.list.length = i;
+            this.attrs.length = i;
         };
 
         // Find and return the last element with the specified tag between the
@@ -1944,43 +2055,50 @@ const HTMLParser = (function() {
             for(var i = this.list.length-1; i >= 0; i--) {
                 var elt = this.list[i];
                 if (elt === this.MARKER) break;
-                if (elt.namespaceURI === HTML_NAMESPACE &&
-                    elt.localName === tag) 
-                    return elt;
+                if (elt.localName === tag) return elt;
             }
             return null;
         };
 
-        ActiveFormattingElements.prototype.contains = function(e) {
-            var idx = A.lastIndexOf(this.list, e);
-            return idx !== -1;
+        ActiveFormattingElements.prototype.indexOf = function(e) {
+            return A.lastIndexOf(this.list, e);
         };
 
         // Find the element e in the list and remove it
         // Used when parsing <a> in_body()
         ActiveFormattingElements.prototype.remove = function(e) {
             var idx = A.lastIndexOf(this.list, e);
-            if (idx !== -1) splice(this.list, idx, 1);
+            if (idx !== -1) {
+                splice(this.list, idx, 1);
+                splice(this.attrs, idx, 1);
+            }
         };
 
         // Find element a in the list and replace it with element b
-        ActiveFormattingElements.prototype.replace = function(a, b) {
+        // XXX: Do I need to handle attributes here?  
+        ActiveFormattingElements.prototype.replace = function(a, b, attrs) {
             var idx = A.lastIndexOf(this.list, a);
-            if (idx !== -1) this.list[idx] = b;
+            if (idx !== -1) {
+                this.list[idx] = b;
+                if (attrs) this.attrs[idx] = attrs;
+            }
         };
 
         // Find a in the list and insert b after it
+        // This is only used for insert a bookmark object, so the
+        // attrs array doesn't really matter
         ActiveFormattingElements.prototype.insertAfter = function(a,b) {
             var idx = A.lastIndexOf(this.list, a);
-            if (idx !== -1) splice(this.list, idx, 0, b);
+            if (idx !== -1) {
+                splice(this.list, idx, 0, b);
+                splice(this.attrs, idx, 0, b);
+            }
         };
 
 
         /***
          * The actual code of the HTMLParser() factory function begins here.
          */
-
-        if (mutationHandler) doc.mutationHandler = mutationHandler;
 
         if (fragmentContext) { // for innerHTML parsing
             if (fragmentContext.ownerDocument._quirks)
@@ -2075,19 +2193,30 @@ const HTMLParser = (function() {
                 switch(typeof tokenizer.lookahead) {
                 case 'undefined':
                     codepoint = S.charCodeAt(chars, nextchar++);
+                    if (scanner_skip_newline) {
+                        scanner_skip_newline = false;
+                        if (codepoint === 0x000A) {
+                            nextchar++;
+                            continue;
+                        }
+                    }
                     switch(codepoint) {
                     case 0x000D:
-                        // Need to peek and see if next char is LF.
-                        // If we don't know the next char, we're done for now
-                        if (nextchar === numchars) {
-                            nextchar--;
-                            return;
+                        // CR always turns into LF, but if the next character
+                        // is LF, then that second LF is skipped.
+                        if (nextchar < numchars) {
+                            if (S.charCodeAt(chars, nextchar) === 0x000A)
+                                nextchar++;
                         }
-                        var next = S.charCodeAt(chars, nextchar);
-                        // If CR/LF pair, just skip the CR
-                        if (next === 0x000A) nextchar++;
-                        // In either case, tokenize just one LF
+                        else {
+                            // We don't know the next char right now, so we
+                            // can't check if it is a LF.  So set a flag
+                            scanner_skip_newline = true;
+                        }
+
+                        // In either case, emit a LF
                         tokenizer(0x000A);
+
                         break;
                     case 0xFFFF:
                         if (input_complete && nextchar === numchars) {
@@ -2102,6 +2231,10 @@ const HTMLParser = (function() {
                     break;
 
                 case 'number':
+                    // The only tokenizer states that require fixed lookahead
+                    // only consume alphanum characters, so we don't have
+                    // to worry about CR and LF in this case
+                    
                     // tokenizer wants n chars of lookahead
                     var n = tokenizer.lookahead;
                     
@@ -2142,10 +2275,18 @@ const HTMLParser = (function() {
                         eof = true;
                     }
 
+                    // The tokenizer states that require this kind of
+                    // lookahead have to be careful to handle CR characters
+                    // correctly
                     tokenizer(codepoint, s, eof);
                     break;
                 case 'object':
                     // tokenizer wants characters that match a regexp
+                    // The only tokenizer states that use regexp lookahead
+                    // are for character entities, and the patterns never
+                    // match CR or LF, so we don't need to worry about that 
+                    // here.
+
                     pattern = tokenizer.lookahead;
                     codepoint = S.charCodeAt(chars, nextchar);
                     pattern.lastIndex = nextchar;
@@ -2540,22 +2681,24 @@ const HTMLParser = (function() {
             parser = text_mode;
         }
 
-        const BOOKMARK = {localName:"BM"};  // Used by the adoptionAgency() function
+        // Used by the adoptionAgency() function
+        const BOOKMARK = {localName:"BM"};  
 
         function adoptionAgency(tag) {
             // Let outer loop counter be zero.
             var outer = 0;
 
-            // Outer loop: If outer loop counter is greater than or equal to eight,
-            // then abort these steps.
+            // Outer loop: If outer loop counter is greater than or
+            // equal to eight, then abort these steps.
             while(outer < 8) {
                 // Increment outer loop counter by one.
                 outer++;
 
-                // Let the formatting element be the last element in the list of
-                // active formatting elements that: is between the end of the list
-                // and the last scope marker in the list, if any, or the start of
-                // the list otherwise, and has the same tag name as the token.
+                // Let the formatting element be the last element in the list
+                // of active formatting elements that: is between the end of
+                // the list and the last scope marker in the list, if any, or
+                // the start of the list otherwise, and has the same tag name
+                // as the token.
                 var fmtelt = afe.findElementByTag(tag);
 
                 // If there is no such node, then abort these steps and instead
@@ -2563,9 +2706,10 @@ const HTMLParser = (function() {
                 if (!fmtelt) {
                     return false;  // false means handle by the default case
                 }
-                // Otherwise, if there is such a node, but that node is not in the
-                // stack of open elements, then this is a parse error; remove the
-                // element from the list, and abort these steps.
+
+                // Otherwise, if there is such a node, but that node is not in
+                // the stack of open elements, then this is a parse error;
+                // remove the element from the list, and abort these steps.
                 var index = A.lastIndexOf(stack.elements, fmtelt);
                 if (index === -1) {
                     afe.remove(fmtelt);
@@ -2574,16 +2718,16 @@ const HTMLParser = (function() {
 
                 // Otherwise, if there is such a node, and that node is also in
                 // the stack of open elements, but the element is not in scope,
-                // then this is a parse error; ignore the token, and abort these
-                // steps.
+                // then this is a parse error; ignore the token, and abort
+                // these steps.
                 if (!stack.elementInScope(fmtelt)) {
                     return true;
                 }
 
-                // Let the furthest block be the topmost node in the stack of open
-                // elements that is lower in the stack than the formatting
-                // element, and is an element in the special category. There might
-                // not be one.
+                // Let the furthest block be the topmost node in the stack of
+                // open elements that is lower in the stack than the formatting
+                // element, and is an element in the special category. There
+                // might not be one.
                 var furthestblock = null, furthestblockindex;
                 for(var i = index+1; i < stack.elements.length; i++) {
                     if (isA(stack.elements[i], specialSet)) {
@@ -2593,12 +2737,11 @@ const HTMLParser = (function() {
                     }
                 }
 
-                // If there is no furthest block, then the UA must
-                // skip the subsequent steps and instead just pop all
-                // the nodes from the bottom of the stack of open
-                // elements, from the current node up to and including
-                // the formatting element, and remove the formatting
-                // element from the list of active formatting
+                // If there is no furthest block, then the UA must skip the
+                // subsequent steps and instead just pop all the nodes from the
+                // bottom of the stack of open elements, from the current node
+                // up to and including the formatting element, and remove the
+                // formatting element from the list of active formatting
                 // elements.
                 if (!furthestblock) {
                     stack.popElement(fmtelt);
@@ -2609,15 +2752,17 @@ const HTMLParser = (function() {
                     // the formatting element in the stack of open elements.
                     var ancestor = stack.elements[index-1];
 
-                    // Let a bookmark note the position of the formatting element
-                    // in the list of active formatting elements relative to the
-                    // elements on either side of it in the list.
+                    // Let a bookmark note the position of the formatting
+                    // element in the list of active formatting elements
+                    // relative to the elements on either side of it in the
+                    // list.
                     afe.insertAfter(fmtelt, BOOKMARK);
                     
                     // Let node and last node be the furthest block. 
                     var node = furthestblock;
                     var lastnode = furthestblock;
                     var nodeindex = furthestblockindex;
+                    var nodeafeindex;
 
                     // Let inner loop counter be zero.
                     var inner = 0; 
@@ -2629,19 +2774,20 @@ const HTMLParser = (function() {
                         // Increment inner loop counter by one.
                         inner++;
 
-                        // Let node be the element immediately above node in the
-                        // stack of open elements, or if node is no longer in the
-                        // stack of open elements (e.g. because it got removed by
-                        // the next step), the element that was immediately above
-                        // node in the stack of open elements before node was
-                        // removed.
+                        // Let node be the element immediately above node in
+                        // the stack of open elements, or if node is no longer
+                        // in the stack of open elements (e.g. because it got
+                        // removed by the next step), the element that was
+                        // immediately above node in the stack of open elements
+                        // before node was removed.
                         node = stack.elements[--nodeindex];
 
                         // If node is not in the list of active formatting
                         // elements, then remove node from the stack of open
                         // elements and then go back to the step labeled inner
                         // loop.
-                        if (!afe.contains(node)) {
+                        nodeafeindex = afe.indexOf(node);
+                        if (nodeafeindex === -1) {
                             stack.removeElement(node);
                             continue;
                         }
@@ -2650,27 +2796,27 @@ const HTMLParser = (function() {
                         // to the next step in the overall algorithm.
                         if (node === fmtelt) break;
 
-                        // Create an element for the token for which the element
-                        // node was created, replace the entry for node in the
-                        // list of active formatting elements with an entry for
-                        // the new element, replace the entry for node in the
-                        // stack of open elements with an entry for the new
-                        // element, and let node be the new element.
-                        var newelt = node.cloneNode(false);
+                        // Create an element for the token for which the
+                        // element node was created, replace the entry for node
+                        // in the list of active formatting elements with an
+                        // entry for the new element, replace the entry for
+                        // node in the stack of open elements with an entry for
+                        // the new element, and let node be the new element.
+                        var newelt = afe.clone(nodeafeindex);
                         afe.replace(node, newelt);
                         stack.elements[nodeindex] = newelt;
                         node = newelt;
 
                         // If last node is the furthest block, then move the
-                        // aforementioned bookmark to be immediately after the new
-                        // node in the list of active formatting elements.
+                        // aforementioned bookmark to be immediately after the
+                        // new node in the list of active formatting elements.
                         if (lastnode === furthestblock) {
                             afe.remove(BOOKMARK);
                             afe.insertAfter(newelt, BOOKMARK);
                         }
                         
-                        // Insert last node into node, first removing it from its
-                        // previous parent node if any.
+                        // Insert last node into node, first removing it from
+                        // its previous parent node if any.
                         node.appendChild(lastnode);
 
                         // Let last node be node.
@@ -2679,24 +2825,24 @@ const HTMLParser = (function() {
 
                     // If the common ancestor node is a table, tbody, tfoot,
                     // thead, or tr element, then, foster parent whatever last
-                    // node ended up being in the previous step, first removing it
-                    // from its previous parent node if any.
+                    // node ended up being in the previous step, first removing
+                    // it from its previous parent node if any.
                     if (isA(ancestor, tablesectionrowSet)) {
                         fosterParent(lastnode);
                     }
-                    // Otherwise, append whatever last node ended up being in the
-                    // previous step to the common ancestor node, first removing
-                    // it from its previous parent node if any.
+                    // Otherwise, append whatever last node ended up being in
+                    // the previous step to the common ancestor node, first
+                    // removing it from its previous parent node if any.
                     else {
                         ancestor.appendChild(lastnode);
                     }
 
                     // Create an element for the token for which the
                     // formatting element was created.
-                    var newelt2 = fmtelt.cloneNode(false);
+                    var newelt2 = afe.clone(afe.indexOf(fmtelt));
 
-                    // Take all of the child nodes of the furthest block and append
-                    // them to the element created in the last step.
+                    // Take all of the child nodes of the furthest block and
+                    // append them to the element created in the last step.
                     while(furthestblock.hasChildNodes()) {
                         newelt2.appendChild(furthestblock.firstChild);
                     }
@@ -2706,15 +2852,15 @@ const HTMLParser = (function() {
 
                     // Remove the formatting element from the list of active
                     // formatting elements, and insert the new element into the
-                    // list of active formatting elements at the position of the
-                    // aforementioned bookmark.
+                    // list of active formatting elements at the position of
+                    // the aforementioned bookmark.
                     afe.remove(fmtelt);
                     afe.replace(BOOKMARK, newelt2);
 
                     // Remove the formatting element from the stack of open
-                    // elements, and insert the new element into the stack of open
-                    // elements immediately below the position of the furthest
-                    // block in that stack.
+                    // elements, and insert the new element into the stack of
+                    // open elements immediately below the position of the
+                    // furthest block in that stack.
                     stack.removeElement(fmtelt);
                     var pos = A.lastIndexOf(stack.elements, furthestblock);
                     splice(stack.elements, pos+1, 0, newelt2);
@@ -2732,8 +2878,10 @@ const HTMLParser = (function() {
             // script fetching etc. For now I just want to be able to parse 
             // documents and test the parser.
 
+            var script = stack.top;
             stack.pop();
             parser = originalInsertionMode;
+            script._prepare();
             return;
 
             // XXX: here is what this method is supposed to do
@@ -2828,6 +2976,12 @@ const HTMLParser = (function() {
         function stopParsing() {
             // XXX This is just a temporary implementation to get the parser working.
             // A full implementation involves scripts and events and the event loop.
+
+            // Remove the link from document to parser.
+            // This is instead of "set the insertion point to undefined".
+            // It means that document.write() can't write into the doc anymore.
+            delete doc._parser; 
+
             stack.elements.length = 0;  // pop everything off
         }
 
@@ -3189,8 +3343,8 @@ const HTMLParser = (function() {
                 break;
             case 0x003E: //  GREATER-THAN SIGN 
                 if (appropriateEndTag(tagnamebuf)) {
-                    emitTag();
                     tokenizer = data_state;
+                    emitTag();
                     return;
                 }
                 break; 
@@ -3296,8 +3450,8 @@ const HTMLParser = (function() {
                 break;
             case 0x003E: //  GREATER-THAN SIGN 
                 if (appropriateEndTag(tagnamebuf)) {
-                    emitTag();
                     tokenizer = data_state;
+                    emitTag();
                     return;
                 }
                 break; 
@@ -3406,8 +3560,8 @@ const HTMLParser = (function() {
                 break;
             case 0x003E: //  GREATER-THAN SIGN 
                 if (appropriateEndTag(tagnamebuf)) {
-                    emitTag();
                     tokenizer = data_state;
+                    emitTag();
                     return;
                 }
                 break; 
@@ -3630,8 +3784,8 @@ const HTMLParser = (function() {
                 break; 
             case 0x003E: //  GREATER-THAN SIGN  
                 if (appropriateEndTag(tagnamebuf)) {
-                    emitTag();
                     tokenizer = data_state; 
+                    emitTag();
                     return;
                 }
                 break; 
@@ -4187,9 +4341,13 @@ const HTMLParser = (function() {
                 nextchar += len;
             }
 
-            insertToken(COMMENT,
-                     replace(substring(lookahead,0,len-1),/\u0000/g,"\uFFFD"));
+            var comment = substring(lookahead, 0, len-1);
+            
+            comment = replace(comment, /\u0000/g,"\uFFFD");
+            comment = replace(comment, /\u000D\u000A/g,"\u000A");
+            comment = replace(comment, /\u000D/g,"\u000A");
 
+            insertToken(COMMENT, comment);
             tokenizer = data_state;
         }
         bogus_comment_state.lookahead = ">";
@@ -4873,6 +5031,12 @@ const HTMLParser = (function() {
             if (output.length > 0) {
                 if (output.indexOf("\u0000") !== -1) 
                     textIncludesNUL = true;
+
+                // XXX Have to deal with CR and CRLF here?
+                if (output.indexOf("\r") !== -1) {
+                    output = output.replace(/\r\n/, "\n").replace(/\r/, "\n");
+                }
+
                 emitCharString(output);
             }
 
@@ -5070,7 +5234,6 @@ const HTMLParser = (function() {
                     flushText();
                     stack.top.appendChild(elt);
                     stack.push(elt);
-
                     tokenizer = script_data_state;
                     originalInsertionMode = parser;
                     parser = text_mode;
@@ -5399,7 +5562,7 @@ const HTMLParser = (function() {
                 case "tt":
                 case "u":
                     afe.reconstruct();
-                    afe.push(insertHTMLElement(value,arg3));
+                    afe.push(insertHTMLElement(value,arg3), arg3);
                     return;
 
                 case "nobr":
@@ -5409,7 +5572,7 @@ const HTMLParser = (function() {
                         in_body_mode(ENDTAG, value);
                         afe.reconstruct();
                     }
-                    afe.push(insertHTMLElement(value,arg3));
+                    afe.push(insertHTMLElement(value,arg3), arg3);
                     return;
 
                 case "applet":
@@ -6735,109 +6898,102 @@ const HTMLParser = (function() {
             }
         }
 
+
         /***
          * Finally, this is the end of the HTMLParser() factory function.
-         * It returns this parser object with append() and end() methods.
+         * It returns the htmlparser object with the append() and end() methods.
          */
-        return {
-            append: function(s) {
-                scannerAppend(s);
-                scanChars();
-            },
 
-            end: function(s) {
-                s = s || "";
-                scannerAppend(s, true);
-                scanChars();
-                // For the fragment case, return the document unwrapped.
-                // Otherwise, return a wrapped document
-                if (fragment) return doc;
-                else return wrap(doc);
-            },
+        // Sneak another method into the htmlparser object to allow us to run
+        // tokenizer tests.  This can be commented out in production code.
+        // This is a hook for testing the tokenizer. It has to be here 
+        // because the tokenizer details are all hidden away within the closure.
+        // It should return an array of tokens generated while parsing the
+        // input string.  
+        htmlparser.testTokenizer = function(input, initialState,
+                                            lastStartTag, charbychar)
+        {
+            var tokens = [];
 
-            // This is a hook for testing the tokenizer. It has to be here 
-            // because the tokenizer details are all hidden away within the closure.
-            // It should return an array of tokens generated while parsing the
-            // input string.  
-            // XXX: comment this out in production code
-            testTokenizer: function(input, initialState, lastStartTag, charbychar) {
-                var tokens = [];
-
-                switch(initialState) {
-                case "PCDATA state":
-                    tokenizer = data_state;
-                    break;
-                case "RCDATA state":
-                    tokenizer = rcdata_state;
-                    break;
-                case "RAWTEXT state":
-                    tokenizer = rawtext_state;
-                    break;
-                case "PLAINTEXT state":
-                    tokenizer = plaintext_state;
-                    break;
-                }
-
-                if (lastStartTag) {
-                    lasttagname = lastStartTag;
-                }
-
-                insertToken = function(t, value, arg3, arg4) {
-                    flushText();
-                    switch(t) {
-                    case TEXT:
-                        if (tokens.length > 0 &&
-                            tokens[tokens.length-1][0] === "Character") {
-                            tokens[tokens.length-1][1] += value;
-                        }
-                        else push(tokens, ["Character", value]);
-                        break;
-                    case COMMENT:
-                        push(tokens,["Comment", value]);
-                        break;
-                    case DOCTYPE:
-                        push(tokens,["DOCTYPE", value,
-                                     arg3 === undefined ? null : arg3,
-                                     arg4 === undefined ? null : arg4,
-                                     !force_quirks]);
-                        break;
-                    case TAG:
-                        var attrs = {};
-                        for(var i = 0; i < arg3.length; i++) {
-                            // XXX: does attribute order matter?
-                            var a = arg3[i];
-                            if (a.length === 1) {
-                                attrs[a[0]] = "";
-                            }
-                            else {
-                                attrs[a[0]] = a[1];
-                            }
-                        }
-                        var token = ["StartTag", value, attrs];
-                        if (arg4) push(token, true);
-                        push(tokens,token);
-                        break;
-                    case ENDTAG:
-                        push(tokens,["EndTag", value]);
-                        break;
-                    case EOF:
-                        break;
-                    }
-                }
-
-                if (!charbychar) { 
-                    this.end(input);
-                }
-                else {
-                    for(var i = 0; i < input.length; i++) {
-                        this.append(input[i]);
-                    }
-                    this.end();
-                }
-                return tokens;
+            switch(initialState) {
+            case "PCDATA state":
+                tokenizer = data_state;
+                break;
+            case "RCDATA state":
+                tokenizer = rcdata_state;
+                break;
+            case "RAWTEXT state":
+                tokenizer = rawtext_state;
+                break;
+            case "PLAINTEXT state":
+                tokenizer = plaintext_state;
+                break;
             }
+
+            if (lastStartTag) {
+                lasttagname = lastStartTag;
+            }
+
+            insertToken = function(t, value, arg3, arg4) {
+                flushText();
+                switch(t) {
+                case TEXT:
+                    if (tokens.length > 0 &&
+                        tokens[tokens.length-1][0] === "Character") {
+                        tokens[tokens.length-1][1] += value;
+                    }
+                    else push(tokens, ["Character", value]);
+                    break;
+                case COMMENT:
+                    push(tokens,["Comment", value]);
+                    break;
+                case DOCTYPE:
+                    push(tokens,["DOCTYPE", value,
+                                 arg3 === undefined ? null : arg3,
+                                 arg4 === undefined ? null : arg4,
+                                 !force_quirks]);
+                    break;
+                case TAG:
+                    var attrs = {};
+                    for(var i = 0; i < arg3.length; i++) {
+                        // XXX: does attribute order matter?
+                        var a = arg3[i];
+                        if (a.length === 1) {
+                            attrs[a[0]] = "";
+                        }
+                        else {
+                            attrs[a[0]] = a[1];
+                        }
+                    }
+                    var token = ["StartTag", value, attrs];
+                    if (arg4) push(token, true);
+                    push(tokens,token);
+                    break;
+                case ENDTAG:
+                    push(tokens,["EndTag", value]);
+                    break;
+                case EOF:
+                    break;
+                }
+            }
+
+            if (!charbychar) { 
+                this.parse(input, true);
+            }
+            else {
+                for(var i = 0; i < input.length; i++) {
+                    this.parse(input[i]);
+                }
+                this.parse("", true);
+            }
+            return tokens;
         };
+
+        // Return the parser object from the HTMLParser() factory function
+        return htmlparser;
     }
     
+    // Return the HTMLParser factory function from the containing
+    // closure that holds all the details.
     return HTMLParser;
 }());

@@ -199,8 +199,8 @@ interface Document : Node {
   //  HTMLDocument open(in optional DOMString type, in optional DOMString replace);
   //  WindowProxy open(in DOMString url, in DOMString name, in DOMString features, in optional boolean replace);
   //  void close();
-  //  void write(in DOMString... text);
-  //  void writeln(in DOMString... text);
+  void write(in DOMString... text);
+  void writeln(in DOMString... text);
 
   // user interaction
   //  readonly attribute WindowProxy? defaultView;

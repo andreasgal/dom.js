@@ -48,13 +48,19 @@ var parserInputFiles = [
     "parsertestdata/tree-construction/tests_innerHTML_1.dat",
     "parsertestdata/tree-construction/tricky01.dat",
     "parsertestdata/tree-construction/webkit01.dat",
-    "parsertestdata/tree-construction/webkit02.dat"
+    "parsertestdata/tree-construction/webkit02.dat",
+    "parsertestdata/tree-construction/scripted/adoption01.dat",
+    "parsertestdata/tree-construction/scripted/ark.dat",
+    "parsertestdata/tree-construction/scripted/webkit01.dat",
+    "parsertestdata/tree-construction/domjs.dat"
 ];
 
 var numtests = 0;
 var numpassed = 0;
 var numaborted = 0;
 var failures = [];
+
+if (arguments.length) parserInputFiles = arguments;
 
 parserInputFiles.forEach(runTestFile);
 
@@ -112,13 +118,14 @@ function test(input, context, expected, filename, testnum, charbychar) {
             var doc;
             if (charbychar) {
                 for(var i = 0; i < input.length; i++) {
-                    parser.append(input[i]);
+                    parser.parse(input[i]);
                 }
-                doc = parser.end();
+                parser.parse("", true);
             }
             else {
-                doc = parser.end(input);
+                parser.parse(input, true);
             }
+            doc = parser.document();
             output = serialize(doc, " ");
         }
         if (output === expected) {

@@ -31,7 +31,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
         this._creatorDocument = doc; // in case ownerDocument changes later
     }
 
-    // Script elements must call prepare() when:
+    // Script elements that are not parser inserted must call _prepare() when:
     // 1) a script is inserted into the document.  (see _roothook below)
     // 2) the script's children change 
     //   XXX: need to make this one happen
@@ -43,7 +43,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
     //   be hard to have a hook for. Or, I could use the modtime thing
     //   to look for any changes on any descendant and then check the
     //   text property. The transition from "" to non-empty text would
-    //   be a prepare() trigger.  But I'm hoping that the spec will change
+    //   be a _prepare() trigger.  But I'm hoping that the spec will change
     //   so that any child insertion (including an empty text node) \
     //   is enough.
     // 
@@ -58,7 +58,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
         // Script elements need to know when they're inserted into the
         // document, so they define this hook method
         _roothook: constant(function() {
-            this.prepare();
+            if (!this._parser_inserted) this._prepare();
         }),
 
         // The Script element needs to know when its src and async attrs are set
@@ -68,7 +68,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                 this._force_async = false;
                 break;
             case 'src':
-                if (this.rooted) this.prepare();
+                if (!this._parser_inserted && this.rooted) this._prepare();
                 break;
             }
         }),
@@ -78,14 +78,14 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
         _addchildhook: constant(function(child) {
             // XXX what if multiple children are added at once
             // via a DocumentFragment, do we run all of them or only the first?
-            if (this.rooted) this.prepare();
+            if (!this._parser_inserted && this.rooted) this._prepare();
         }),
 
         // Finally, it needs to know when a Text child has changed
         // This hook only gets triggered for direct children, not all
         // descendants
         _textchangehook: constant(function(child) {
-            if (this.rooted) this.prepare();
+            if (!this._parser_inserted && this.rooted) this._prepare();
         }),
 
         // The async idl attr doesn't quite reflect the async content attr
@@ -124,7 +124,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
         ),
 
         // The HTML "Prepare a Script" algorithm
-        prepare: constant(function() {
+        _prepare: constant(function() {
             // If the script element is marked as having "already started",
             // then the user agent must abort these steps at this point. The
             // script is not executed.
@@ -214,6 +214,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
 
             // The state of the element at this moment is later used to
             // determine the script source.
+            this._script_text = this.text;  // We'll use this in _execute
 
             // If the element is flagged as "parser-inserted", but the
             // element's Document is not the Document of the parser that
@@ -221,7 +222,6 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             if (this._parser_inserted &&
                 this.ownerDocument !== this._creatorDocument)
                 return;  // Script was moved to a new document 
-
 
             // If scripting is disabled for the script element, then the user
             // agent must abort these steps at this point. The script is not
@@ -244,7 +244,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // global document.
             // 
             if (!this.ownerDocument._scripting_enabled) return;
-            
+
             // If the script element has an event attribute and a for
             // attribute, then run these substeps:
             //
@@ -316,6 +316,17 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // script, and the fetching process will have been effectively
             // wasted.
             if (this.hasAttribute("src")) {
+                // XXX
+                // Ignoring the src attribute now
+                // and only running inline scripts
+            }
+            else {
+                
+                // XXX
+                // Just execute inlines scripts now.
+                // Later, I've got to deal with the all the cases below
+
+                this._execute();
             }
 
             // Then, the first of the following options that describes the
@@ -394,14 +405,54 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             //     execute as soon as possible of the Document of the script
             //     element at the time the prepare a script algorithm started.
 
-            //     The task that the networking task source places on the task
-            // queue once the fetching algorithm has completed must execute the
-            // script block and then remove the element from the set of scripts
-            // that will execute as soon as possible.  Otherwise The user agent
-            // must immediately execute the script block, even if other scripts
-            // are already executing.
+            //     The task that the networking task source places on
+            //     the task queue once the fetching algorithm has
+            //     completed must execute the script block and then
+            //     remove the element from the set of scripts that
+            //     will execute as soon as possible.
+            // 
+            // Otherwise The user agent must immediately execute the
+            // script block, even if other scripts are already
+            // executing.
+        }),
 
+        _execute: constant(function() {
+            // We test this in _prepare(), but the spec says we
+            // have to check again here.
+            if (this._parser_inserted &&
+                this.ownerDocument !== this._creatorDocument) return;
 
+            // XXX
+            // For now, we're just doing inline scripts, so I'm skipping
+            // the steps about if the load was not successful.
+            var code = this._script_text;
+            
+            // If the script is from an external file, then increment the
+            // ignore-destructive-writes counter of the script element's
+            // Document. Let neutralized doc be that Document.
+            // XXX: ignoring this for inline scripts for now.
+
+            // XXX
+            // There is actually more to executing a script than this.
+            // See http://www.whatwg.org/specs/web-apps/current-work/multipage/webappapis.html#create-a-script
+            try {
+                (new Function("document", code))(wrap(this.ownerDocument));
+            }
+            catch(e) {
+                // XXX fire an onerror event before reporting
+                print(e);
+                print(e.stack);
+//                print("EVAL failed", e);
+            }
+
+            // Decrement the ignore-destructive-writes counter of neutralized
+            // doc, if it was incremented in the earlier step.
+
+            // If the script is from an external file, fire a simple event
+            // named load at the script element.
+
+            // Otherwise, the script is internal; queue a task to fire a simple
+            // event named load at the script element.
 
         }),
     });

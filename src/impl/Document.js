@@ -354,6 +354,44 @@ defineLazyProperty(impl, "Document", function() {
         getElementsByName: constant(nyi),
         innerHTML: attribute(nyi, nyi),
 
+        write: constant(function(args) {
+            if (!this.isHTML) InvalidStateError();
+            
+            // XXX: still have to implement the ignore part
+            if (!this._parser /* && this._ignore_destructive_writes > 0 */ ) 
+                return;
+            
+            if (!this._parser) {
+                // XXX call document.open, etc.
+            }
+
+            var s = join(arguments, "");
+
+            // If the Document object's reload override flag is set, then
+            // append the string consisting of the concatenation of all the
+            // arguments to the method to the Document's reload override
+            // buffer.
+            // XXX: don't know what this is about.  Still have to do it
+
+            // If there is no pending parsing-blocking script, have the
+            // tokenizer process the characters that were inserted, one at a
+            // time, processing resulting tokens as they are emitted, and
+            // stopping when the tokenizer reaches the insertion point or when
+            // the processing of the tokenizer is aborted by the tree
+            // construction stage (this can happen if a script end tag token is
+            // emitted by the tokenizer).
+
+            // XXX: still have to do the above. Sounds as if we don't
+            // always call parse() here.  If we're blocked, then we just
+            // insert the text into the stream but don't parse it reentrantly...
+
+            // Invoke the parser reentrantly
+            this._parser.parse(s);
+        }),
+
+        writeln: constant(function writeln(args) {
+            this.write(join(arguments, "") + "\n");
+        }),
 
         // Utility methods
         clone: constant(function clone() {
@@ -504,6 +542,42 @@ defineLazyProperty(impl, "Document", function() {
             else {
                 delete this.byId[id];
             }
+        }),
+
+        _documentBaseURL: attribute(function() {
+            // XXX: This is not implemented correctly yet
+            return this._address;
+
+            // The document base URL of a Document object is the
+            // absolute URL obtained by running these substeps:
+
+            //     Let fallback base url be the document's address.
+
+            //     If fallback base url is about:blank, and the
+            //     Document's browsing context has a creator browsing
+            //     context, then let fallback base url be the document
+            //     base URL of the creator Document instead.
+
+            //     If the Document is an iframe srcdoc document, then
+            //     let fallback base url be the document base URL of
+            //     the Document's browsing context's browsing context
+            //     container's Document instead.
+
+            //     If there is no base element that has an href
+            //     attribute, then the document base URL is fallback
+            //     base url; abort these steps. Otherwise, let url be
+            //     the value of the href attribute of the first such
+            //     element.
+
+            //     Resolve url relative to fallback base url (thus,
+            //     the base href attribute isn't affected by xml:base
+            //     attributes).
+
+            //     The document base URL is the result of the previous
+            //     step if it was successful; otherwise it is fallback
+            //     base url.
+
+            
         }),
     });
 
