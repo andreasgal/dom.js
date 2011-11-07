@@ -343,12 +343,42 @@ function outputMethod(m, prefix) {
     out("%s%s: function %s%s{", // intentionally missing spaces
         prefix, m.name, m.name, arglist(m, prefix));
 
-    var invocation = "unwrap(this)." + m.name + "(" +
-        invokeargs(m, prefix + "        ") + ")";
+    var numargs = m.arguments.length;
+    var variadic = numargs !== 0 && m.arguments[numargs-1].variadic;
+    var invocation;
 
-    if (isInterfaceType(m.idlType)) {
-        out("%s    var rv = %s;", prefix, invocation);
-        out("%s    return wrap(rv);", prefix);
+    if (variadic) {
+        var fixedargs = "";
+        for(var i = 0; i < m.arguments.length-1; i++) {
+            if (i > 0) fixedargs += ", ";
+            fixedargs += convert(m.arguments[i], m.arguments[i].name);
+        }
+        out("%s    var context = unwrap(this);", prefix);
+        out("%s    var args = [" + fixedargs + "];", prefix);
+
+        var lastarg = m.arguments[numargs-1];
+        
+        out("%s    for(var i = " +
+            (numargs-1) + 
+            "; i < arguments.length; i++) {", prefix);
+        out("%s        push(args, " +
+            convert(lastarg, "arguments[i]") + ");", prefix);
+        out("%s    }", prefix);
+
+        invocation = "apply(context." + m.name + ", context, args)";
+
+    }
+    else {
+        invocation = "unwrap(this)." + m.name + "(" +
+            invokeargs(m, prefix + "        ") + ")";
+    }
+
+
+    if (m.idlType === "void") {  // method has no return value
+        out("%s    %s;", prefix, invocation);
+    }
+    else if (isInterfaceType(m.idlType)) {
+        out("%s    return wrap(%s);", prefix, invocation);
         if (m.idlType.array) {
            // If this is an array type, remember that we've used it
            // so that we can output an IDL interface for it later.
@@ -364,13 +394,20 @@ function outputMethod(m, prefix) {
 
 // Return a comma-separated arg list for method m
 function arglist(m, prefix) {
-    if (m.arguments.length == 0)
+    if (m.arguments.length == 0) {
         return "() ";
-    else if (m.arguments.length == 1)
-        return "(" + m.arguments[0].name + ") ";
+    }
+    else if (m.arguments.length == 1) {
+        return "(" +
+            m.arguments[0].name +
+            (m.arguments[0].variadic ? " /*...*/":"") +
+            ") ";
+    }
     else {
         var indent = "\n                        " + prefix;
-        var args = m.arguments.map(function(a) { return a.name });
+        var args = m.arguments.map(function(a) {
+            return a.name + (a.variadic ? " /*...*/" : "");
+        });
         var list = args.join("," + indent)
         return "(" + indent + list + ")\n" + prefix;
     }
@@ -378,10 +415,11 @@ function arglist(m, prefix) {
 
 // Convert the args and return a list suitable for an invocation
 function invokeargs(m, prefix) {
+    var numargs = m.arguments.length;
     var rv = m.arguments.
         map(function(a) { return convert(a, a.name)}).
         join(",\n" + prefix);
-    if (m.arguments.length > 1) rv = "\n" + prefix + rv;
+    if (numargs > 1) rv = "\n" + prefix + rv;
     return rv;
 }
 
