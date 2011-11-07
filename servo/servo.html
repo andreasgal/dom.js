@@ -5,6 +5,7 @@
         <style type="text/css">
 body {
     padding: 1em;
+	padding-right: 325px;
 }
 
 #url>input[type="text"] {
@@ -16,8 +17,16 @@ body {
 
 #tree-view {
 	position: absolute;
-	top: 1 em;
-	right: 1em;
+	top: 1em;
+	right: 25px;
+	border: 1px solid black;
+	background: white;
+}
+
+#gl-view {
+	position: absolute;
+	top: 1em;
+	right: 125px;
 	border: 1px solid black;
 	background: white;
 }
@@ -49,6 +58,8 @@ body {
 var start_time = null;
 var canvas = null;
 var ctx = null;
+var glcanvas = null;
+var glctx = null;
 
 var worker = new Worker('servo-worker.js');
 var depths = {1: 0};
@@ -74,8 +85,7 @@ worker.onmessage = function(event) {
 		start_time = new Date();
 	}
     if (evt === "complete") {
-		console.log(new Date().getTime() - start_time.getTime());
-        console.log("complete");
+		//console.log(new Date().getTime() - start_time.getTime());
         $('.node-id').on('click',
             function() {
                 var self = $(this);
@@ -91,6 +101,10 @@ worker.onmessage = function(event) {
         );
 		return;
     }
+	if (typeof evt === "string") {
+		console.log("EVT", evt);
+		return;
+	}
 
     if (evt.nid === undefined) {
         evt.nid = -1;
@@ -218,6 +232,7 @@ function GET(url) {
 $(document).ready(function () {
 	canvas = document.getElementById('tree-view');
 	ctx = canvas.getContext('2d');
+
 	$('#url').on('submit', function() {
 		tree_offset = 0;
 		ctx.clearRect (0 , 0 , canvas.width, canvas.height);
@@ -231,6 +246,7 @@ $(document).ready(function () {
     </head>
     <body>
 		<canvas id="tree-view" width="100" height="18000"></canvas>
+		<canvas id="gl-view" width="200" height="18000"></canvas>
 		<div style="margin: 0.5em">
 			<form id="url">
 				<input type="text" name="url" value="foo.html" />
