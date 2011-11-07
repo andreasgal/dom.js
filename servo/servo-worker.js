@@ -5,6 +5,14 @@ function mutation(evt) {
     postMessage(JSON.stringify(evt));
 }
 
+function print() {
+	var out = '';
+	for (var i = 0; i < arguments.length; i++) {
+		out += arguments[i];
+	}
+	postMessage(JSON.stringify(out));
+}
+
 onmessage = function(message) {
 	try {
     var body = message.data.body.toString();
