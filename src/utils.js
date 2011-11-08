@@ -21,6 +21,15 @@ function warn(msg) {
     }
 }
 
+// Currently this is only used to report errors when running scripts
+function error(msg) {
+    if (global.console && global.console.error)
+        console.error(msg);
+    else if (global.print) {
+        print("ERROR: " + msg);
+    }
+}
+
 // Utility functions that return property descriptors
 function constant(v) { return { value: v }; }
 function attribute(get, set) {
