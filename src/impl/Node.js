@@ -458,6 +458,151 @@ defineLazyProperty(impl, "Node", function() {
             return !!this._nid;
         }),
 
+
+        // Convert the children of a node to an HTML string.
+        // This is used by the innerHTML getter
+        // The serialization spec is at:
+        // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-end.html#serializing-html-fragments
+        serialize: constant(function() {
+            var s = "";
+            for(var i = 0, n = this.childNodes.length; i < n; i++) {
+                var kid = this.childNodes[i];
+                switch(kid.nodeType) {
+                case COMMENT_NODE:
+                    s += "<!--" + kid.data + "-->";
+                    break;
+                case PROCESSING_INSTRUCTION_NODE:
+                    s += "<?" + kid.target + " " + kid.data + ">";
+                    break;
+                case DOCUMENT_TYPE_NODE:
+                    s += "<!DOCTYPE " + kid.name + ">";
+                    break;
+                case TEXT_NODE:
+                case CDATA_SECTION_NODE:
+                    var parenttag;
+                    if (this.nodeType === ELEMENT_NODE &&
+                        this.namespaceURI === HTML_NAMESPACE) 
+                        parenttag = this.tagName;
+                    else 
+                        parenttag = "";
+                    switch(parenttag) {
+                    case "STYLE":
+                    case "SCRIPT":
+                    case "XMP":
+                    case "IFRAME":
+                    case "NOEMBED":
+                    case "NOFRAMES":
+                    case "PLAINTEXT":
+                    case "NOSCRIPT":
+                        s += kid.data;
+                    default:
+                        s += escape(kid.data);
+                    }
+                    break;
+                case ELEMENT_NODE:
+                    serializeElement(kid);
+                    break;
+                default:
+                    InvalidStateError();
+                }
+            }
+
+            return s;
+
+            function serializeElement(kid) {
+                var html = false, tagname;
+                switch(kid.namespaceURI) {
+                case HTML_NAMESPACE:
+                    html = true;
+                    /* fallthrough */
+                case SVG_NAMESPACE:
+                case MATHML_NAMESPACE:
+                    tagname = kid.localName;
+                    break;
+                default:
+                    tagname = kid.tagName;
+                }
+
+                s += '<' + tagname;
+
+                for(var i = 0, n = kid._numattrs; i < n; i++) {
+                    var a = kid._attr(i);
+                    s += ' ' + attrname(a) + '="' + escapeAttr(a.value) + '"';
+                }
+                s += '>';
+
+                var htmltag = html?tagname:"";
+                switch(htmltag) {
+                    
+                case "area":
+                case "base":
+                case "basefont":
+                case "bgsound":
+                case "br":
+                case "col":
+                case "command":
+                case "embed":
+                case "frame":
+                case "hr":
+                case "img":
+                case "input":
+                case "keygen":
+                case "link":
+                case "meta":
+                case "param":
+                case "source":
+                case "track":
+                case "wbr":
+                    return;  // These can't have kids, so we're done
+
+                case 'pre':
+                case 'textarea':
+                case 'listing':
+                    s += "\n"; // Extra newline for these
+                    /* fallthrough */
+                default:
+                    // Serialize children and add end tag for all others
+                    s += kid.serialize();
+                    s += "</" + tagname + ">";
+                }
+            }
+
+            function escape(s) {
+                return s.replace(/&<>\u00A0/g, function(c) {
+                    switch(c) {
+                    case "&": return "&amp;";
+                    case "<": return "&lt;";
+                    case ">": return "&gt;";
+                    case "\u00A0": return "&nbsp;";
+                    }
+                });
+            }
+            
+            function escapeAttr(s) {
+                return s.replace(/&"\u00A0/g, function(c) {
+                    switch(c) {
+                    case '&': return "&amp;";
+                    case '"': return "&quot;";
+                    case '\u00A0': return "&nbsp;";
+                    }
+                });
+            }
+
+            function attrname(a) {
+                switch(a.namespaceURI) {
+                case null: return a.localName;
+                case XML_NAMESPACE: return "xml:" + a.localName;
+                case XLINK_NAMESPACE: return "xlink:" + a.localName;
+                case XMLNS_NAMESPACE: 
+                    if (a.localName === "xmlns") return "xmlns";
+                    else return "xmlns:" + a.localName;
+                default:
+                    return a.name;
+                }
+            }
+
+        }),
+
     });
 
     return Node;

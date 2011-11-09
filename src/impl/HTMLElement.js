@@ -119,7 +119,7 @@ defineLazyProperty(impl, "HTMLElement", function() {
     HTMLElement.prototype = O.create(impl.Element.prototype, {
         _idlName: constant("HTMLElement"),
         innerHTML: attribute(function() {
-            return "reading innerHTML is not yet implemented";
+            return this.serialize();
         },
         function(v) {
             var parser = this.ownerDocument.implementation.mozHTMLParser(
