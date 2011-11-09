@@ -45,6 +45,7 @@ onmessage = function(message) {
 		if (data.finished) {
 			parser.parse('', true);
 			reply.finished = true;
+			parsing[reply.parser] = undefined;
 		}
 		postMessage(reply);
 	} catch (e) {

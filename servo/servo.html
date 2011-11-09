@@ -84,7 +84,6 @@ var tree_offset = 0;
 
 // for sending large bodies in chunks to the worker
 var send_chunk = null;
-var parser = null;
 
 worker.onmessage = function(event) {
     var append = true;
@@ -99,8 +98,7 @@ worker.onmessage = function(event) {
 		console.log("finished");
 		return;
     } else if (evt.parser) {
-		parser = evt.parser;
-		send_chunk();
+		send_chunk(evt.parser);
 		return;
 	}
 
@@ -220,7 +218,7 @@ function GET(url) {
 		var self = this;
 		var byte_offset = 0;
         if (this.readyState === 4) {
-			send_chunk = function() {
+			send_chunk = function(parser) {
 				var message = {};
 				if (byte_offset === 0) {
 					message.url = url;
