@@ -38,7 +38,7 @@ body {
 }
 
 .node-id {
-    padding-right: 1em;
+    padding-right: 0.5em;
     color: #cccccc;
     cursor: pointer;
 }
@@ -55,9 +55,11 @@ body {
         </script>
         <script type="text/javascript; version=1.8">
 
-var start_time = null;
+const CHUNK_SIZE = 32767;
+
 var canvas = null;
 var ctx = null;
+
 var glcanvas = null;
 var glctx = null;
 
@@ -74,35 +76,29 @@ var colors = {
     span: 'darkgreen'
 };
 
+// for building the dom explorer view
 var previous = null;
+
+// for building the canvas view
 var tree_offset = 0;
+
+// for sending large bodies in chunks to the worker
+var send_chunk = null;
 
 worker.onmessage = function(event) {
     var append = true;
-    var evt = JSON.parse(event.data);
+    var evt = event.data;
 
-	if (start_time === null) {
-		start_time = new Date();
-	}
-    if (evt === "complete") {
-		//console.log(new Date().getTime() - start_time.getTime());
-        $('.node-id').on('click',
-            function() {
-                var self = $(this);
-                if (self.hasClass('collapsed')) {
-                    self.removeClass('collapsed');
-                    self.nextAll().removeClass('hidden');
-                } else {
-                    self.addClass('collapsed');
-                    self.nextAll().addClass('hidden');
-                }
-                console.log('click');
-            }
-        );
-		return;
-    }
 	if (typeof evt === "string") {
-		console.log("EVT", evt);
+		console.log(evt);
+		return;
+	}
+
+    if (evt.finished) {
+		console.log("finished");
+		return;
+    } else if (evt.parser) {
+		send_chunk(evt.parser);
 		return;
 	}
 
@@ -216,13 +212,29 @@ worker.onmessage = function(event) {
     previous = child;
 }
 
-
 function GET(url) {
-	start_time = new Date();
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
+		var self = this;
+		var byte_offset = 0;
         if (this.readyState === 4) {
-            worker.postMessage({url: url, body: this.responseText});
+			send_chunk = function(parser) {
+				var message = {};
+				if (byte_offset === 0) {
+					message.url = url;
+				} else {
+					message.parser = parser;
+				}
+				message.chunk = self.responseText.slice(
+					byte_offset, byte_offset + CHUNK_SIZE);
+				byte_offset += CHUNK_SIZE;
+				if (byte_offset >= self.responseText.length) {
+					message.finished = true;
+				}
+				worker.postMessage(message);
+			}
+
+			send_chunk();
         }
     }
     xhr.open('GET', url);
@@ -230,12 +242,26 @@ function GET(url) {
 }
 
 $(document).ready(function () {
+	$(document).on('click', '.node-id',
+		function() {
+			var self = $(this);
+			if (self.hasClass('collapsed')) {
+				self.removeClass('collapsed');
+				self.nextAll().removeClass('hidden');
+			} else {
+				self.addClass('collapsed');
+				self.nextAll().addClass('hidden');
+			}
+			console.log('click');
+		}
+	);
+
 	canvas = document.getElementById('tree-view');
 	ctx = canvas.getContext('2d');
 
 	$('#url').on('submit', function() {
 		tree_offset = 0;
-		ctx.clearRect (0 , 0 , canvas.width, canvas.height);
+		ctx.clearRect(0 , 0 , canvas.width, canvas.height);
 		document.getElementById('output').innerHTML = '';
 		GET(this.url.value);
 		return false;
