@@ -352,7 +352,7 @@ defineLazyProperty(impl, "Document", function() {
         forms: attribute(nyi),
         scripts: attribute(nyi),
         getElementsByName: constant(nyi),
-        innerHTML: attribute(nyi, nyi),
+        innerHTML: attribute(function() { return this.serialize() }, nyi),
 
         write: constant(function(args) {
             if (!this.isHTML) InvalidStateError();
