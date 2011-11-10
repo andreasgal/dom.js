@@ -1,15 +1,11 @@
 
-var window = {}
+var window = {
+	addEventListener: function() {
+		Function.apply(document.addEventListener, this, arguments);
+	}
+}
 
 importScripts('../dom.js');
-
-window.addEventListener = function() {
-	Function.apply(document.addEventListener, this, arguments);
-}
-
-function mutation(evt) {
-    postMessage(evt);
-}
 
 function print() {
 	var out = '';
@@ -31,7 +27,9 @@ onmessage = function(message) {
 		if (data.url) {
 			parser = document.implementation.mozHTMLParser(data.url);
 			var doc = parser.document();
-			doc.implementation.mozSetOutputMutationHandler(doc, mutation);
+			doc.implementation.mozSetOutputMutationHandler(
+				doc, function(msg) { postMessage(msg) }
+			);
 			parsing[parser_num] = parser;
 			reply.parser = parser_num;
 			parser_num++;

@@ -103,21 +103,19 @@ worker.onmessage = function(event) {
           // html node
       case 'E':
         var spl = domjsNodeStr.substr(1).split(NULL);
-        //out(JSON.stringify(domjsNodeStr));
         var attrstr = spl[1];
         var l = attrstr.charCodeAt(0);
         if (l === 0xFFFF) l = parseInt(attrstr.charCodeAt(1));
-        // todo print out attributes
 
         if (l === l) { // if l is not NaN
-            var attributes = {}
+            var attributes = ""
             var attrstr = domjsNodeStr.substr(domjsNodeStr.indexOf(NULL) + 2);
             var attrsplit = attrstr.split(NULL);
             for (var i = 0; i < attrsplit.length / 2; i += 2) {
-                var attrname = attrsplit[i].substr(1)
-                attributes[attrname] = attrsplit[i + 1];
+                var attrname = attrsplit[i].substr(1);
+				attributes += attrname + '="' + attrsplit[i + 1] + '" ';
             }
-            out("<", spl[0], JSON.stringify(attributes), ">");
+            out("<", spl[0], attributes, ">");
         } else {
             out("<", spl[0], ">");
         }
