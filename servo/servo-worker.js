@@ -40,10 +40,9 @@ onmessage = function(message) {
 			reply.parser = data.parser;
 		}
 		if (data.chunk) {
-			parser.parse(data.chunk);
+			parser.parse(data.chunk, data.finished);
 		}
 		if (data.finished) {
-			parser.parse('', true);
 			reply.finished = true;
 			parsing[reply.parser] = undefined;
 		}

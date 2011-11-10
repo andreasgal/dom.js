@@ -1,0 +1,47 @@
+body {
+    padding: 1em;
+	padding-right: 325px;
+}
+
+#url>input[type="text"] {
+	width: 20em;
+}
+
+#output {
+}
+
+#tree-view {
+	position: absolute;
+	top: 1em;
+	right: 25px;
+	border: 1px solid black;
+	background: white;
+}
+
+#gl-view {
+	position: absolute;
+	top: 1em;
+	right: 125px;
+	border: 1px solid black;
+	background: white;
+}
+
+.element {
+    display: block;
+    padding: 0.5em;
+	padding-left: 1em;
+}
+
+.node-id {
+    padding-right: 0.5em;
+    color: #cccccc;
+    cursor: pointer;
+}
+
+.collapsed:after {
+    content: "...";
+}
+
+.hidden {
+    display: none;
+}
