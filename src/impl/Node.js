@@ -495,8 +495,10 @@ defineLazyProperty(impl, "Node", function() {
                     case "PLAINTEXT":
                     case "NOSCRIPT":
                         s += kid.data;
+                        break;
                     default:
                         s += escape(kid.data);
+                        break;
                     }
                     break;
                 case ELEMENT_NODE:
@@ -568,7 +570,7 @@ defineLazyProperty(impl, "Node", function() {
             }
 
             function escape(s) {
-                return s.replace(/&<>\u00A0/g, function(c) {
+                return s.replace(/[&<>\u00A0]/g, function(c) {
                     switch(c) {
                     case "&": return "&amp;";
                     case "<": return "&lt;";
@@ -579,7 +581,7 @@ defineLazyProperty(impl, "Node", function() {
             }
             
             function escapeAttr(s) {
-                return s.replace(/&"\u00A0/g, function(c) {
+                return s.replace(/[&"\u00A0]/g, function(c) {
                     switch(c) {
                     case '&': return "&amp;";
                     case '"': return "&quot;";
@@ -600,7 +602,6 @@ defineLazyProperty(impl, "Node", function() {
                     return a.name;
                 }
             }
-
         }),
 
     });
