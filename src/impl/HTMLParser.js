@@ -11,11 +11,13 @@
  * factory function, not a constructor. 
  * 
  * When you call document.implementation.mozHTMLParser(), it returns
- * an object that has append() and end() methods. To parse HTML text,
- * pass the text (in one or more chunks) to the append() method.  When
- * all the text has been passed, call the end() method, or pass the
- * final chunk of text to end(). end() returns a new Document object
- * that holds the parsed representation of the html text.
+ * an object that has parse() and document() methods. To parse HTML text,
+ * pass the text (in one or more chunks) to the parse() method.  When 
+ * you've passed all the text (on the last chunk, or afterward) pass
+ * true as the second argument to parse() to tell the parser that there
+ * is no more coming. Call document() to get the document object that
+ * the parser is parsing into.  You can call this at any time, before
+ * or after calling parse().
  * 
  * The first argument to mozHTMLParser is the absolute URL of the document.
  *
@@ -49,17 +51,14 @@
  * required by the spec, but aren't actually all that interesting.
  * 
  * The stages of the parser work like this: When the client code calls
- * the parser's append() method, the specified string is passed to the
- * scanner.  The scanner loops through that string and passes characters
+ * the parser's parse() method, the specified string is passed to 
+ * scanChars(). The scanner loops through that string and passes characters
  * (sometimes one at a time, sometimes in chunks) to the tokenizer stage.
  * The tokenizer groups the characters into tokens: tags, endtags, runs
  * of text, comments, doctype declarations, and the end-of-file (EOF)
  * token.  These tokens are then passed to the tree building stage via
  * the insertToken() function.  The tree building stage builds up the
  * document tree.
- * 
- * The important parts of the scanner stage are scannerAppend(),
- * scannerInsert(), and scanChars().
  * 
  * The tokenizer stage is a finite state machine.  Each state is
  * implemented as a function with a name that ends in "_state".  The
@@ -1763,41 +1762,10 @@ const HTMLParser = (function() {
             }
         };
 
-        // Pop elements off the stack until (but not including) the first one
-        // that is a member of the specified set
-        // Use for operations like "clear to table context"
-        ElementStack.prototype.popUntil = function(set) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                if (isA(this.elements[i], set)) break;
-            }
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
         ElementStack.prototype.clearToContext = function(type) {
             // Note that we don't loop to 0. Never pop the <html> elt off.
             for(var i = this.elements.length-1; i > 0; i--) {
                 if (this.elements[i] instanceof type) break;
-            }
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
-
-        ElementStack.prototype.clearToTableContext = function() {
-            // Note that we don't loop to 0. Never pop the <html> elt off.
-            for(var i = this.elements.length-1; i > 0; i--) {
-                if (this.elements[i] instanceof impl.HTMLTableElement) break;
-            }
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
-        ElementStack.prototype.clearToTableBodyContext = function() {
-            // Note that we don't loop to 0. Never pop the <html> elt off.
-            for(var i = this.elements.length-1; i > 0; i--) {
-                if (this.elements[i] instanceof impl.HTMLTableSectionElement)
-                    break;
             }
             this.elements.length = i+1;
             this.top = this.elements[i];
@@ -2144,44 +2112,6 @@ const HTMLParser = (function() {
         /***
          * Scanner functions
          */
-
-        // Add the string s to the scanner.
-        // Pass true as the second argument if this is the end of the data.
-        function scannerAppend(s, eof) {
-            if (eof) {
-                s = s || "";
-                // Add a special marker character to the end of the buffer.
-                // If the scanner is at the end of the buffer and input_complete
-                // is set, then this character will transform into an EOF token.
-                // Having an actual character that represents EOF in the 
-                // character buffer makes lookahead regexp matching work 
-                // more easily, and this is important for character references.
-                s += "\uFFFF";
-                input_complete = true;  // Makes scanChars() send EOF
-            }
-
-            if (chars === null) { // If this is the first text appended
-                chars = s;
-                numchars = chars.length;
-                // Skip Byte Order Mark (\uFEFF) on first appended string
-                if (S.charCodeAt(chars, 0) === 0xFEFF) nextchar = 1;
-                else nextchar = 0;
-            }
-            else {
-                chars = substring(chars, nextchar) + s;
-                numchars = chars.length;
-                nextchar = 0;
-            }
-        }
-
-        // Insert characters into the input stream.
-        // document.write() does this.
-        function scannerInsert(s) {
-            chars = s + substring(chars, nextchar);
-            numchars = chars.length;
-            nextchar = 0;
-        }
-
         // Loop through the characters in chars, and pass them one at a time
         // to the tokenizer FSM. Return when no more characters can be processed
         // (This may leave 1 or more characters in the buffer: like a CR
