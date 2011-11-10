@@ -125,12 +125,10 @@ var tests = [
     {
         name: "processing instruction",
         input: function() {
-            var d = document.implementation.createDocument("test", "test", null);
-            var e = document.createElementNS("test","test");
-            d.documentElement.appendChild(e);
+            var d = document.implementation.createDocument(null, null, null);
             var pi = d.createProcessingInstruction("foo","bar baZ ");
-            e.appendChild(pi);
-            return e;
+            d.appendChild(pi);
+            return d;
         },
         output: "<?foo bar baZ >"
     },
@@ -140,11 +138,6 @@ var tests = [
             var d = document.implementation.createHTMLDocument("");
             return d;
         },
-        output: "<!DOCTYPE html><html><head><title></title></head><body></body></html>"
-    },
-    {
-        name: "doctype mixed case",
-        input: "<!DOCtype Html foo bar>",
         output: "<!DOCTYPE html><html><head><title></title></head><body></body></html>"
     },
     {
@@ -214,7 +207,6 @@ var tests = [
         input: "<area/><base/><basefont/><bgsound/><br/><command/><embed/><hr/><img/><input/><keygen/><link/><meta/><param/><source/><track/><wbr/><table><colgroup><col/></colgroup></table>",
         output: "<area><base><basefont><bgsound><br><command><embed><hr><img><input><keygen><link><meta><param><source><track><wbr><table><colgroup><col></colgroup></table>"
     },
-// <col> <frame>
     {
         name: "prepend newline to <pre> content",
         input: "<pre>test</pre>",
@@ -368,9 +360,12 @@ var tests = [
     },
 ];
 
+var numfails = 0;
+
 tests.forEach(function(t, i) {
     var got
-    if (got = test(t.input, t.output)) {
+    if ((got = test(t.input, t.output)) !== null) {
+        numfails++;
         var expected;
         if (typeof t.output === "string") 
             expected = t.output;
@@ -380,4 +375,4 @@ tests.forEach(function(t, i) {
               expected);
     }
 });
-print("DONE");
+assert(numfails === 0, "innerHTML tests failed");
