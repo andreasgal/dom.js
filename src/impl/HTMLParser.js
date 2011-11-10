@@ -32,8 +32,9 @@
  * 
  * This is a long file of almost 7000 lines. It is structured as one
  * big function nested within another big function.  The outer
- * function defines a bunch of constant data and utility functions
- * that use that data. The outer function also defines and returns the
+ * function defines a bunch of constant data, utility functions
+ * that use that data, and a couple of classes used by the parser.
+ * The outer function also defines and returns the
  * inner function. This inner function is the HTMLParser factory
  * function that implements the parser and holds all the parser state
  * as local variables.  The HTMLParser function is quite big because
@@ -44,11 +45,6 @@
  * efficiency, the stages are not implemented as separate classes:
  * everything shares state and is (mostly) implemented in imperative
  * (rather than OO) style.
- * 
- * Two important parts of the HTML parsing algorithm do have their own
- * classes.  These are the element stack and the list of active
- * formatting elements.  Those two classes define various utility methods
- * required by the spec, but aren't actually all that interesting.
  * 
  * The stages of the parser work like this: When the client code calls
  * the parser's parse() method, the specified string is passed to 
@@ -1525,12 +1521,308 @@ const HTMLParser = (function() {
     }
 
     /***
+     * The ElementStack class
+     */
+    HTMLParser.ElementStack = function ElementStack() {
+        this.elements = [];
+        this.top = null;  // stack.top is the "current node" in the spec
+    }
+
+    /*
+    // This is for debugging only
+    HTMLParser.ElementStack.prototype.toString = function(e) {
+        return "STACK: " + 
+        this.elements.map(function(e) {return e.localName;}).join("-");
+    }
+    */
+
+    HTMLParser.ElementStack.prototype.push = function(e) {
+        push(this.elements, e);
+        this.top = e;
+    };
+
+    HTMLParser.ElementStack.prototype.pop = function(e) {
+        pop(this.elements);
+        this.top = this.elements[this.elements.length-1];
+    };
+
+    // Pop elements off the stack up to and including the first 
+    // element with the specified (HTML) tagname
+    HTMLParser.ElementStack.prototype.popTag = function(tag) {
+        for(var i = this.elements.length-1; i >= 0; i--) {
+            var e = this.elements[i];
+            if (e.namespaceURI !== HTML_NAMESPACE) continue;
+            if (e.localName === tag) break;
+        }
+        this.elements.length = i;
+        this.top = this.elements[i-1];
+    };
+
+    // Pop elements off the stack up to and including the first 
+    // element that is an instance of the specified type
+    HTMLParser.ElementStack.prototype.popElementType = function(type) {
+        for(var i = this.elements.length-1; i >= 0; i--) {
+            if (this.elements[i] instanceof type) break;
+        }
+        this.elements.length = i;
+        this.top = this.elements[i-1];
+    };
+
+    // Pop elements off the stack up to and including the element e.
+    // Note that this is very different from removeElement()
+    // This requires that e is on the stack.
+    HTMLParser.ElementStack.prototype.popElement = function(e) {
+        for(var i = this.elements.length-1; i >= 0; i--) {
+            if (this.elements[i] === e) break;
+        }
+        this.elements.length = i;
+        this.top = this.elements[i-1];
+    };
+
+    // Remove a specific element from the stack.
+    // Do nothing if the element is not on the stack
+    HTMLParser.ElementStack.prototype.removeElement = function(e) {
+        if (this.top === e) this.pop();
+        else {
+            var idx = A.lastIndexOf(this.elements, e);
+            if (idx !== -1)
+                splice(this.elements, idx, 1);
+        }
+    };
+
+    HTMLParser.ElementStack.prototype.clearToContext = function(type) {
+        // Note that we don't loop to 0. Never pop the <html> elt off.
+        for(var i = this.elements.length-1; i > 0; i--) {
+            if (this.elements[i] instanceof type) break;
+        }
+        this.elements.length = i+1;
+        this.top = this.elements[i];
+    };
+
+    HTMLParser.ElementStack.prototype.contains = function(elt) {
+        return A.lastIndexOf(this.elements, elt) !== -1;
+    };
+
+    HTMLParser.ElementStack.prototype.inSpecificScope = function(tag, set) {
+        for(var i = this.elements.length-1; i >= 0; i--) {
+            var elt = this.elements[i];
+            var ns = elt.namespaceURI;
+            var localname = elt.localName;
+            if (ns === HTML_NAMESPACE && localname === tag) return true;
+            var tags = set[ns];
+            if (tags && localname in tags) return false;
+        }
+        return false;
+    };
+
+    // Like the above, but for a specific element, not a tagname
+    HTMLParser.ElementStack.prototype.elementInSpecificScope = function(target, set) {
+        for(var i = this.elements.length-1; i >= 0; i--) {
+            var elt = this.elements[i];
+            if (elt === target) return true;
+            var tags = set[elt.namespaceURI];
+            if (tags && elt.localName in tags) return false;
+        }
+        return false;
+    };
+
+    // Like the above, but for an element interface, not a tagname
+    HTMLParser.ElementStack.prototype.elementTypeInSpecificScope = function(target,
+                                                                 set)
+    {
+        for(var i = this.elements.length-1; i >= 0; i--) {
+            var elt = this.elements[i];
+            if (elt instanceof target) return true;
+            var tags = set[elt.namespaceURI];
+            if (tags && elt.localName in tags) return false;
+        }
+        return false;
+    };
+
+    HTMLParser.ElementStack.prototype.inScope = function(tag) {
+        return this.inSpecificScope(tag, inScopeSet);
+    };
+
+    HTMLParser.ElementStack.prototype.elementInScope = function(e) {
+        return this.elementInSpecificScope(e, inScopeSet);
+    };
+
+    HTMLParser.ElementStack.prototype.elementTypeInScope = function(type) {
+        return this.elementTypeInSpecificScope(type, inScopeSet);
+    };
+
+    HTMLParser.ElementStack.prototype.inButtonScope = function(tag) {
+        return this.inSpecificScope(tag, inButtonScopeSet);
+    };
+
+    HTMLParser.ElementStack.prototype.inListItemScope = function(tag) {
+        return this.inSpecificScope(tag, inListItemScopeSet);
+    };
+
+    HTMLParser.ElementStack.prototype.inTableScope = function(tag) {
+        return this.inSpecificScope(tag, inTableScopeSet);
+    };
+
+    HTMLParser.ElementStack.prototype.inSelectScope = function(tag) {
+        // Can't implement this one with inSpecificScope, since it involves
+        // a set defined by inverting another set. So implement manually.
+        for(var i = this.elements.length-1; i >= 0; i--) {
+            var elt = this.elements[i];
+            if (elt.namespaceURI !== HTML_NAMESPACE) return false;
+            var localname = elt.localName;
+            if (localname === tag) return true;
+            if (localname !== "optgroup" && localname !== "option")
+                return false;
+        }
+        return false;
+    };
+
+    HTMLParser.ElementStack.prototype.generateImpliedEndTags = function(butnot) {
+        for(var i = this.elements.length-1; i >= 0; i--) {
+            var e = this.elements[i];
+            if (butnot && e.localName === butnot) break;
+            if (!isA(this.elements[i], impliedEndTagsSet)) break;
+        }
+
+        this.elements.length = i+1;
+        this.top = this.elements[i];
+    };
+
+    /***
+     * The ActiveFormattingElements class
+     */
+    HTMLParser.ActiveFormattingElements = function AFE() {
+        this.list = [];    // elements
+        this.attrs = [];   // attribute tokens for cloning
+    };
+
+    HTMLParser.ActiveFormattingElements.prototype.MARKER = { localName: "|" };
+
+    /*
+    // For debugging
+    HTMLParser.ActiveFormattingElements.prototype.toString = function() {
+        return "AFE: " +
+        this.list.map(function(e) { return e.localName; }).join("-");
+    }
+    */
+
+    HTMLParser.ActiveFormattingElements.prototype.insertMarker = function() {
+        push(this.list, this.MARKER);
+        push(this.attrs, this.MARKER);
+    };
+
+    HTMLParser.ActiveFormattingElements.prototype.push = function(elt, attrs) {
+        // Scan backwards: if there are already 3 copies of this element
+        // before we encounter a marker, then drop the last one
+        var count = 0;
+        for(var i = this.list.length-1; i >= 0; i--) {
+            if (this.list[i] === this.MARKER) break;
+            // equal() is defined below
+            if (equal(elt, this.list[i], this.attrs[i])) {  
+                count++;
+                if (count === 3) {
+                    splice(this.list, i, 1);
+                    splice(this.attrs, i, 1);
+                    break;
+                }
+            }
+        }
+
+
+        // Now push the element onto the list
+        push(this.list, elt);
+
+        // Copy the attributes and push those on, too
+        var attrcopy = [];
+        for(var i = 0; i < attrs.length; i++) {
+            attrcopy[i] = attrs[i];
+        }
+
+        push(this.attrs, attrcopy);
+
+        // This function defines equality of two elements for the purposes
+        // of the AFE list.  Note that it compares the new elements 
+        // attributes to the saved array of attributes associated with
+        // the old element because a script could have changed the
+        // old element's set of attributes
+        function equal(newelt, oldelt, oldattrs) {
+            if (newelt.localName !== oldelt.localName) return false;
+            if (newelt._numattrs !== oldattrs.length) return false;
+            for(var i = 0, n = oldattrs.length; i < n; i++) {
+                var oldname = oldattrs[i][0];
+                var oldval = oldattrs[i][1];
+                if (!newelt.hasAttribute(oldname)) return false;
+                if (newelt.getAttribute(oldname) !== oldval) return false;
+            }
+            return true;
+        }
+    };
+
+    HTMLParser.ActiveFormattingElements.prototype.clearToMarker = function() {
+        for(var i = this.list.length-1; i >= 0; i--) {
+            if (this.list[i] === this.MARKER) break;
+        }
+        if (i < 0) i = 0;
+        this.list.length = i;
+        this.attrs.length = i;
+    };
+
+    // Find and return the last element with the specified tag between the
+    // end of the list and the last marker on the list.
+    // Used when parsing <a> in_body_mode()
+    HTMLParser.ActiveFormattingElements.prototype.findElementByTag = function(tag) {
+        for(var i = this.list.length-1; i >= 0; i--) {
+            var elt = this.list[i];
+            if (elt === this.MARKER) break;
+            if (elt.localName === tag) return elt;
+        }
+        return null;
+    };
+
+    HTMLParser.ActiveFormattingElements.prototype.indexOf = function(e) {
+        return A.lastIndexOf(this.list, e);
+    };
+
+    // Find the element e in the list and remove it
+    // Used when parsing <a> in_body()
+    HTMLParser.ActiveFormattingElements.prototype.remove = function(e) {
+        var idx = A.lastIndexOf(this.list, e);
+        if (idx !== -1) {
+            splice(this.list, idx, 1);
+            splice(this.attrs, idx, 1);
+        }
+    };
+
+    // Find element a in the list and replace it with element b
+    // XXX: Do I need to handle attributes here?  
+    HTMLParser.ActiveFormattingElements.prototype.replace = function(a, b, attrs) {
+        var idx = A.lastIndexOf(this.list, a);
+        if (idx !== -1) {
+            this.list[idx] = b;
+            if (attrs) this.attrs[idx] = attrs;
+        }
+    };
+
+    // Find a in the list and insert b after it
+    // This is only used for insert a bookmark object, so the
+    // attrs array doesn't really matter
+    HTMLParser.ActiveFormattingElements.prototype.insertAfter = function(a,b) {
+        var idx = A.lastIndexOf(this.list, a);
+        if (idx !== -1) {
+            splice(this.list, idx, 0, b);
+            splice(this.attrs, idx, 0, b);
+        }
+    };
+
+
+
+
+    /***
      * This is the parser factory function. It is the return value of
      * the outer closure that it is defined within.  Most of the parser 
      * implementation details are inside this function.
      */
     function HTMLParser(address, fragmentContext) {
-
         /***
          * These are the parser's state variables
          */
@@ -1563,9 +1855,9 @@ const HTMLParser = (function() {
         // Tree builder state
         var parser = initial_mode;                    // Current insertion mode
         var originalInsertionMode = null;             // A saved insertion mode
-        var stack = new ElementStack();               // Stack of open elements
-        var afe = new ActiveFormattingElements();     // For mis-nested stuff
-        var fragment = (fragmentContext!==undefined); // Are we parsing innerHTML?
+        var stack = new HTMLParser.ElementStack();    // Stack of open elements
+        var afe = new HTMLParser.ActiveFormattingElements(); // mis-nested tags
+        var fragment = (fragmentContext!==undefined); // For innerHTML, etc.
         var script_nesting_level = 0;
         var parser_pause_flag = false;
         var head_element_pointer = null;
@@ -1692,377 +1984,6 @@ const HTMLParser = (function() {
         // allow scripting.
         doc._scripting_enabled = scripting_enabled;
 
-        /***
-         * The ElementStack class
-         */
-        function ElementStack() {
-            this.elements = [];
-            this.top = null;  // stack.top is the "current node" in the spec
-        }
-
-        /*
-        // This is for debugging only
-        ElementStack.prototype.toString = function(e) {
-            return "STACK: " + 
-                this.elements.map(function(e) {return e.localName;}).join("-");
-        }
-       */
-
-        ElementStack.prototype.push = function(e) {
-            push(this.elements, e);
-            this.top = e;
-        };
-
-        ElementStack.prototype.pop = function(e) {
-            pop(this.elements);
-            this.top = this.elements[this.elements.length-1];
-        };
-
-        // Pop elements off the stack up to and including the first 
-        // element with the specified (HTML) tagname
-        ElementStack.prototype.popTag = function(tag) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var e = this.elements[i];
-                if (e.namespaceURI !== HTML_NAMESPACE) continue;
-                if (e.localName === tag) break;
-            }
-            this.elements.length = i;
-            this.top = this.elements[i-1];
-        };
-
-        // Pop elements off the stack up to and including the first 
-        // element that is an instance of the specified type
-        ElementStack.prototype.popElementType = function(type) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                if (this.elements[i] instanceof type) break;
-            }
-            this.elements.length = i;
-            this.top = this.elements[i-1];
-        };
-
-        // Pop elements off the stack up to and including the element e.
-        // Note that this is very different from removeElement()
-        // This requires that e is on the stack.
-        ElementStack.prototype.popElement = function(e) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                if (this.elements[i] === e) break;
-            }
-            this.elements.length = i;
-            this.top = this.elements[i-1];
-        };
-
-        // Remove a specific element from the stack.
-        // Do nothing if the element is not on the stack
-        ElementStack.prototype.removeElement = function(e) {
-            if (this.top === e) this.pop();
-            else {
-                var idx = A.lastIndexOf(this.elements, e);
-                if (idx !== -1)
-                    splice(this.elements, idx, 1);
-            }
-        };
-
-        ElementStack.prototype.clearToContext = function(type) {
-            // Note that we don't loop to 0. Never pop the <html> elt off.
-            for(var i = this.elements.length-1; i > 0; i--) {
-                if (this.elements[i] instanceof type) break;
-            }
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
-        ElementStack.prototype.contains = function(elt) {
-            return A.lastIndexOf(this.elements, elt) !== -1;
-        };
-
-        ElementStack.prototype.inSpecificScope = function(tag, set) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var elt = this.elements[i];
-                var ns = elt.namespaceURI;
-                var localname = elt.localName;
-                if (ns === HTML_NAMESPACE && localname === tag) return true;
-                var tags = set[ns];
-                if (tags && localname in tags) return false;
-            }
-            return false;
-        };
-
-        // Like the above, but for a specific element, not a tagname
-        ElementStack.prototype.elementInSpecificScope = function(target, set) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var elt = this.elements[i];
-                if (elt === target) return true;
-                var tags = set[elt.namespaceURI];
-                if (tags && elt.localName in tags) return false;
-            }
-            return false;
-        };
-
-        // Like the above, but for an element interface, not a tagname
-        ElementStack.prototype.elementTypeInSpecificScope = function(target,
-                                                                     set)
-        {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var elt = this.elements[i];
-                if (elt instanceof target) return true;
-                var tags = set[elt.namespaceURI];
-                if (tags && elt.localName in tags) return false;
-            }
-            return false;
-        };
-
-        ElementStack.prototype.inScope = function(tag) {
-            return this.inSpecificScope(tag, inScopeSet);
-        };
-
-        ElementStack.prototype.elementInScope = function(e) {
-            return this.elementInSpecificScope(e, inScopeSet);
-        };
-
-        ElementStack.prototype.elementTypeInScope = function(type) {
-            return this.elementTypeInSpecificScope(type, inScopeSet);
-        };
-
-        ElementStack.prototype.inButtonScope = function(tag) {
-            return this.inSpecificScope(tag, inButtonScopeSet);
-        };
-
-        ElementStack.prototype.inListItemScope = function(tag) {
-            return this.inSpecificScope(tag, inListItemScopeSet);
-        };
-
-        ElementStack.prototype.inTableScope = function(tag) {
-            return this.inSpecificScope(tag, inTableScopeSet);
-        };
-
-        ElementStack.prototype.inSelectScope = function(tag) {
-            // Can't implement this one with inSpecificScope, since it involves
-            // a set defined by inverting another set. So implement manually.
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var elt = this.elements[i];
-                if (elt.namespaceURI !== HTML_NAMESPACE) return false;
-                var localname = elt.localName;
-                if (localname === tag) return true;
-                if (localname !== "optgroup" && localname !== "option")
-                    return false;
-            }
-            return false;
-        };
-
-        ElementStack.prototype.generateImpliedEndTags = function(butnot) {
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var e = this.elements[i];
-                if (butnot && e.localName === butnot) break;
-                if (!isA(this.elements[i], impliedEndTagsSet)) break;
-            }
-
-            this.elements.length = i+1;
-            this.top = this.elements[i];
-        };
-
-
-        // Used by ElementStack.prototype.resetInsertionMode()
-        const tagToMode = {
-            select: in_select_mode,
-            tr: in_row_mode,
-            tbody: in_table_body_mode,
-            tfoot: in_table_body_mode,
-            thead: in_table_body_mode,
-            caption: in_caption_mode,
-            colgroup: in_column_group_mode,
-            table: in_table_mode,
-            head: in_body_mode,  // not in_head!
-            body: in_body_mode,
-            frameset: in_frameset_mode,
-            html: before_head_mode
-        };
-
-        ElementStack.prototype.resetInsertionMode = function() {
-            var last = false;
-            for(var i = this.elements.length-1; i >= 0; i--) {
-                var node = this.elements[i];
-                if (i === 0) {
-                    last = true;
-                    node = fragmentContext;
-                }
-                if (node.namespaceURI === HTML_NAMESPACE) {
-                    var tag = node.localName;
-                    if (tag in tagToMode) {
-                        parser = tagToMode[tag];
-                        return;
-                    }
-                    if (!last && (tag === "td" || tag === "th")) {
-                        parser = in_cell_mode;
-                        return;
-                    }
-                }
-                if (last) {
-                    parser = in_body_mode;
-                    return;
-                }
-            }
-        };
-
-
-        /***
-         * The ActiveFormattingElements class
-         */
-        function ActiveFormattingElements() {
-            this.list = [];    // elements
-            this.attrs = [];   // attribute tokens for cloning
-        }
-
-        ActiveFormattingElements.prototype.MARKER = { localName: "|" };
-
-        /*
-        // For debugging
-        ActiveFormattingElements.prototype.toString = function() {
-            return "AFE: " +
-                this.list.map(function(e) { return e.localName; }).join("-");
-        }
-        */
-
-        ActiveFormattingElements.prototype.insertMarker = function() {
-            push(this.list, this.MARKER);
-            push(this.attrs, this.MARKER);
-        };
-
-        ActiveFormattingElements.prototype.push = function(elt, attrs) {
-            // Scan backwards: if there are already 3 copies of this element
-            // before we encounter a marker, then drop the last one
-            var count = 0;
-            for(var i = this.list.length-1; i >= 0; i--) {
-                if (this.list[i] === this.MARKER) break;
-                // equal() is defined below
-                if (equal(elt, this.list[i], this.attrs[i])) {  
-                    count++;
-                    if (count === 3) {
-                        splice(this.list, i, 1);
-                        splice(this.attrs, i, 1);
-                        break;
-                    }
-                }
-            }
-
-
-            // Now push the element onto the list
-            push(this.list, elt);
-
-            // Copy the attributes and push those on, too
-            var attrcopy = [];
-            for(var i = 0; i < attrs.length; i++) {
-                attrcopy[i] = attrs[i];
-            }
-
-            push(this.attrs, attrcopy);
-
-            // This function defines equality of two elements for the purposes
-            // of the AFE list.  Note that it compares the new elements 
-            // attributes to the saved array of attributes associated with
-            // the old element because a script could have changed the
-            // old element's set of attributes
-            function equal(newelt, oldelt, oldattrs) {
-                if (newelt.localName !== oldelt.localName) return false;
-                if (newelt._numattrs !== oldattrs.length) return false;
-                for(var i = 0, n = oldattrs.length; i < n; i++) {
-                    var oldname = oldattrs[i][0];
-                    var oldval = oldattrs[i][1];
-                    if (!newelt.hasAttribute(oldname)) return false;
-                    if (newelt.getAttribute(oldname) !== oldval) return false;
-                }
-                return true;
-            }
-        };
-
-        ActiveFormattingElements.prototype.reconstruct = function() {
-            if (this.list.length === 0) return;
-            var entry = this.list[this.list.length-1];
-            // If the last is a marker , do nothing
-            if (entry === this.MARKER) return;
-            // Or if it is an open element, do nothing
-            if (A.lastIndexOf(stack.elements, entry) !== -1) return;
-
-            // Loop backward through the list until we find a marker or an
-            // open element, and then move forward one from there.
-            for(var i = this.list.length-2; i >= 0; i--) {
-                entry = this.list[i];
-                if (entry === this.MARKER) break;
-                if (A.lastIndexOf(stack.elements, entry) !== -1) break;
-            }
-
-            // Now loop forward, starting from the element after the current
-            // one, recreating formatting elements and pushing them back onto 
-            // the list of open elements
-            for(i = i+1; i < this.list.length; i++) {
-                var newelt = this.clone(i);
-                insertElement(newelt);
-                this.list[i] = newelt;
-            }
-        };
-
-        // Make a copy of element i, using its original attributes,
-        // not current attributes (which may have been modified
-        // by a script)
-        ActiveFormattingElements.prototype.clone = function(i) {
-            return createHTMLElt(this.list[i].localName, this.attrs[i]);
-        };
-
-        ActiveFormattingElements.prototype.clearToMarker = function() {
-            for(var i = this.list.length-1; i >= 0; i--) {
-                if (this.list[i] === this.MARKER) break;
-            }
-            if (i < 0) i = 0;
-            this.list.length = i;
-            this.attrs.length = i;
-        };
-
-        // Find and return the last element with the specified tag between the
-        // end of the list and the last marker on the list.
-        // Used when parsing <a> in_body_mode()
-        ActiveFormattingElements.prototype.findElementByTag = function(tag) {
-            for(var i = this.list.length-1; i >= 0; i--) {
-                var elt = this.list[i];
-                if (elt === this.MARKER) break;
-                if (elt.localName === tag) return elt;
-            }
-            return null;
-        };
-
-        ActiveFormattingElements.prototype.indexOf = function(e) {
-            return A.lastIndexOf(this.list, e);
-        };
-
-        // Find the element e in the list and remove it
-        // Used when parsing <a> in_body()
-        ActiveFormattingElements.prototype.remove = function(e) {
-            var idx = A.lastIndexOf(this.list, e);
-            if (idx !== -1) {
-                splice(this.list, idx, 1);
-                splice(this.attrs, idx, 1);
-            }
-        };
-
-        // Find element a in the list and replace it with element b
-        // XXX: Do I need to handle attributes here?  
-        ActiveFormattingElements.prototype.replace = function(a, b, attrs) {
-            var idx = A.lastIndexOf(this.list, a);
-            if (idx !== -1) {
-                this.list[idx] = b;
-                if (attrs) this.attrs[idx] = attrs;
-            }
-        };
-
-        // Find a in the list and insert b after it
-        // This is only used for insert a bookmark object, so the
-        // attrs array doesn't really matter
-        ActiveFormattingElements.prototype.insertAfter = function(a,b) {
-            var idx = A.lastIndexOf(this.list, a);
-            if (idx !== -1) {
-                splice(this.list, idx, 0, b);
-                splice(this.attrs, idx, 0, b);
-            }
-        };
-
 
         /***
          * The actual code of the HTMLParser() factory function begins here.
@@ -2099,7 +2020,7 @@ const HTMLParser = (function() {
             var root = doc.createElement("html");
             doc.appendChild(root);
             stack.push(root);
-            stack.resetInsertionMode();
+            resetInsertionMode();
 
             for(var e = fragmentContext; e !== null; e = e.parentElement) {
                 if (e instanceof impl.HTMLFormElement) {
@@ -2550,6 +2471,22 @@ const HTMLParser = (function() {
             stack.push(elt);
         }
 
+        function insertForeignElement(name, attrs, ns) {
+            var elt = doc.createElementNS(ns, name);
+            if (attrs) {
+                for(var i = 0, n = attrs.length; i < n; i++) {
+                    var attr = attrs[i];
+                    if (attr.length == 2) 
+                        elt._setAttribute(attr[0], attr[1]);
+                    else {
+                        elt._setAttributeNS(attr[2], attr[0], attr[1]);
+                    }
+                }
+            }
+
+            insertElement(elt);
+        }
+
         function fosterParent(elt) {
             var parent, before;
 
@@ -2581,21 +2518,62 @@ const HTMLParser = (function() {
                 parent.appendChild(elt);
         }
 
-        function insertForeignElement(name, attrs, ns) {
-            var elt = doc.createElementNS(ns, name);
-            if (attrs) {
-                for(var i = 0, n = attrs.length; i < n; i++) {
-                    var attr = attrs[i];
-                    if (attr.length == 2) 
-                        elt._setAttribute(attr[0], attr[1]);
-                    else {
-                        elt._setAttributeNS(attr[2], attr[0], attr[1]);
+
+        function resetInsertionMode() {
+            var last = false;
+            for(var i = stack.elements.length-1; i >= 0; i--) {
+                var node = stack.elements[i];
+                if (i === 0) {
+                    last = true;
+                    node = fragmentContext;
+                }
+                if (node.namespaceURI === HTML_NAMESPACE) {
+                    var tag = node.localName;
+                    switch(tag) {
+                    case "select":
+                        parser = in_select_mode;
+                        return;
+                    case "tr":
+                        parser = in_row_mode;
+                        return;
+                    case "tbody":
+                    case "tfoot":
+                    case "thead":
+                        parser = in_table_body_mode;
+                        return;
+                    case "caption":
+                        parser = in_caption_mode;
+                        return;
+                    case "colgroup":
+                        parser = in_column_group_mode;
+                        return;
+                    case "table":
+                        parser = in_table_mode;
+                        return;
+                    case "head": // Not in_head_mode!
+                    case "body":
+                        parser = in_body_mode;
+                        return;
+                    case "frameset":
+                        parser = in_frameset_mode;
+                        return;
+                    case "html":
+                        parser = before_head_mode;
+                        return;
+                    default:
+                        if (!last && (tag === "td" || tag === "th")) {
+                            parser = in_cell_mode;
+                            return;
+                        }
                     }
                 }
+                if (last) {
+                    parser = in_body_mode;
+                    return;
+                }
             }
-
-            insertElement(elt);
         }
+        
 
         function parseRawText(name, attrs) {
             insertHTMLElement(name, attrs);
@@ -2610,6 +2588,40 @@ const HTMLParser = (function() {
             originalInsertionMode = parser;
             parser = text_mode;
         }
+
+        // Make a copy of element i on the list of active formatting
+        // elements, using its original attributes, not current
+        // attributes (which may have been modified by a script)
+        function afeclone(i) {
+            return createHTMLElt(afe.list[i].localName, afe.attrs[i]);
+        }
+
+
+        function afereconstruct() {
+            if (afe.list.length === 0) return;
+            var entry = afe.list[afe.list.length-1];
+            // If the last is a marker , do nothing
+            if (entry === afe.MARKER) return;
+            // Or if it is an open element, do nothing
+            if (A.lastIndexOf(stack.elements, entry) !== -1) return;
+
+            // Loop backward through the list until we find a marker or an
+            // open element, and then move forward one from there.
+            for(var i = afe.list.length-2; i >= 0; i--) {
+                entry = afe.list[i];
+                if (entry === afe.MARKER) break;
+                if (A.lastIndexOf(stack.elements, entry) !== -1) break;
+            }
+
+            // Now loop forward, starting from the element after the current
+            // one, recreating formatting elements and pushing them back onto 
+            // the list of open elements
+            for(i = i+1; i < afe.list.length; i++) {
+                var newelt = afeclone(i);
+                insertElement(newelt);
+                afe.list[i] = newelt;
+            }
+        };
 
         // Used by the adoptionAgency() function
         const BOOKMARK = {localName:"BM"};  
@@ -2732,7 +2744,7 @@ const HTMLParser = (function() {
                         // entry for the new element, replace the entry for
                         // node in the stack of open elements with an entry for
                         // the new element, and let node be the new element.
-                        var newelt = afe.clone(nodeafeindex);
+                        var newelt = afeclone(nodeafeindex);
                         afe.replace(node, newelt);
                         stack.elements[nodeindex] = newelt;
                         node = newelt;
@@ -2769,7 +2781,7 @@ const HTMLParser = (function() {
 
                     // Create an element for the token for which the
                     // formatting element was created.
-                    var newelt2 = afe.clone(afe.indexOf(fmtelt));
+                    var newelt2 = afeclone(afe.indexOf(fmtelt));
 
                     // Take all of the child nodes of the furthest block and
                     // append them to the element created in the last step.
@@ -5322,7 +5334,7 @@ const HTMLParser = (function() {
                 // If any non-space characters
                 if (frameset_ok && test(NONWS, value))  
                     frameset_ok = false;
-                afe.reconstruct();
+                afereconstruct();
                 insertText(value);
                 return;
             case DOCTYPE:
@@ -5464,7 +5476,7 @@ const HTMLParser = (function() {
                         parser(t, value, arg3, arg4);
                     }
                     else {
-                        afe.reconstruct();
+                        afereconstruct();
                         insertHTMLElement(value, arg3);
                         frameset_ok = false;
                     }
@@ -5491,16 +5503,16 @@ const HTMLParser = (function() {
                 case "strong":
                 case "tt":
                 case "u":
-                    afe.reconstruct();
+                    afereconstruct();
                     afe.push(insertHTMLElement(value,arg3), arg3);
                     return;
 
                 case "nobr":
-                    afe.reconstruct();
+                    afereconstruct();
 
                     if (stack.inScope(value)) {
                         in_body_mode(ENDTAG, value);
-                        afe.reconstruct();
+                        afereconstruct();
                     }
                     afe.push(insertHTMLElement(value,arg3), arg3);
                     return;
@@ -5508,7 +5520,7 @@ const HTMLParser = (function() {
                 case "applet":
                 case "marquee":
                 case "object":
-                    afe.reconstruct();
+                    afereconstruct();
                     insertHTMLElement(value,arg3);
                     afe.insertMarker();
                     frameset_ok = false;
@@ -5529,14 +5541,14 @@ const HTMLParser = (function() {
                 case "img":
                 case "keygen":
                 case "wbr":
-                    afe.reconstruct();
+                    afereconstruct();
                     insertHTMLElement(value,arg3);
                     stack.pop();
                     frameset_ok = false;
                     return;
                     
                 case "input":
-                    afe.reconstruct();
+                    afereconstruct();
                     var elt = insertHTMLElement(value,arg3);
                     stack.pop();
                     var type = elt.getAttribute("type");
@@ -5610,7 +5622,7 @@ const HTMLParser = (function() {
 
                 case "xmp":
                     if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
-                    afe.reconstruct();
+                    afereconstruct();
                     frameset_ok = false;
                     parseRawText(value, arg3);
                     return;
@@ -5632,7 +5644,7 @@ const HTMLParser = (function() {
                     break;  // XXX Otherwise treat it as any other open tag?
                     
                 case "select":
-                    afe.reconstruct();
+                    afereconstruct();
                     insertHTMLElement(value,arg3);
                     frameset_ok = false;
                     if (parser === in_table_mode ||
@@ -5650,7 +5662,7 @@ const HTMLParser = (function() {
                     if (stack.top instanceof impl.HTMLOptionElement) {
                         in_body_mode(ENDTAG, "option");
                     }
-                    afe.reconstruct();
+                    afereconstruct();
                     insertHTMLElement(value,arg3);
                     return;
 
@@ -5663,7 +5675,7 @@ const HTMLParser = (function() {
                     return;
 
                 case "math":
-                    afe.reconstruct();
+                    afereconstruct();
                     adjustMathMLAttributes(arg3);
                     adjustForeignAttributes(arg3);
                     insertForeignElement(value, arg3, MATHML_NAMESPACE);
@@ -5672,7 +5684,7 @@ const HTMLParser = (function() {
                     return;
 
                 case "svg":
-                    afe.reconstruct();
+                    afereconstruct();
                     adjustSVGAttributes(arg3);
                     adjustForeignAttributes(arg3);
                     insertForeignElement(value, arg3, SVG_NAMESPACE);
@@ -5697,7 +5709,7 @@ const HTMLParser = (function() {
 
                 // Handle any other start tag here
                 // (and also noscript tags when scripting is disabled)
-                afe.reconstruct();
+                afereconstruct();
                 insertHTMLElement(value,arg3);
                 return;
 
@@ -5951,7 +5963,7 @@ const HTMLParser = (function() {
                 case "table":
                     if (!stack.inTableScope(value)) return;
                     stack.popTag(value);
-                    stack.resetInsertionMode();
+                    resetInsertionMode();
                     return;
                 case "body":
                 case "caption":
@@ -6372,7 +6384,7 @@ const HTMLParser = (function() {
                 case "select":
                     if (!stack.inSelectScope(value)) return;
                     stack.popTag(value);
-                    stack.resetInsertionMode();
+                    resetInsertionMode();
                     return;
                 }
 
