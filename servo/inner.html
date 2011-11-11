@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script type="text/javascript">
+var counter = 0;
+function func() {
+	var out = document.getElementById('output');
+	out.innerHTML = 'Hello World ' + counter++; setTimeout(func, 1000);
+}
+$(document).ready(function() {
+	var out = document.getElementById('output');
+	out.innerHTML = 'Hello World ' + counter++; setTimeout(func, 1000);
+});
+		</script>
+	</head>
+	<body>
+		<div id="output">
+		
+		</div>
+	</body>
+</html>

@@ -38,6 +38,8 @@ worker.onmessage = function(event) {
 		return;
 	}
 
+	console.log(JSON.stringify(evt));
+
     if (evt.finished) {
 		console.log("finished");
 		return;
@@ -52,6 +54,17 @@ worker.onmessage = function(event) {
     if (evt.parent !== undefined) {
         depths[evt.nid] = depths[evt.parent] + 1;
     } else {
+		if (evt.type === 4) {
+			// remove event
+			var node = document.getElementById(
+				evt.target);
+			node.parentNode.removeChild(node);
+		} else if (evt.type === 1) {
+			// mutate value event
+			var node = document.getElementById(
+				evt.target);
+			node.innerHTML = evt.data;
+		}
         return;
     }
 
@@ -139,19 +152,23 @@ worker.onmessage = function(event) {
       default:
         throw new Error('Unhandled case of stringified node: ' + domjsNodeStr.charAt(0));
     }
-    if (append) {
-        if (evt['parent'] !== undefined) {
-            var parent = document.getElementById(evt.parent);
-            if (parent) {
-                parent.appendChild(child);
-            } else {
-                document.getElementById('output').appendChild(child);
-            }
-        } else {
-            document.getElementById('output').appendChild(child);
-        }
-    }
-    previous = child;
+	if (evt.type === 6) {
+		if (append) {
+			if (evt['parent'] !== undefined) {
+				var parent = document.getElementById(evt.parent);
+				if (parent) {
+					parent.appendChild(child);
+				} else {
+					document.getElementById('output').appendChild(child);
+				}
+			} else {
+				document.getElementById('output').appendChild(child);
+			}
+		}
+		previous = child;
+	} else {
+		print ('not append');
+	}
 }
 
 function GET(url) {

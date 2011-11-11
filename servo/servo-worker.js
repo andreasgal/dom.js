@@ -1,11 +1,19 @@
 
+importScripts('../dom.js');
+
 var window = {
 	addEventListener: function() {
 		Function.apply(document.addEventListener, this, arguments);
-	}
+	},
+	navigator: {
+		userAgent: 'servo 0.1 webworker'
+	},
+	document: document
 }
 
-importScripts('../dom.js');
+importScripts('jquery.js', 'qunit.js');
+var jQuery = window.jQuery;
+var $ = jQuery;
 
 function print() {
 	var out = '';
@@ -43,9 +51,12 @@ onmessage = function(message) {
 		if (data.finished) {
 			reply.finished = true;
 			parsing[reply.parser] = undefined;
+			var event = doc.createEvent('customevent');
+			event.initEvent('DOMContentLoaded', false, true);
+			doc.dispatchEvent(event);
 		}
 		postMessage(reply);
 	} catch (e) {
-		postMessage(e.toString());
+		postMessage(e);
 	}
 }
