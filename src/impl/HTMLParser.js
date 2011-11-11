@@ -1599,10 +1599,6 @@ const HTMLParser = (function() {
         this.top = this.elements[i];
     };
 
-    HTMLParser.ElementStack.prototype.contains = function(elt) {
-        return A.lastIndexOf(this.elements, elt) !== -1;
-    };
-
     HTMLParser.ElementStack.prototype.inSpecificScope = function(tag, set) {
         for(var i = this.elements.length-1; i >= 0; i--) {
             var elt = this.elements[i];
@@ -2040,7 +2036,9 @@ const HTMLParser = (function() {
         // lookahead...)
         function scanChars() {
             var codepoint, s, pattern, eof;
+
             while(nextchar < numchars) {
+
                 switch(typeof tokenizer.lookahead) {
                 case 'undefined':
                     codepoint = S.charCodeAt(chars, nextchar++);
@@ -2082,6 +2080,8 @@ const HTMLParser = (function() {
                     break;
 
                 case 'number':
+                    codepoint = S.charCodeAt(chars, nextchar);
+
                     // The only tokenizer states that require fixed lookahead
                     // only consume alphanum characters, so we don't have
                     // to worry about CR and LF in this case
@@ -2099,20 +2099,22 @@ const HTMLParser = (function() {
                             // Just return what we have
                             s = substring(chars, nextchar, numchars);
                             eof = true;
+                            if (codepoint === 0xFFFF && nextchar === numchars)
+                                codepoint = EOF;
                         }
                         else {
                             // Return now and wait for more chars later
                             return;
                         }
                     }
-                    codepoint = S.charCodeAt(chars, nextchar);
                     tokenizer(codepoint, s, eof);
                     break;
                 case 'string':
+                    codepoint = S.charCodeAt(chars, nextchar);
+
                     // tokenizer wants characters up to a matching string
                     pattern = tokenizer.lookahead;
                     var pos = S.indexOf(chars, pattern, nextchar);
-                    codepoint = S.charCodeAt(chars, nextchar);
                     if (pos !== -1) {
                         s = substring(chars, nextchar, pos + pattern.length);
                         eof = false;
@@ -2123,6 +2125,8 @@ const HTMLParser = (function() {
 
                         // Otherwise, we've got to return what we've got
                         s = substring(chars, nextchar, numchars);
+                        if (codepoint === 0xFFFF && nextchar === numchars)
+                            codepoint = EOF;
                         eof = true;
                     }
 
@@ -2132,6 +2136,8 @@ const HTMLParser = (function() {
                     tokenizer(codepoint, s, eof);
                     break;
                 case 'object':
+                    codepoint = S.charCodeAt(chars, nextchar);
+
                     // tokenizer wants characters that match a regexp
                     // The only tokenizer states that use regexp lookahead
                     // are for character entities, and the patterns never
@@ -2139,7 +2145,6 @@ const HTMLParser = (function() {
                     // here.
 
                     pattern = tokenizer.lookahead;
-                    codepoint = S.charCodeAt(chars, nextchar);
                     pattern.lastIndex = nextchar;
                     if (test(pattern, chars)) {
                         // Found a match.
@@ -5983,8 +5988,6 @@ const HTMLParser = (function() {
             case EOF:
                 stopParsing();
                 return;
-            default:
-                break;
             }
 
             // This is the anything else case

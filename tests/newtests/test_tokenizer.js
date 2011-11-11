@@ -18,6 +18,8 @@ var tokenizerTestFiles = [
     "parsertestdata/tokenizer/unicodeChars.test"
 ];
 
+if (arguments.length) tokenizerTestFiles = arguments;
+
 tokenizerTestFiles.forEach(runTestFile);
 
 // If any tests failed, display errors
