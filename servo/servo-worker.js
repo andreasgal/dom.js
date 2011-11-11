@@ -23,6 +23,8 @@ function print() {
 	postMessage(out);
 }
 
+var console = {log: print}
+
 var parser_num = 1;
 var parsing = {}
 

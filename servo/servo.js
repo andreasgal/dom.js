@@ -63,7 +63,12 @@ worker.onmessage = function(event) {
 			// mutate value event
 			var node = document.getElementById(
 				evt.target);
-			node.innerHTML = evt.data;
+			// firstChild is the node id, nextSibling is the node value
+			// the node may have other element children, so can't use
+			// lastChild
+			node.firstChild.nextSibling.innerHTML = '';
+			node.firstChild.nextSibling.appendChild(document.createTextNode(evt.data.trim()));
+			node.firstChild.title = '"' + evt.data + '"';
 		}
         return;
     }
@@ -71,7 +76,6 @@ worker.onmessage = function(event) {
     var child = document.createElement('span');
     child.setAttribute('id', evt.nid);
     var node = document.createElement('span');
-    child.setAttribute('style', 'margin-left: 0.5em; ');
     var nodeId = document.createElement('span');
     nodeId.setAttribute('class', 'node-id');
     nodeId.appendChild(document.createTextNode(evt.nid));
@@ -98,12 +102,13 @@ worker.onmessage = function(event) {
         var val = domjsNodeStr.substr(1).split(NULL)[0];
         nodeId.setAttribute('title', JSON.stringify(val));
         // don't show whitespace-only text nodes.
+		node.setAttribute('style',
+			'white-space: pre; font-family: monospace; margin: 0.5em; ');
         if (!val.match(/^\s+$/)) {
-            node.setAttribute('style',
-                'white-space: pre; font-family: monospace; margin: 0.5em; ');
             out(val.trim());
         } else {
             append = false;
+			console.log('appendChild', evt.nid);
             previous.appendChild(child);
         }
         break;
