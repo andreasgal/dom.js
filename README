@@ -39,7 +39,11 @@ Install spidermonkey
 Building
 ======
 
-Run make. This assembles the dom.js and src/domcore.js files from the other source files in the project.
+1. Run "git submodule init".
+2. Run "git submodule update". This clones the CoverMonkey and webidl.js
+   repos that the dom.js build and tests depends on.
+3. Run "make". This assembles the dom.js, src/domcore.js, and src/htmlelts.js
+   files from the other source files in the project.
 
 Testing
 ======
