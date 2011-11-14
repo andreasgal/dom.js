@@ -123,3 +123,7 @@ coverage: dom.js
 	rm -f coverage.html
 	tools/test_runner
 
+clean:
+	@rm -f dom.js
+	@rm -f src/domcore.js
+	@rm -f src/htmlelts.js
