@@ -52,7 +52,7 @@ var parserInputFiles = [
     "parsertestdata/tree-construction/scripted/adoption01.dat",
     "parsertestdata/tree-construction/scripted/ark.dat",
     "parsertestdata/tree-construction/scripted/webkit01.dat",
-    "parsertestdata/tree-construction/domjs.dat"
+    "parsertestdata/tree-construction/domjs-unsafe.dat"
 ];
 
 var numtests = 0;
@@ -100,7 +100,8 @@ function runTestFile(filename) {
     }
 }
 
-function test(input, context, expected, filename, testnum, charbychar) {
+function test(input, context, expected, filename, testnum,
+              charbychar, disablescript) {
     numtests++;
     try {
         var output;
@@ -114,7 +115,10 @@ function test(input, context, expected, filename, testnum, charbychar) {
             }
         }
         else {
-            var parser = document.implementation.mozHTMLParser("about:blank");
+            var options = { scripting_enabled: !disablescript }
+            var parser = document.implementation.mozHTMLParser("about:blank",
+                                                               undefined,
+                                                               options);
             var doc;
             if (charbychar) {
                 for(var i = 0; i < input.length; i++) {

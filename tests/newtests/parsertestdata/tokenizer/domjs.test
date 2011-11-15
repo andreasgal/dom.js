@@ -15,7 +15,7 @@
             "doubleEscaped":true,
             "initialStates":["RCDATA state", "RAWTEXT state"],
             "input":"\\u0000",
-            "output":[["Character", "\\uFFFD"]]
+            "output":["ParseError", ["Character", "\\uFFFD"]]
         },
         {
             "description":"skip first BOM but not later ones",
@@ -32,7 +32,7 @@
             "description":"Bad charref in in RCDATA",
             "initialStates":["RCDATA state"],
             "input":"&NotEqualTild;",
-            "output":[["Character", "&NotEqualTild;"]]
+            "output":["ParseError", ["Character", "&NotEqualTild;"]]
         },
         {
             "description":"lowercase endtags in RCDATA and RAWTEXT",
@@ -78,12 +78,12 @@
             "description":"--!NUL in comment ",
             "doubleEscaped":true,
             "input":"<!----!\\u0000-->",
-            "output":[["Comment", "--!\\uFFFD"]]
+            "output":["ParseError", ["Comment", "--!\\uFFFD"]]
         },
         {
             "description":"space EOF after doctype ",
             "input":"<!DOCTYPE html ",
-            "output":[["DOCTYPE", "html", null, null , false]]
+            "output":["ParseError", ["DOCTYPE", "html", null, null , false]]
         }
 
     ]

@@ -1818,7 +1818,7 @@ const HTMLParser = (function() {
      * the outer closure that it is defined within.  Most of the parser 
      * implementation details are inside this function.
      */
-    function HTMLParser(address, fragmentContext) {
+    function HTMLParser(address, fragmentContext, options) {
         /***
          * These are the parser's state variables
          */
@@ -1858,7 +1858,9 @@ const HTMLParser = (function() {
         var parser_pause_flag = false;
         var head_element_pointer = null;
         var form_element_pointer = null;
-        var scripting_enabled = true;  // XXX Do we ever set this false?
+        var scripting_enabled = true;
+        if (options && options.scripting_enabled === false)
+            scripting_enabled = false;
         var frameset_ok = true;
         var force_quirks = false;
         var pending_table_text;
@@ -2099,7 +2101,7 @@ const HTMLParser = (function() {
                             // Just return what we have
                             s = substring(chars, nextchar, numchars);
                             eof = true;
-                            if (codepoint === 0xFFFF && nextchar === numchars)
+                            if (codepoint === 0xFFFF && nextchar === numchars-1)
                                 codepoint = EOF;
                         }
                         else {
@@ -2125,7 +2127,7 @@ const HTMLParser = (function() {
 
                         // Otherwise, we've got to return what we've got
                         s = substring(chars, nextchar, numchars);
-                        if (codepoint === 0xFFFF && nextchar === numchars)
+                        if (codepoint === 0xFFFF && nextchar === numchars-1)
                             codepoint = EOF;
                         eof = true;
                     }
