@@ -45,6 +45,11 @@ interface DOMElementMap {
   deleter void (in DOMString name);
 };
 
+interface CSSStyleDeclaration {
+  // A dummy interface for now so we can at least return
+  // an object from HTMLElement.style
+};
+
 interface HTMLElement : Element {
   // dynamic markup insertion
            attribute DOMString innerHTML;

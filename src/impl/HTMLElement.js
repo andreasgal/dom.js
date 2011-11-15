@@ -118,25 +118,29 @@ defineLazyProperty(impl, "HTMLElement", function() {
 
     HTMLElement.prototype = O.create(impl.Element.prototype, {
         _idlName: constant("HTMLElement"),
-        innerHTML: attribute(function() {
-            return this.serialize();
-        },
-        function(v) {
-            var parser = this.ownerDocument.implementation.mozHTMLParser(
-                this.ownerDocument._address,
-                this);
-            parser.parse(v, true);
-            var tmpdoc = parser.document();
-            var root = tmpdoc.firstChild;
-
-            // Remove any existing children of this node
-            while(this.hasChildNodes())
-                this.removeChild(this.firstChild);
-
-            // Now copy newly parsed children from the root to this node
-            while(root.hasChildNodes()) {
-                this.appendChild(root.firstChild);
-            }
+        innerHTML: attribute(
+            function() {
+                return this.serialize();
+            },
+            function(v) {
+                var parser = this.ownerDocument.implementation.mozHTMLParser(
+                    this.ownerDocument._address,
+                    this);
+                parser.parse(v, true);
+                var tmpdoc = parser.document();
+                var root = tmpdoc.firstChild;
+                
+                // Remove any existing children of this node
+                while(this.hasChildNodes())
+                    this.removeChild(this.firstChild);
+                
+                // Now copy newly parsed children from the root to this node
+                while(root.hasChildNodes()) {
+                    this.appendChild(root.firstChild);
+                }
+            }),
+        style: attribute(function() {
+            return { _idlName: "CSSStyleDeclaration" };
         }),
     });
 

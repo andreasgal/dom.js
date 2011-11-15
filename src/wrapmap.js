@@ -65,6 +65,9 @@ const [unwrap, unwrapOrNull, wrap] = (function() {
     function wrap(n) {
         if (n === null) return null;
 
+        if (n === undefined)
+            throw new Error("Can't wrap undefined property");
+
         // If n doesn't have a wrapper already, create one.
         if (!n._idl) {
             var typename = n._idlName;
