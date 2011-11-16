@@ -140,7 +140,9 @@ defineLazyProperty(impl, "HTMLElement", function() {
                 }
             }),
         style: attribute(function() {
-            return { _idlName: "CSSStyleDeclaration" };
+            if (!this._style)
+                this._style = new impl.CSSStyleDeclaration(this);
+            return this._style;
         }),
     });
 

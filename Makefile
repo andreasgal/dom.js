@@ -31,6 +31,8 @@ FILES= \
 	src/impl/HTMLElement.js \
 	src/impl/HTMLScriptElement.js \
 	src/impl/HTMLParser.js \
+	src/impl/CSSStyleDeclaration.js \
+	deps/parser-lib/build/parserlib.js\
 	src/main.js
 
 ###  Details for jstests.py
@@ -97,17 +99,25 @@ dom.js: LICENSE ${FILES} src/loose.js
 	@echo "Created $@"
 
 
+# Create domcore.js from domcore.idl
 src/domcore.js: src/domcore.idl tools/idl2domjs
 	@rm -f $@;
 	tools/idl2domjs src/domcore.idl > src/domcore.js
 	@chmod 444 $@
 	@echo "Created $@"
 
+# Create htmlelts.js from htmlelts.idl
 src/htmlelts.js: src/htmlelts.idl tools/idl2domjs
 	@rm -f $@;
 	tools/idl2domjs src/htmlelts.idl > src/htmlelts.js
 	@chmod 444 $@
 	@echo "Created $@"
+
+
+# build parserlib.js in the submodule if necessary
+# this step requires ant.
+deps/parser-lib/build/parserlib.js: deps/parser-lib/src/css/*.js deps/parser-lib/src/util/*.js
+	cd deps/parser-lib; ant
 
 
 # To limit the tests, specify a value for TEST_PAT from the command line.

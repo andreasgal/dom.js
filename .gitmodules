@@ -6,4 +6,4 @@
 	url = https://github.com/darobin/webidl.js.git
 [submodule "deps/parser-lib"]
 	path = deps/parser-lib
-	url = git@github.com:davidflanagan/parser-lib.git
+	url = git://github.com/davidflanagan/parser-lib.git
