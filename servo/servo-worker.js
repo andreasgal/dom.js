@@ -3,8 +3,6 @@
 
 importScripts('../dom.js');
 
-var currentDoc = null;
-
 var addEventListener = function(type, cb, bubble) {
 	document.addEventListener(type, cb, bubble);
 };
@@ -13,13 +11,7 @@ var window = {
 	navigator: {
 		userAgent: 'servo 0.1 webworker'
 	},
-	document: document,
-	setTimeout: function() {
-		//Function.apply(setTimeout, window, arguments)
-	},
-	clearTimeout: clearTimeout,
-	setInterval: setInterval,
-	clearInterval: clearInterval
+	document: document
 }
 
 var jQuery;
@@ -69,15 +61,10 @@ onmessage = function(message) {
 			reply.parser = data.parser;
 		}
 		if (data.chunk) {
-			currentDoc = parsing[reply.parser].document();
 			parser.parse(data.chunk, data.finished);
-			currentDoc = null;
 		}
 		if (data.finished) {
 			reply.finished = true;
-			currentDoc = parsing[reply.parser].document();
-//			postMessage("DOC " + this.toString() + ' ' + (this.document === currentDoc));
-			//document.documentElement = document.adoptNode(currentDoc.documentElement);
 			parsing[reply.parser] = undefined;
 			postMessage("Document loaded.");
 			var event = document.createEvent('event');
