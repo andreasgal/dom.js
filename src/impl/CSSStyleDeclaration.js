@@ -184,7 +184,7 @@ defineLazyProperty(impl, "CSSStyleDeclaration", function() {
         var propname = cssProperties[name];
         Object.defineProperty(CSSStyleDeclaration.prototype, name, {
             get: function() { return this.getPropertyValue(propname); },
-            set: nyi,
+            set: fnoop,
         });
     }
 
