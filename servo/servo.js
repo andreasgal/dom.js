@@ -1,4 +1,5 @@
 
+
 const CHUNK_SIZE = 32767;
 
 var canvas = null;
@@ -33,15 +34,17 @@ worker.onmessage = function(event) {
     var append = true;
     var evt = event.data;
 
+	if (evt === undefined) {
+		console.log("undefined event?");
+		return;
+	}
 	if (typeof evt === "string") {
-		console.log(evt);
+		console.info(evt);
 		return;
 	}
 
-	console.log(JSON.stringify(evt));
-
     if (evt.finished) {
-		console.log("finished");
+		console.log("Finished.");
 		return;
     } else if (evt.parser) {
 		send_chunk(evt.parser);
@@ -58,7 +61,11 @@ worker.onmessage = function(event) {
 			// remove event
 			var node = document.getElementById(
 				evt.target);
-			node.parentNode.removeChild(node);
+			if (node === null) {
+	console.log(JSON.stringify(evt));
+			} else {
+				node.parentNode.removeChild(node);
+			}
 		} else if (evt.type === 1) {
 			// mutate value event
 			var node = document.getElementById(
@@ -108,7 +115,6 @@ worker.onmessage = function(event) {
             out(val.trim());
         } else {
             append = false;
-			console.log('appendChild', evt.nid);
             previous.appendChild(child);
         }
         break;

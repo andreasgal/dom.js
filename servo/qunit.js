@@ -835,7 +835,6 @@ function done() {
 	}
 
 	if ( tests ) {
-		console.log(html);
 		id( "qunit-testresult" ).innerHTML = html;
 	}
 

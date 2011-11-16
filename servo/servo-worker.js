@@ -1,19 +1,29 @@
 
+"use strict";
+
 importScripts('../dom.js');
 
+var currentDoc = null;
+
+var addEventListener = function(type, cb, bubble) {
+	document.addEventListener(type, cb, bubble);
+};
+
 var window = {
-	addEventListener: function() {
-		Function.apply(document.addEventListener, this, arguments);
-	},
 	navigator: {
 		userAgent: 'servo 0.1 webworker'
 	},
-	document: document
+	document: document,
+	setTimeout: function() {
+		//Function.apply(setTimeout, window, arguments)
+	},
+	clearTimeout: clearTimeout,
+	setInterval: setInterval,
+	clearInterval: clearInterval
 }
 
-importScripts('jquery.js', 'qunit.js');
-var jQuery = window.jQuery;
-var $ = jQuery;
+var jQuery;
+var $;
 
 function print() {
 	var out = '';
@@ -28,6 +38,12 @@ var console = {log: print}
 var parser_num = 1;
 var parsing = {}
 
+onerror = function(err) {
+//	var stack = new Error().stack;
+//	postMessage("ERROR " + err);// + " " + stack);
+	return false;
+}
+
 onmessage = function(message) {
 	try {
 		var data = message.data;
@@ -37,6 +53,11 @@ onmessage = function(message) {
 		if (data.url) {
 			parser = document.implementation.mozHTMLParser(data.url);
 			var doc = parser.document();
+			Object.defineProperty(this, "document", { value: doc});
+			importScripts('jquery.js', 'qunit.js');
+			jQuery = window.jQuery;
+			$ = jQuery;
+
 			doc.implementation.mozSetOutputMutationHandler(
 				doc, function(msg) { postMessage(msg) }
 			);
@@ -48,17 +69,23 @@ onmessage = function(message) {
 			reply.parser = data.parser;
 		}
 		if (data.chunk) {
+			currentDoc = parsing[reply.parser].document();
 			parser.parse(data.chunk, data.finished);
+			currentDoc = null;
 		}
 		if (data.finished) {
 			reply.finished = true;
+			currentDoc = parsing[reply.parser].document();
+//			postMessage("DOC " + this.toString() + ' ' + (this.document === currentDoc));
+			//document.documentElement = document.adoptNode(currentDoc.documentElement);
 			parsing[reply.parser] = undefined;
-			var event = doc.createEvent('customevent');
-			event.initEvent('DOMContentLoaded', false, true);
-			doc.dispatchEvent(event);
+			postMessage("Document loaded.");
+			var event = document.createEvent('event');
+			event.initEvent('load', false, true);
+			document.dispatchEvent(event);
 		}
 		postMessage(reply);
 	} catch (e) {
-		postMessage(e);
+		postMessage("ERR " + e);
 	}
 }
