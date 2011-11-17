@@ -3,6 +3,22 @@ defineLazyProperty(impl, "CSSStyleDeclaration", function() {
         this._element = elt;
     }
 
+    // Utility function for parsing style declarations
+    // Pass in a string like "margin-left: 5px; border-style: solid"
+    // and this function returns an object like
+    // {"margin-left":"5px", "border-style":"solid"}
+    function parseStyles(s) {
+        var parser = new parserlib.css.Parser();
+        var result = {};
+        parser.addListener("property", function(e) {
+            if (e.invalid) return;  // Skip errors
+            result[e.property.text] = e.value.text;
+            if (e.important) result.important[name] = e.important;
+        });
+        parser.parseStyleAttribute(s);
+        return result;
+    }
+
     CSSStyleDeclaration.prototype = O.create(Object.prototype, {
         _idlName: constant("CSSStyleDeclaration"),
 
@@ -11,27 +27,30 @@ defineLazyProperty(impl, "CSSStyleDeclaration", function() {
         // or if it has changed since the last parse, then reparse it
         // Note that the styles don't get parsed until they're actually needed
         _parsed: attribute(function() {
-            if (!this._parsedStyles || this.cssText !== this._parsedStyles.text)
-            {
-                var parser = new parserlib.css.Parser();
-                var result = {
-                    byname: {},
-                    bynumber: [],
-                    important: {},
-                    text: this.cssText
-                };
-                parser.addListener("property", function(e) {
-                    if (e.invalid) return;  // Skip errors
-                    var name = e.property.text;
-                    var value = e.value.text; // XXX: will need to break this down
-                    result.byname[name] = value;
-                    push(result.bynumber, name);
-                    if (e.important) result.important[name] = e.important;
-                });
-                parser.parseStyleAttribute(result.text);
-                this._parsedStyles = result;
+            if (!this._parsedStyles || this.cssText !== this._lastParsedText) {
+                var text = this.cssText;
+                this._parsedStyles = parseStyles(text);
+                this._lastParsedText = text;
+                delete this._names;
             }
             return this._parsedStyles;
+        }),
+
+        // Call this method any time the parsed representation of the
+        // style changes.  It converts the style properties to a string and
+        // sets cssText and the element's style attribute
+        _serialize: constant(function() {
+            var styles = this._parsed;
+            var s = "";
+            
+            for(var name in styles) {
+                if (s) s += "; ";
+                s += name + ":" + styles[name]
+            }
+
+            this.cssText = s;          // also sets the style attribute
+            this._lastParsedText = s;  // so we don't reparse
+            delete this._names;
         }),
 
         cssText: attribute(
@@ -49,27 +68,69 @@ defineLazyProperty(impl, "CSSStyleDeclaration", function() {
         ),
 
         length: attribute(function() {
-            return this._parsed.bynumber.length;
+            if (!this._names) 
+                this._names = Object.getOwnPropertyNames(this._parsed);
+            return this._names.length;
         }),
 
         item: constant(function(n) {
-            return this._parsed.bynumber[n];
+            if (!this._names) 
+                this._names = Object.getOwnPropertyNames(this._parsed);
+            return this._names[n];
         }),
 
         getPropertyValue: constant(function(property) {
-            return this._parsed.byname[toLowerCase(property)];
+            return this._parsed[toLowerCase(property)];
         }),
 
+        // XXX: for now we ignore !important declarations
         getPropertyPriority: constant(function(property) {
-            return this._parsed.important[toLowerCase(property)]
-                ? "important"
-                :"";
+            return "";
         }),
 
+        // XXX the priority argument is ignored for now
         setProperty: constant(function(property, value, priority) {
+            property = toLowerCase(property);
+            if (value === "") {
+                this.removeProperty(property);
+                return;
+            }
+
+            // XXX are there other legal priority values?
+            if (priority !== undefined && priority !== "important") 
+                return;
+            
+            // We don't just accept the property value.  Instead
+            // we parse it to ensure that it is something valid.
+            // If it contains a semicolon it is invalid
+            if (value.indexOf(";") !== -1) return;
+
+            var props = parseStyles(property + ":" + value);
+            var newvalue = props[property];
+            // If there is no value now, it wasn't valid
+            if (!newvalue) return;
+
+            var styles = this._parsed;
+
+            // If the value didn't change, return without doing anything.
+            var oldvalue = styles[property];
+            if (newvalue === oldvalue) return;
+
+            styles[property] = value;
+
+            // Serialize and update cssText and element.style!
+            this._serialize();
         }),
 
         removeProperty: constant(function(property) {
+            property = toLowerCase(property);
+            var styles = this._parsed;
+            if (property in styles) {
+                delete styles[property];
+
+                // Serialize and update cssText and element.style!
+                this._serialize();
+            }
         }),
     });
 
@@ -180,11 +241,21 @@ defineLazyProperty(impl, "CSSStyleDeclaration", function() {
 
     for(var prop in cssProperties) defineStyleProperty(prop);
 
-    function defineStyleProperty(name) {
-        var propname = cssProperties[name];
-        Object.defineProperty(CSSStyleDeclaration.prototype, name, {
-            get: function() { return this.getPropertyValue(propname); },
-            set: fnoop,
+    function defineStyleProperty(jsname) {
+        var cssname = cssProperties[jsname];
+        Object.defineProperty(CSSStyleDeclaration.prototype, jsname, {
+            get: function() {
+                return this.getPropertyValue(cssname);
+            },
+            set: function(value) {
+                if (value === "" || value == null) { // XXX?
+                    this.removeProperty(cssname);
+                }
+                else {
+                    // XXX Handle important declarations here!
+                    this.setProperty(cssname, value);
+                }
+            }
         });
     }
 

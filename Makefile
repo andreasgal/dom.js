@@ -32,7 +32,7 @@ FILES= \
 	src/impl/HTMLScriptElement.js \
 	src/impl/HTMLParser.js \
 	src/impl/CSSStyleDeclaration.js \
-	deps/parser-lib/build/parserlib.js\
+	src/impl/cssparser.js\
 	src/main.js
 
 ###  Details for jstests.py
@@ -116,9 +116,9 @@ src/htmlelts.js: src/htmlelts.idl tools/idl2domjs
 
 # build parserlib.js in the submodule if necessary
 # this step requires ant.
-deps/parser-lib/build/parserlib.js: deps/parser-lib/src/css/*.js deps/parser-lib/src/util/*.js
-	cd deps/parser-lib; ant
-
+src/impl/cssparser.js: deps/parser-lib/src/css/*.js deps/parser-lib/src/util/*.js
+	cd deps/parser-lib; ant; 
+	cp deps/parser-lib/build/parserlib.js src/impl/cssparser.js
 
 # To limit the tests, specify a value for TEST_PAT from the command line.
 # For instance:
