@@ -20,16 +20,16 @@ var colors = {
     body: 'orange',
     div: 'blue',
     span: 'darkgreen',
-	h1: '#333333',
-	h2: '#999999',
-	a: 'navy',
-	label: 'lightblue',
-	ol: 'lime',
-	ul: 'green',
-	li: 'navy',
-	strong: 'aqua',
-	p: 'teal',
-	br: 'olive'
+    h1: '#333333',
+    h2: '#999999',
+    a: 'navy',
+    label: 'lightblue',
+    ol: 'lime',
+    ul: 'green',
+    li: 'navy',
+    strong: 'aqua',
+    p: 'teal',
+    br: 'olive'
 };
 
 // for building the dom explorer view
@@ -42,40 +42,40 @@ var tree_offset = 0;
 var send_chunk = null;
 
 function maybe_insert_node(evt, child) {
-	if (evt.type === 6) {
-		if (evt['parent'] !== undefined) {
-			var parent = document.getElementById(evt.parent);
-			if (parent) {
-				parent.appendChild(child);
-			} else {
-				document.getElementById('output').appendChild(child);
-			}
-		} else {
-			document.getElementById('output').appendChild(child);
-		}
-	}
+    if (evt.type === 6) {
+        if (evt['parent'] !== undefined) {
+            var parent = document.getElementById(evt.parent);
+            if (parent) {
+                parent.appendChild(child);
+            } else {
+                document.getElementById('output').appendChild(child);
+            }
+        } else {
+            document.getElementById('output').appendChild(child);
+        }
+    }
 }
 
 function parse_event(event) {
     var evt = event.data;
 
-	if (evt === undefined) {
-		console.log("undefined event?");
-		return;
-	}
-	if (typeof evt === "string") {
-		console.info(evt);
-		return;
-	}
+    if (evt === undefined) {
+        console.log("undefined event?");
+        return;
+    }
+    if (typeof evt === "string") {
+        console.info(evt);
+        return;
+    }
 
     if (evt.finished) {
-		console.log("Finished.");
-		return;
+        console.log("Finished.");
+        return;
     } else if (evt.parser) {
-		send_chunk(evt.parser);
-		return;
-	}
-	//console.log(JSON.stringify(evt));
+        send_chunk(evt.parser);
+        return;
+    }
+    //console.log(JSON.stringify(evt));
 
     if (evt.nid === undefined) {
         evt.nid = -1;
@@ -83,26 +83,26 @@ function parse_event(event) {
     if (evt.parent !== undefined) {
         depths[evt.nid] = depths[evt.parent] + 1;
     } else {
-		if (evt.type === 4) {
-			// remove event
-			var node = document.getElementById(
-				evt.target);
-			if (node === null) {
-				console.log(JSON.stringify(evt));
-			} else {
-				node.parentNode.removeChild(node);
-			}
-		} else if (evt.type === 1) {
-			// mutate value event
-			var node = document.getElementById(
-				evt.target);
-			// firstChild is the node id, nextSibling is the node value
-			// the node may have other element children, so can't use
-			// lastChild
-			node.firstChild.nextSibling.innerHTML = '';
-			node.firstChild.nextSibling.appendChild(document.createTextNode(evt.data.trim()));
-			node.firstChild.title = '"' + evt.data + '"';
-		}
+        if (evt.type === 4) {
+            // remove event
+            var node = document.getElementById(
+                evt.target);
+            if (node === null) {
+                console.log(JSON.stringify(evt));
+            } else {
+                node.parentNode.removeChild(node);
+            }
+        } else if (evt.type === 1) {
+            // mutate value event
+            var node = document.getElementById(
+                evt.target);
+            // firstChild is the node id, nextSibling is the node value
+            // the node may have other element children, so can't use
+            // lastChild
+            node.firstChild.nextSibling.innerHTML = '';
+            node.firstChild.nextSibling.appendChild(document.createTextNode(evt.data.trim()));
+            node.firstChild.title = '"' + evt.data + '"';
+        }
         return;
     }
 
@@ -115,7 +115,7 @@ function parse_event(event) {
     child.appendChild(nodeId);
     child.appendChild(node);
 
-	maybe_insert_node(evt, child);
+    maybe_insert_node(evt, child);
 
     function out() {
         var output = '';
@@ -130,16 +130,16 @@ function parse_event(event) {
         return;
     }
 
-	console.info(domjsNodeStr);
+    console.info(domjsNodeStr);
     switch (domjsNodeStr.charAt(0)) {
       case 'T':
         var val = domjsNodeStr.substr(1).split(NULL)[0];
         nodeId.setAttribute('title', JSON.stringify(val));
         // don't show whitespace-only text nodes.
-		node.setAttribute('style',
-			'white-space: pre; font-family: monospace; margin: 0.5em; ');
+        node.setAttribute('style',
+            'white-space: pre; font-family: monospace; margin: 0.5em; ');
 
-		out(val.trim());
+        out(val.trim());
 
         break;
       case 'C':
@@ -164,7 +164,7 @@ function parse_event(event) {
                 var attrname = attrsplit[i * 2].substr(1);
 				attributes += attrname + '="' + attrsplit[i * 2 + 1] + '" ';
             }
-			children = attrsplit.slice(i * 2);
+            children = attrsplit.slice(i * 2);
 
             out("<", spl[0], attributes, ">");
         } else {
@@ -172,28 +172,28 @@ function parse_event(event) {
         }
         child.setAttribute('class', 'element');
 
-		ctx.fillStyle = "rgb(150,0,0)";  
+        ctx.fillStyle = "rgb(150,0,0)";  
 
         if (colors[spl[0]] !== undefined) {
             child.setAttribute('style', 'color: ' + colors[spl[0]]);
 			ctx.fillStyle = colors[spl[0]];  
         }
 
-		tree_offset += 1;
+        tree_offset += 1;
         ctx.fillRect(5 * (depths[evt.nid] - 1), 5 * (tree_offset - 1), 5, 5); 
-		//canvas.height = 5 * tree_offset;
-		if (children !== null && children != ["", ""]) {
-			var numchildren = parseInt(children[0].charCodeAt(0));
-			if (numchildren === numchildren) {
-				console.log('numchildren', numchildren);
-				children[0] = children[0].slice(1);
-				for (var i = 0; i < numchildren; i++) {
-					parse_event({data: {recursive: true,
-						type: 6, parent: evt.nid, nid: evt.nid + 1 + i, child: children[i]
-					}});
-				}
-			}
-		}
+        //canvas.height = 5 * tree_offset;
+        if (children !== null && children != ["", ""]) {
+            var numchildren = parseInt(children[0].charCodeAt(0));
+            if (numchildren === numchildren) {
+                console.log('numchildren', numchildren);
+                children[0] = children[0].slice(1);
+                for (var i = 0; i < numchildren; i++) {
+                    parse_event({data: {recursive: true,
+                        type: 6, parent: evt.nid, nid: evt.nid + 1 + i, child: children[i]
+                    }});
+                }
+            }
+        }
         break;
     case 'D':
         var spl = domjsNodeStr.substr(1).split(NULL);
@@ -202,9 +202,9 @@ function parse_event(event) {
       default:
         throw new Error('Unhandled case of stringified node: ' + domjsNodeStr.charAt(0));
     }
-	if (evt.type === 6) {
-		previous = child;
-	}
+    if (evt.type === 6) {
+        previous = child;
+    }
 }
 
 worker.onmessage = parse_event;
