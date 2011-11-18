@@ -1832,6 +1832,8 @@ const HTMLParser = (function() {
         var saved_scanner_state = [];
         var leftovers = "";
         var first_batch = true;
+        var paused = 0;   // Becomes non-zero while loading scripts
+
 
         // Tokenizer state
         var tokenizer = data_state;     // Current tokenizer state
@@ -1887,12 +1889,34 @@ const HTMLParser = (function() {
                 else return wrap(doc);
             },
 
+            // Internal function used from HTMLScriptElement to pause the
+            // parser while a script is being loaded from the network
+            pause: function() {
+                print("pausing parser");
+                paused++;
+            },
+
+            // Called when a script finishes loading
+            resume: function() {
+                print("resuming parser");
+                paused--;
+            },
+
             // Parse the HTML text s.
             // The second argument should be true if there is no more
             // text to be parsed, and should be false or omitted otherwise.
             // The second argument must not be set for recursive invocations
             // from document.write()
             parse: function(s, end) {
+
+                // If we're paused, remember the text to parse, but 
+                // don't parse it now.
+                if (paused > 0) {
+                    leftovers += s;
+                    return;
+                }
+
+
                 if (reentrant_invocations === 0) {
                     // A normal, top-level invocation
                     if (leftovers) {
@@ -2040,6 +2064,14 @@ const HTMLParser = (function() {
             var codepoint, s, pattern, eof;
 
             while(nextchar < numchars) {
+
+                // If we just tokenized a </script> tag, then the paused flag
+                // may have been set to tell us to stop tokenizing while
+                // the script is loading
+                if (paused > 0) {
+                    return;
+                }
+
 
                 switch(typeof tokenizer.lookahead) {
                 case 'undefined':

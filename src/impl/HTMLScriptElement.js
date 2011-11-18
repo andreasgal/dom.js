@@ -21,7 +21,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
 
     function HTMLScriptElement(doc, localName, prefix) {
         impl.HTMLElement.call(this, doc, localName, prefix);
-
+        print("Creating script element");
         // Internal script flags, used by the parser and elsewhere
         this._already_started = false;
         this._parser_inserted = false;
@@ -317,8 +317,36 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // wasted.
             if (this.hasAttribute("src")) {
                 // XXX
-                // Ignoring the src attribute now
-                // and only running inline scripts
+                // The spec for handling this is really, really complicated.
+                // For now, I'm just going to try to get something basic working
+                
+                var url = this.getAttribute("src");
+
+                if (this.ownerDocument._parser) {
+                    this.ownerDocument._parser.pause();
+                }
+
+                var script = this;
+                var xhr = new XMLHttpRequest();
+                // XXX: need to resolve the URL to make it absolute
+                print("requesting script from", url);
+                xhr.open("GET", url);
+                xhr.send();
+                xhr.onload = function() {
+                    print("readystatechange", xhr.readyState, xhr.status);
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200 || xhr.status === 0 /* file:*/) {
+                            print("got script from", url);
+                            script._script_text = xhr.responseText;
+                            script._execute();
+                            delete script._script_text;
+                        }
+
+                        if (script.ownerDocument._parser) {
+                            script.ownerDocument._parser.resume();
+                        }
+                    }
+                };
             }
             else {
                 

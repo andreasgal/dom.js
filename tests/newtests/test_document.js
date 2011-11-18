@@ -143,7 +143,8 @@ notYetImplemented(function() { document.lastModified; });
 // Commenting out this test because we've stubbed in a temporary
 // implementation, but it still really isn't implemented
 // notYetImplemented(function() { document.readyState; });
-notYetImplemented(function() { document.title; });
+// Ditto for this one
+// notYetImplemented(function() { document.title; });
 notYetImplemented(function() { document.title = "foo" });
 notYetImplemented(function() { document.dir; });
 notYetImplemented(function() { document.dir = "foo"; });

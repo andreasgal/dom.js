@@ -314,7 +314,7 @@ defineLazyProperty(impl, "Document", function() {
         lastModified: attribute(nyi),
         // XXX Temporary hack
         readyState: attribute(function() { return "complete" }),
-        title: attribute(nyi, nyi),
+        title: attribute(fnoop, nyi),
         dir:  attribute(nyi, nyi),
         // Return the first <body> child of the document element.
         // XXX For now, setting this attribute is not implemented.
