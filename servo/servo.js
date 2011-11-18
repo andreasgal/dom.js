@@ -212,26 +212,26 @@ worker.onmessage = parse_event;
 function GET(url) {
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
-		var self = this;
-		var byte_offset = 0;
+        var self = this;
+        var byte_offset = 0;
         if (this.readyState === 4) {
-			send_chunk = function(parser) {
-				var message = {};
-				if (byte_offset === 0) {
-					message.url = url;
-				} else {
-					message.parser = parser;
-				}
-				message.chunk = self.responseText.slice(
-					byte_offset, byte_offset + CHUNK_SIZE);
-				byte_offset += CHUNK_SIZE;
-				if (byte_offset >= self.responseText.length) {
-					message.finished = true;
-				}
-				worker.postMessage(message);
-			}
+            send_chunk = function(parser) {
+                var message = {};
+                if (byte_offset === 0) {
+                    message.url = url;
+                } else {
+                    message.parser = parser;
+                }
+                message.chunk = self.responseText.slice(
+                    byte_offset, byte_offset + CHUNK_SIZE);
+                byte_offset += CHUNK_SIZE;
+                if (byte_offset >= self.responseText.length) {
+                    message.finished = true;
+                }
+                worker.postMessage(message);
+            }
 
-			send_chunk();
+            send_chunk();
         }
     }
     xhr.open('GET', url);
@@ -239,30 +239,30 @@ function GET(url) {
 }
 
 $(document).ready(function () {
-	$(document).on('click', '.node-id',
-		function() {
-			var self = $(this);
-			if (self.hasClass('collapsed')) {
-				self.removeClass('collapsed');
-				self.nextAll().removeClass('hidden');
-			} else {
-				self.addClass('collapsed');
-				self.nextAll().addClass('hidden');
-			}
-			console.log('click');
-		}
-	);
+    $(document).on('click', '.node-id',
+        function() {
+            var self = $(this);
+            if (self.hasClass('collapsed')) {
+                self.removeClass('collapsed');
+                self.nextAll().removeClass('hidden');
+            } else {
+                self.addClass('collapsed');
+                self.nextAll().addClass('hidden');
+            }
+            console.log('click');
+        }
+    );
 
-	canvas = document.getElementById('tree-view');
-	ctx = canvas.getContext('2d');
+    canvas = document.getElementById('tree-view');
+    ctx = canvas.getContext('2d');
 
-	$('#url').on('submit', function() {
-		tree_offset = 0;
-		ctx.clearRect(0 , 0 , canvas.width, canvas.height);
-		document.getElementById('output').innerHTML = '';
-		GET(this.url.value);
-		return false;
-	});
-	$('#url').submit();
+    $('#url').on('submit', function() {
+        tree_offset = 0;
+        ctx.clearRect(0 , 0 , canvas.width, canvas.height);
+        document.getElementById('output').innerHTML = '';
+        GET(this.url.value);
+        return false;
+    });
+    $('#url').submit();
 });
 
