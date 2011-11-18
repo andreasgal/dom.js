@@ -130,6 +130,7 @@ function parse_event(event) {
         return;
     }
 
+	console.info(domjsNodeStr);
     switch (domjsNodeStr.charAt(0)) {
       case 'T':
         var val = domjsNodeStr.substr(1).split(NULL)[0];
@@ -137,12 +138,9 @@ function parse_event(event) {
         // don't show whitespace-only text nodes.
 		node.setAttribute('style',
 			'white-space: pre; font-family: monospace; margin: 0.5em; ');
-        if (!val.match(/^\s+$/)) {
-            out(val.trim());
-        } else {
-			// skip whitespace only nodes
-			child.parentNode.removeChild(child);
-		}
+
+		out(val.trim());
+
         break;
       case 'C':
         out("Comment node", JSON.stringify(
@@ -184,9 +182,10 @@ function parse_event(event) {
 		tree_offset += 1;
         ctx.fillRect(5 * (depths[evt.nid] - 1), 5 * (tree_offset - 1), 5, 5); 
 		//canvas.height = 5 * tree_offset;
-		if (children !== null) {
+		if (children !== null && children != ["", ""]) {
 			var numchildren = parseInt(children[0].charCodeAt(0));
 			if (numchildren === numchildren) {
+				console.log('numchildren', numchildren);
 				children[0] = children[0].slice(1);
 				for (var i = 0; i < numchildren; i++) {
 					parse_event({data: {recursive: true,
