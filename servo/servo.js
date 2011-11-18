@@ -1,6 +1,7 @@
 
 
 const CHUNK_SIZE = 32767;
+const NULL = '\0';
 
 var canvas = null;
 var ctx = null;
@@ -18,7 +19,17 @@ var colors = {
     script: 'blueviolet',
     body: 'orange',
     div: 'blue',
-    span: 'darkgreen'
+    span: 'darkgreen',
+	h1: '#333333',
+	h2: '#999999',
+	a: 'navy',
+	label: 'lightblue',
+	ol: 'lime',
+	ul: 'green',
+	li: 'navy',
+	strong: 'aqua',
+	p: 'teal',
+	br: 'olive'
 };
 
 // for building the dom explorer view
@@ -30,8 +41,22 @@ var tree_offset = 0;
 // for sending large bodies in chunks to the worker
 var send_chunk = null;
 
-worker.onmessage = function(event) {
-    var append = true;
+function maybe_insert_node(evt, child) {
+	if (evt.type === 6) {
+		if (evt['parent'] !== undefined) {
+			var parent = document.getElementById(evt.parent);
+			if (parent) {
+				parent.appendChild(child);
+			} else {
+				document.getElementById('output').appendChild(child);
+			}
+		} else {
+			document.getElementById('output').appendChild(child);
+		}
+	}
+}
+
+function parse_event(event) {
     var evt = event.data;
 
 	if (evt === undefined) {
@@ -50,6 +75,7 @@ worker.onmessage = function(event) {
 		send_chunk(evt.parser);
 		return;
 	}
+	//console.log(JSON.stringify(evt));
 
     if (evt.nid === undefined) {
         evt.nid = -1;
@@ -62,7 +88,7 @@ worker.onmessage = function(event) {
 			var node = document.getElementById(
 				evt.target);
 			if (node === null) {
-	console.log(JSON.stringify(evt));
+				console.log(JSON.stringify(evt));
 			} else {
 				node.parentNode.removeChild(node);
 			}
@@ -89,6 +115,8 @@ worker.onmessage = function(event) {
     child.appendChild(nodeId);
     child.appendChild(node);
 
+	maybe_insert_node(evt, child);
+
     function out() {
         var output = '';
         for (var i = 0; i < arguments.length; i++) {
@@ -102,8 +130,6 @@ worker.onmessage = function(event) {
         return;
     }
 
-    var NULL = '\0';
-
     switch (domjsNodeStr.charAt(0)) {
       case 'T':
         var val = domjsNodeStr.substr(1).split(NULL)[0];
@@ -114,9 +140,9 @@ worker.onmessage = function(event) {
         if (!val.match(/^\s+$/)) {
             out(val.trim());
         } else {
-            append = false;
-            previous.appendChild(child);
-        }
+			// skip whitespace only nodes
+			child.parentNode.removeChild(child);
+		}
         break;
       case 'C':
         out("Comment node", JSON.stringify(
@@ -129,16 +155,19 @@ worker.onmessage = function(event) {
         var spl = domjsNodeStr.substr(1).split(NULL);
         var attrstr = spl[1];
         var l = attrstr.charCodeAt(0);
-        if (l === 0xFFFF) l = parseInt(attrstr.charCodeAt(1));
+        if (l === 0xFFFF) l = parseInt(attrstr.charCodeAt(1 + 1));
 
+		var children = null;
         if (l === l) { // if l is not NaN
-            var attributes = ""
             var attrstr = domjsNodeStr.substr(domjsNodeStr.indexOf(NULL) + 2);
             var attrsplit = attrstr.split(NULL);
-            for (var i = 0; i < attrsplit.length / 2; i += 2) {
-                var attrname = attrsplit[i].substr(1);
-				attributes += attrname + '="' + attrsplit[i + 1] + '" ';
+            var attributes = "";
+            for (var i = 0; i < l; i++) {
+                var attrname = attrsplit[i * 2].substr(1);
+				attributes += attrname + '="' + attrsplit[i * 2 + 1] + '" ';
             }
+			children = attrsplit.slice(i * 2);
+
             out("<", spl[0], attributes, ">");
         } else {
             out("<", spl[0], ">");
@@ -153,8 +182,19 @@ worker.onmessage = function(event) {
         }
 
 		tree_offset += 1;
-        ctx.fillRect(5 * (depths[evt.nid] - 1), (tree_offset - 1), 5, 1); 
+        ctx.fillRect(5 * (depths[evt.nid] - 1), 5 * (tree_offset - 1), 5, 5); 
 		//canvas.height = 5 * tree_offset;
+		if (children !== null) {
+			var numchildren = parseInt(children[0].charCodeAt(0));
+			if (numchildren === numchildren) {
+				children[0] = children[0].slice(1);
+				for (var i = 0; i < numchildren; i++) {
+					parse_event({data: {recursive: true,
+						type: 6, parent: evt.nid, nid: evt.nid + 1 + i, child: children[i]
+					}});
+				}
+			}
+		}
         break;
     case 'D':
         var spl = domjsNodeStr.substr(1).split(NULL);
@@ -164,23 +204,11 @@ worker.onmessage = function(event) {
         throw new Error('Unhandled case of stringified node: ' + domjsNodeStr.charAt(0));
     }
 	if (evt.type === 6) {
-		if (append) {
-			if (evt['parent'] !== undefined) {
-				var parent = document.getElementById(evt.parent);
-				if (parent) {
-					parent.appendChild(child);
-				} else {
-					document.getElementById('output').appendChild(child);
-				}
-			} else {
-				document.getElementById('output').appendChild(child);
-			}
-		}
 		previous = child;
-	} else {
-		print ('not append');
 	}
 }
+
+worker.onmessage = parse_event;
 
 function GET(url) {
     var xhr = new XMLHttpRequest();
