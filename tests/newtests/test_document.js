@@ -54,7 +54,7 @@ assertThrows(function() {
 
 // can't insert element before doctype.
 var blank = document.implementation.createDocument(null, null,null);
-print(blank.documentElement);
+//print(blank.documentElement);
 blank.appendChild(doctype);
 assertThrows(function() {
     blank.insertBefore(blank.createElement("foo"), doctype);

@@ -29,8 +29,8 @@ defineLazyProperty(impl, "DOMImplementation", function() {
         
         createDocumentType: function createDocumentType(qualifiedName,
                                                         publicId, systemId) {
-            if (!isValidName(qualifiedName)) InvalidCharacterError();
-            if (!isValidQName(qualifiedName)) NamespaceError();
+            if (!xml.isValidName(qualifiedName)) InvalidCharacterError();
+            if (!xml.isValidQName(qualifiedName)) NamespaceError();
 
             return new impl.DocumentType(qualifiedName, publicId, systemId);
         },

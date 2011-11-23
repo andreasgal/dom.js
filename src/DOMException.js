@@ -138,10 +138,17 @@ global.DOMException = (function() {
         var frames = split(x.stack,"\n");
         A.shift(frames);
         e.stack = join(frames,"\n");
-        var parts = match(frames[0], /[^@]*@([^:]*):(\d*)/);
-        e.fileName = parts[1];
-        e.lineNumber = parts[2];
+        var parts = match(frames[0], /[^@]*[@(]([^:]*):(\d*)/);
         
+        if (parts) {
+            e.fileName = parts[1];
+            e.lineNumber = parts[2];
+        }
+        else {
+            e.fileName = "";
+            e.lineNumber = -1;
+        }
+
         return e;
     }
 

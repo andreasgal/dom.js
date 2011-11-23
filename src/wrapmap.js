@@ -16,73 +16,71 @@
 //
 // The methods in this file manage the mapping between nodes and Nodes
 // 
-const [unwrap, unwrapOrNull, wrap] = (function() {
-    var idlToImplMap = new WeakMap(), lastkey = {}, lastvalue = undefined;
 
-    // Return the implementation object for the DOM Node n
-    // This method will throw a TypeError if n is
-    // null, undefined, a primitive, or an object with no mapping.
-    // This provides basic error checking for methods like Node.appendChild().
-    // XXX: We used to throw NOT_FOUND_ERR here, but ms2ger's tests
-    // expect TypeError
-    function unwrap(n) {
-        // Simple optimization
-        // If I ever remove or alter mappings, then this won't be valid anymore.
-        if (n === lastkey)
-            return lastvalue;
+var idlToImplMap = new WeakMap(), lastkey = {}, lastvalue = undefined;
 
-        try {
-            var impl = wmget(idlToImplMap, n);
+// Return the implementation object for the DOM Node n
+// This method will throw a TypeError if n is
+// null, undefined, a primitive, or an object with no mapping.
+// This provides basic error checking for methods like Node.appendChild().
+// XXX: We used to throw NOT_FOUND_ERR here, but ms2ger's tests
+// expect TypeError
+function unwrap(n) {
+    // Simple optimization
+    // If I ever remove or alter mappings, then this won't be valid anymore.
+    if (n === lastkey)
+        return lastvalue;
 
-            // This happens if someone passes a bogus object to 
-            // appendChild, for example. 
-            if (!impl) NotFoundError();
+    try {
+        var impl = wmget(idlToImplMap, n);
 
-            lastkey = n;
-            lastvalue = impl;
-            return impl;
-        }
-        catch(e) {
-            // If n was null or not an object the WeakMap will raise a TypeError
-            // TypeError might be the best thing to propagate, but there is also
-            // some precendent for raising a DOMException with code
-            // NOT_FOUND_ERR;
-            throw TypeError();
-        }
+        // This happens if someone passes a bogus object to 
+        // appendChild, for example. 
+        if (!impl) NotFoundError();
+
+        lastkey = n;
+        lastvalue = impl;
+        return impl;
+    }
+    catch(e) {
+        // If n was null or not an object the WeakMap will raise a TypeError
+        // TypeError might be the best thing to propagate, but there is also
+        // some precendent for raising a DOMException with code
+        // NOT_FOUND_ERR;
+        throw TypeError();
+    }
+}
+
+function unwrapOrNull(n) {
+    return n
+        ? unwrap(n)
+        : null;
+}
+
+// Return the interface object (a DOM node) for the implementation object n,
+// creating it if necessary. Implementation objects define the type
+// of wrapper they require by defining an _idlName property. Most classes
+// do this on their prototype.  For childNodes and attributes arrays, 
+// we have to define _idlName directly on the array objects, however.
+function wrap(n) {
+    if (n === null) return null;
+
+    if (n === undefined)
+        throw new Error("Can't wrap undefined property");
+
+    // If n doesn't have a wrapper already, create one.
+    if (!n._idl) {
+        var typename = n._idlName;
+        if (!typename)
+            throw Error("Implementation object does not define _idlName");
+        var type = idl[typename];
+        if (!type) 
+            throw Error("Unknown idl type " + typename);
+
+        n._idl = type.factory(n);       // Create the wrapper
+        wmset(idlToImplMap, n._idl, n); // Remember it for unwrap()
     }
 
-    function unwrapOrNull(n) {
-        return n
-            ? unwrap(n)
-            : null;
-    }
+    return n._idl;
+}
 
-    // Return the interface object (a DOM node) for the implementation object n,
-    // creating it if necessary. Implementation objects define the type
-    // of wrapper they require by defining an _idlName property. Most classes
-    // do this on their prototype.  For childNodes and attributes arrays, 
-    // we have to define _idlName directly on the array objects, however.
-    function wrap(n) {
-        if (n === null) return null;
-
-        if (n === undefined)
-            throw new Error("Can't wrap undefined property");
-
-        // If n doesn't have a wrapper already, create one.
-        if (!n._idl) {
-            var typename = n._idlName;
-            if (!typename)
-                throw Error("Implementation object does not define _idlName");
-            var type = idl[typename];
-            if (!type) 
-                throw Error("Unknown idl type " + typename);
-
-            n._idl = type.factory(n);       // Create the wrapper
-            wmset(idlToImplMap, n._idl, n); // Remember it for unwrap()
-        }
-
-        return n._idl;
-   }
-
-   return [unwrap, unwrapOrNull, wrap];
-}());

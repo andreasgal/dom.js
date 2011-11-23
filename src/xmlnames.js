@@ -21,7 +21,7 @@
 // NCName          ::=          Name - (Char* ':' Char*) 
 //                              # An XML Name, minus the ":"        
 //
-const [isValidName, isValidQName] = (function() {
+const xml = (function() {
 
     // Most names will be ASCII only. Try matching against simple regexps first
     var simplename = /^[_:A-Za-z][-.:\w]+$/;
@@ -92,5 +92,5 @@ const [isValidName, isValidQName] = (function() {
         return pairs != null && 2*pairs.length === chars.length;
     }
 
-    return [isValidName, isValidQName];
+    return {isValidName: isValidName, isValidQName: isValidQName};
 }());

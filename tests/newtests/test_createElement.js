@@ -32,8 +32,10 @@ div.setAttribute('class', 'CLASS');
 span.setAttribute('class', 'CLASS');
 document.body.appendChild(div);
 document.body.appendChild(span);
-assert(document.body.childNodes[0] === div, document.body.childNodes[0]);
-assert(document.body.childNodes[1] === span, document.body.childNodes[1]);
+assert(document.body.childNodes[0] === div,
+       document.body.childNodes[0].tagName);
+assert(document.body.childNodes[1] === span,
+       document.body.childNodes[1].tagName);
 
 assert(div.nodeType === Node.ELEMENT_NODE);
 assert(div.nodeName === 'DIV', div.nodeName);

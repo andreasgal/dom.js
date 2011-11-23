@@ -37,7 +37,7 @@ AttrArrayProxy.handler = {
                 var v = this.element._attr(name);
                 if (v) {
                     return { 
-                        value: wrap(v, idl.Attr),
+                        value: wrap(v),
                         writable: false,
                         enumerable: true,
                         configurable: true

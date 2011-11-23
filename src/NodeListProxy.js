@@ -15,8 +15,9 @@ function NodeListProxy(list) {
     var handler = O.create(NodeListProxy.handler);
     handler.list = list;
     handler.localprops = O.create(null);
+    var p = Proxy.create(handler, idl.NodeList.prototype);
 
-    return Proxy.create(handler, idl.NodeList.prototype);
+    return p;
 }
 
 // This is the prototype object for the proxy handler object
@@ -27,6 +28,22 @@ function NodeListProxy(list) {
 NodeListProxy.handler = {
     isArrayIndex: function(name) { return String(toULong(name)) === name; },
 
+    // try adding this to make Node proxies work right
+    // Need to work around the "illegal access" error
+/*
+    get: function(receiver, name) {
+
+        if (this.isArrayIndex(name)) {
+            return this.list.item(name);
+        }
+        else if (name in this.localprops) {
+            return this.localprops[name];
+        }
+        else {
+            return idl.NodeList.prototype[name]
+        }
+    },
+*/
     getOwnPropertyDescriptor: function getOwnPropertyDescriptor(name) {
         if (this.isArrayIndex(name)) {
             // If the index is greater than the length, then we'll just

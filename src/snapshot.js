@@ -15,26 +15,20 @@
  * functions and methods to test whether we avoid using them.
  */
 
+function shallow_frozen_copy(o) {
+    var r = {};
+    Object.getOwnPropertyNames(o).forEach(function(n) {
+        Object.defineProperty(r, n, Object.getOwnPropertyDescriptor(o, n));
+    });
+    return Object.freeze(r);
+}
 
-// XXX
-// For now, we just snapshot everything that seems like it might be
-// important. Later, we might come back and optimize this to just take
-// copies of the stuff we actually use.
-const undefined = void 0;
-
-const
-    shallow_frozen_copy = function(o) {
-        var r = {};
-        Object.getOwnPropertyNames(o).forEach(function(n) {
-            Object.defineProperty(r, n, Object.getOwnPropertyDescriptor(o, n));
-        });
-        return Object.freeze(r);
-    },
-
+const undefined = void 0,
 
     // Copy the original state of constructor functions
     // This is not a complete list. I've left out error types I'm unlikely
     // to ever throw.
+
     Array = global.Array,
     Boolean = global.Boolean,
     Date = global.Date,
@@ -46,8 +40,29 @@ const
     RegExp = global.RegExp,
     String = global.String,
     TypeError = global.TypeError,
-    WeakMap = global.WeakMap,
+    WeakMap = global.WeakMap;
 
+
+// String and array generics are not defined in Node, so define them now
+// if needed
+if (!String.indexOf) {
+    Object.getOwnPropertyNames(String.prototype).forEach(function(m) {
+        if (typeof String.prototype[m] !== "function") return;
+        if (m === "length" || m === "constructor") return;
+        String[m] = Function.prototype.call.bind(String.prototype[m]);
+    });
+}
+
+if (!Array.forEach) {
+    Object.getOwnPropertyNames(Array.prototype).forEach(function(m) {
+        if (typeof Array.prototype[m] !== "function") return;
+        if (m === "length" || m === "constructor") return;
+        Array[m] = Function.prototype.call.bind(Array.prototype[m]);
+    });
+}
+
+
+const
     // Some global functions.
     // Note that in strict mode we're not allowed to create new identifiers
     // named eval.  But if we give eval any other name then it does a
@@ -59,15 +74,14 @@ const
     isFinite = global.isFinite,
 
     // Snapshot objects that hold a lot of static methods
-    JSON = shallow_frozen_copy(global.JSON),
-    Math = shallow_frozen_copy(global.Math),
-    Proxy = shallow_frozen_copy(global.Proxy),
-
     // We also want to make a snapshot of the static methods of Object, Array,
     // and String. (Firefox defines useful "Array generics" and "String
     // generics" that are quite helpful to us).  Since we've already bound
     // the names Object, Array, and String, we use O, A, and S as shorthand
     // notation for these frequently-accessed sets of methods.
+    JSON = shallow_frozen_copy(global.JSON),
+    Math = shallow_frozen_copy(global.Math),
+    Proxy = shallow_frozen_copy(global.Proxy),
     O = shallow_frozen_copy(Object),
     A = shallow_frozen_copy(Array), 
     S = shallow_frozen_copy(String),
@@ -102,28 +116,29 @@ const
     // names.  The less-commonly used functions (and those that have
     // name collisions like indexOf, lastIndexOf and slice) can be
     // accessed on the A or S objects.
-    concat = A.concat,
-    every = A.every,
-    foreach = A.forEach,  // Note lowercase e
-    isArray = A.isArray,
-    join = A.join,
-    map = A.map,
-    push = A.push,
-    pop = A.pop,
-    reduce = A.reduce,
-    sort = A.sort,
-    splice = A.splice,
+    concat = A.concat || Function.prototype.call.bind(Array.prototype.concat),
+    every = A.every || Function.prototype.call.bind(Array.prototype.every),
+    // Note lowercase e
+    foreach = A.forEach || Function.prototype.call.bind(Array.prototype.forEach),
+    isArray = A.isArray || Function.prototype.call.bind(Array.prototype.isArray),
+    join = A.join || Function.prototype.call.bind(Array.prototype.join),
+    map = A.map || Function.prototype.call.bind(Array.prototype.map),
+    push = A.push || Function.prototype.call.bind(Array.prototype.push),
+    pop = A.pop || Function.prototype.call.bind(Array.prototype.pop),
+    reduce = A.reduce || Function.prototype.call.bind(Array.prototype.reduce),
+    sort = A.sort || Function.prototype.call.bind(Array.prototype.sort),
+    splice = A.splice || Function.prototype.call.bind(Array.prototype.splice),
 
     // Ditto for the String generic functions
-    fromCharCode = S.fromCharCode,
-    match = S.match,
-    replace = S.replace,
-    search = S.search,
-    split = S.split,
-    substring = S.substring,
-    toLowerCase = S.toLowerCase,
-    toUpperCase = S.toUpperCase,
-    trim = S.trim,
+    fromCharCode = S.fromCharCode || Function.prototype.call.bind(String.prototype.fromCharCode),
+    match = S.match || Function.prototype.call.bind(String.prototype.match),
+    replace = S.replace || Function.prototype.call.bind(String.prototype.replace),
+    search = S.search || Function.prototype.call.bind(String.prototype.search),
+    split = S.split || Function.prototype.call.bind(String.prototype.split),
+    substring = S.substring || Function.prototype.call.bind(String.prototype.substring),
+    toLowerCase = S.toLowerCase || Function.prototype.call.bind(String.prototype.toLowerCase),
+    toUpperCase = S.toUpperCase || Function.prototype.call.bind(String.prototype.toUpperCase),
+    trim = S.trim || Function.prototype.call.bind(String.prototype.trim),
 
     // One more array-related function
     pushAll = Function.prototype.apply.bind(Array.prototype.push),
@@ -133,3 +148,15 @@ const
     test = Function.prototype.call.bind(RegExp.prototype.test)
 
     ;
+
+/*
+// If the generics are not defined, define these methods
+if (!S.indexOf) {
+    S.indexOf = Function.prototype.call.bind(String.prototype.indexOf);
+    A.indexOf = Function.prototype.call.bind(Array.prototype.indexOf);
+    S.lastIndexOf = Function.prototype.call.bind(String.prototype.lastIndexOf);
+    A.lastIndexOf = Function.prototype.call.bind(Array.prototype.lastIndexOf);
+    S.slice = Function.prototype.call.bind(String.prototype.slice);
+    A.slice = Function.prototype.call.bind(Array.prototype.slice);
+}
+*/

@@ -198,7 +198,7 @@ assert(attrs.length === 0);
 assert(attrs instanceof Array);
 e.setAttribute("a", "1");
 assert(attrs.length === 1);
-assert(attrs[0] instanceof Attr);
+assert(attrs[0] instanceof Attr, "attrs[0] instanceof Attr");
 assert(attrs[0].namespaceURI === null);
 assert(attrs[0].localName === "a");
 assert(attrs[0].prefix === null);
@@ -206,7 +206,7 @@ assert(attrs[0].name === "a");
 assert(attrs[0].value === "1");
 e.setAttribute("b", "2");
 assert(attrs.length === 2);
-assert(attrs[1] instanceof Attr);
+assert(attrs[1] instanceof Attr, "attrs[1] instanceof Attr");
 assert(attrs[1].namespaceURI === null);
 assert(attrs[1].localName === "b");
 assert(attrs[1].prefix === null);
@@ -216,7 +216,7 @@ attrs[1].value = "22";
 assert(e.getAttribute("b") === "22");
 e.setAttributeNS(ns, "prefix:c", "3");
 assert(attrs.length === 3);
-assert(attrs[2] instanceof Attr);
+assert(attrs[2] instanceof Attr, "attrs[2] instanceof Attr");
 assert(attrs[2].namespaceURI === ns);
 assert(attrs[2].localName === "c");
 assert(attrs[2].prefix === "prefix");
@@ -245,24 +245,6 @@ assert(attrs.my_prop === 33);
 assert("my_prop" in attrs === true);
 assert(delete attrs.my_prop === true);
 assert("my_prop" in attrs === false);
-// test for/in loops
-attrs.my_prop = 33;
-var props = [];
-for(var p in attrs) if (attrs.hasOwnProperty(p)) props.push(p);
-assert(JSON.stringify(props.sort()) === JSON.stringify(Object.keys(attrs).sort()));
-
-// If we stick something enumerable on Array.prototype, we'll see it
-// when we do a for/in over an attr object
-Array.prototype.foo = "1";
-var props = [];
-for(var p in attrs) props.push(p);
-assert(props.indexOf("foo" !== -1));
-delete Array.prototype.foo;
-var props = [];
-for(var p in attrs) props.push(p);
-assert(props.indexOf("foo" === -1));
-
-
 
 // The idl id property reflects the "id" attribute
 // And the id property works with document.getElementById()
@@ -349,3 +331,22 @@ assertThrows(function() { e.setAttributeNS(ns, "xmlns", "1") },
 assertThrows(function() { e.setAttributeNS("http://www.w3.org/2000/xmlns/",
                                            "foo:bar", "1") },
              DOMException.NAMESPACE_ERR);
+
+// test for/in loops
+// This is at the end of the file because node 0.5.10 doesn't support
+// for/in over proxies and aborts with an error
+attrs.my_prop = 33;
+var props = [];
+for(var p in attrs) if (attrs.hasOwnProperty(p)) props.push(p);
+assert(JSON.stringify(props.sort()) === JSON.stringify(Object.keys(attrs).sort()));
+
+// If we stick something enumerable on Array.prototype, we'll see it
+// when we do a for/in over an attr object
+Array.prototype.foo = "1";
+var props = [];
+for(var p in attrs) props.push(p);
+assert(props.indexOf("foo" !== -1));
+delete Array.prototype.foo;
+var props = [];
+for(var p in attrs) props.push(p);
+assert(props.indexOf("foo" === -1));

@@ -77,13 +77,13 @@ defineLazyProperty(impl, "Document", function() {
         }),
         createProcessingInstruction: constant(function(target, data) {
             if (this.isHTML) NotSupportedError();
-            if (!isValidName(target) || S.indexOf(data, "?>") !== -1)
+            if (!xml.isValidName(target) || S.indexOf(data, "?>") !== -1)
                 InvalidCharacterError();
             return new impl.ProcessingInstruction(this, target, data);
         }),
 
         createElement: constant(function(localName) {
-            if (!isValidName(localName)) InvalidCharacterError();
+            if (!xml.isValidName(localName)) InvalidCharacterError();
 
             if (this.isHTML)
                 localName = toLowerCase(localName);
@@ -94,8 +94,8 @@ defineLazyProperty(impl, "Document", function() {
         }),
 
         createElementNS: constant(function(namespace, qualifiedName) {
-            if (!isValidName(qualifiedName)) InvalidCharacterError();
-            if (!isValidQName(qualifiedName)) NamespaceError();
+            if (!xml.isValidName(qualifiedName)) InvalidCharacterError();
+            if (!xml.isValidQName(qualifiedName)) NamespaceError();
             
             var pos, prefix, localName;
             if ((pos = S.indexOf(qualifiedName, ":")) !== -1) {

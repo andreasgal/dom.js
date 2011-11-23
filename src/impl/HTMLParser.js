@@ -1424,19 +1424,19 @@ const HTMLParser = (function() {
     // Regular expression constants used by the tokenizer and parser
 
     // This regular expression matches the portion of a character reference
-    // (decimal, hex, or named) that comes after the ampersand. Note that it
-    // uses the non-standard "y" modifier to anchor the match start position
-    // to lastIndex.  
-    const CHARREF = /#[0-9]+[^0-9]|#[xX][0-9a-fA-F]+[^0-9a-fA-F]|[a-zA-Z][a-zA-Z0-9]*[^a-zA-Z0-9]/y;
+    // (decimal, hex, or named) that comes after the ampersand. I'd like to
+    // use the y modifier to make it match at lastIndex, but for compatability
+    // with Node, I can't.
+    const CHARREF = /^#[0-9]+[^0-9]|^#[xX][0-9a-fA-F]+[^0-9a-fA-F]|^[a-zA-Z][a-zA-Z0-9]*[^a-zA-Z0-9]/;
 
     // Like the above, but for named char refs, the last char can't be =
-    const ATTRCHARREF = /#[0-9]+[^0-9]|#[xX][0-9a-fA-F]+[^0-9a-fA-F]|[a-zA-Z][a-zA-Z0-9]*[^=a-zA-Z0-9]/y;
+    const ATTRCHARREF = /^#[0-9]+[^0-9]|^#[xX][0-9a-fA-F]+[^0-9a-fA-F]|^[a-zA-Z][a-zA-Z0-9]*[^=a-zA-Z0-9]/;
 
     const DATATEXT = /[^&<\r\u0000\uffff]*/g;
     const RAWTEXT = /[^<\r\u0000\uffff]*/g;
     const PLAINTEXT = /[^\r\u0000\uffff]*/g;
-    const SIMPLETAG = /(\/)?([a-z]+)>/gy;
-    const SIMPLEATTR = /([a-z]+) *= *('[^'&\r\u0000]*'|"[^"&\r\u0000]*"|[^&> \t\n\r\f\u0000][ \t\n\f])/gy;
+    const SIMPLETAG = /^(\/)?([a-z]+)>/;
+    const SIMPLEATTR = /^([a-z]+) *= *('[^'&\r\u0000]*'|"[^"&\r\u0000]*"|[^&> \t\n\r\f\u0000][ \t\n\f])/;
 
     const NONWS = /[^\x09\x0A\x0C\x0D\x20]/;
     const ALLNONWS = /[^\x09\x0A\x0C\x0D\x20]/g;  // like above, with g flag
@@ -2061,7 +2061,7 @@ const HTMLParser = (function() {
         // waiting to see if the next char is LF, or for states that require
         // lookahead...)
         function scanChars() {
-            var codepoint, s, pattern, eof;
+            var codepoint, s, pattern, eof, matched;
 
             while(nextchar < numchars) {
 
@@ -2178,12 +2178,17 @@ const HTMLParser = (function() {
                     // match CR or LF, so we don't need to worry about that 
                     // here.
 
+                    // XXX
+                    // Ideally, I'd use the non-standard y modifier on 
+                    // these regexps and set pattern.lastIndex to nextchar.
+                    // But v8 and Node don't support /y, so I have to do
+                    // the substring below
                     pattern = tokenizer.lookahead;
-                    pattern.lastIndex = nextchar;
-                    if (test(pattern, chars)) {
+                    matched = match(substring(chars, nextchar), pattern);
+                    if (matched) {
                         // Found a match.
                         // lastIndex now points to the first char after it
-                        s = substring(chars, nextchar, pattern.lastIndex);
+                        s = matched[0];
                         eof = false;
                     }
                     else {
@@ -2233,23 +2238,21 @@ const HTMLParser = (function() {
 
         // Shortcut for simple attributes
         function handleSimpleAttribute() {
-            SIMPLEATTR.lastIndex = nextchar-1;
-            var match = exec(SIMPLEATTR, chars);
-            if (!match) return false;
-            
-            var name = match[1];
-            var value = match[2];
+            var matched = match(substring(chars, nextchar-1), SIMPLEATTR);
+            if (!matched) return false;
+            var name = matched[1];
+            var value = matched[2];
             var len = value.length;
             switch(value[0]) {
             case '"':
             case "'":
                 value = substring(value, 1, len-1);
-                nextchar += (match[0].length-1);
+                nextchar += (matched[0].length-1);
                 tokenizer = after_attribute_value_quoted_state;            
                 break;
             default:
                 tokenizer = before_attribute_name_state;
-                nextchar += (match[0].length-1);
+                nextchar += (matched[0].length-1);
                 value = substring(value, 0, len-1);
                 break;
             }
@@ -2362,11 +2365,10 @@ const HTMLParser = (function() {
         // A shortcut: look ahead and if this is a open or close tag
         // in lowercase with no spaces and no attributes, just emit it now.
         function emitSimpleTag() {
-            SIMPLETAG.lastIndex = nextchar;
-            var match = exec(SIMPLETAG, chars);
-            if (!match) return false;
-            var tagname = match[2];
-            var endtag = match[1];
+            var matched = match(substring(chars, nextchar), SIMPLETAG);
+            if (!matched) return false;
+            var tagname = matched[2];
+            var endtag = matched[1];
             if (endtag) {
                 nextchar += (tagname.length+2);
                 insertToken(ENDTAG, tagname);

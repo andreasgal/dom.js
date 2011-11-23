@@ -1,4 +1,6 @@
-
+// In a node module, in non-strict mode, we get the global object
+// one way.  In spidermonkey, in strict mode, we just use this.
+var global = (function() { return this; }()) || this;
 
 assert(Event);
 assert(EventTarget);
@@ -99,7 +101,7 @@ assert(defaultcustom.cancelable === false);
 }());
 
 // Does a content event handler work?
-(function(global) {
+(function() {
     var elt = document.createElement("div");
     var evt = document.createEvent("Event");
     evt.initEvent("click", true, true);
@@ -108,7 +110,7 @@ assert(defaultcustom.cancelable === false);
     elt.setAttribute("onclick", "pass = true;");
     elt.dispatchEvent(evt);
     assert(global.pass === true);
-}(this));
+}());
 
 // Are handlers invoked before listeners?
 (function() {
@@ -126,7 +128,7 @@ assert(defaultcustom.cancelable === false);
 // Does the scope chain get set appropriately for content attribute handlers?
 // XXX: can't test the form element on the scope chain yet, since HTMLElement
 // does not yet support the form property
-(function(global) {
+(function() {
     var elt = document.createElement("div");
     var evt = document.createEvent("Event");
     evt.initEvent("click", true, true);
@@ -139,7 +141,7 @@ assert(defaultcustom.cancelable === false);
     elt.dispatchEvent(evt);
 
     assert(global.result === "globalxdocyeltz");
-}(this));
+}());
 
 // Do idl and content handlers respond as expected when the other is set?
 (function() {
@@ -159,8 +161,6 @@ assert(defaultcustom.cancelable === false);
     // value of the content attribute.  This is the correct behavior.
     assert(elt.getAttribute("onclick") === "foo()");
 }());
-
-var global = this;
 
 // Now test that all of these event handler attributes work
 ["abort",

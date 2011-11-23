@@ -365,7 +365,7 @@ defineLazyProperty(impl, "Element", function() {
 
         // Check for errors, and then set the attribute
         setAttribute: constant(function setAttribute(qname, value) {
-            if (!isValidName(qname)) InvalidCharacterError();
+            if (!xml.isValidName(qname)) InvalidCharacterError();
             if (this.isHTML) qname = toLowerCase(qname);
             if (substring(qname, 0, 5) === "xmlns") NamespaceError();
             this._setAttribute(qname, value);
@@ -420,8 +420,8 @@ defineLazyProperty(impl, "Element", function() {
 
         // Do error checking then call _setAttributeNS
         setAttributeNS: constant(function setAttributeNS(ns, qname, value) {
-            if (!isValidName(qname)) InvalidCharacterError();
-            if (!isValidQName(qname)) NamespaceError();
+            if (!xml.isValidName(qname)) InvalidCharacterError();
+            if (!xml.isValidQName(qname)) NamespaceError();
 
             var pos = S.indexOf(qname, ":");
             var prefix = (pos === -1) ? null : substring(qname, 0, pos);

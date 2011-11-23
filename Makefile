@@ -32,7 +32,7 @@ FILES= \
 	src/impl/HTMLScriptElement.js \
 	src/impl/HTMLParser.js \
 	src/impl/CSSStyleDeclaration.js \
-	src/impl/cssparser.js\
+	src/impl/cssparser.js \
 	src/main.js
 
 ###  Details for jstests.py
@@ -99,6 +99,51 @@ dom.js: LICENSE ${FILES} src/loose.js
 	@echo "Created $@"
 
 
+# The node version of dom.js
+domnode.js: LICENSE ${FILES} src/loose.js
+# Output preamble
+	@rm -f $@;
+	@echo '// This file was automatically generated; DO NOT EDIT.' >> $@
+	@echo '/************************************************************************' >> $@
+	@cat LICENSE >> $@
+	@echo '************************************************************************/' >> $@
+
+# Define the global var.  In regular dom.js, this is a method argument
+# But in this version we don't need the method since we have modules
+# so just define it as a constant.
+	@echo 'const global = (function() { return this; }());' >> $@
+
+# Output src/loose.js for any code that requires non-strict mode
+	@echo '/************************************************************************' >> $@
+	@echo ' * src/loose.js' >> $@
+	@echo ' ************************************************************************/' >> $@
+	@echo >> $@
+	@echo '//@line 1 "src/loose.js"' >> $@
+	@cat src/loose.js >> $@
+
+# Append each of the module files
+# Prefix each one with an //@line comment to specify the source filename
+# This gives the correct filename for static compilation errors when
+# run in the js shell with js -e 'options("atline")' -f dom.js
+# But it messes up the line numbers for runtime errors and always reports
+# the last filename in the file...
+	@for f in ${FILES} ;\
+	do \
+		echo >> $@ ;\
+		echo >> $@ ;\
+		echo >> $@ ;\
+		echo '/************************************************************************' >> $@;\
+		echo ' * ' $$f >> $@ ;\
+		echo ' ************************************************************************/' >> $@;\
+		echo >> $@ ;\
+		echo '//@line 1 "'$$f'"' >> $@ ;\
+		cat $$f >> $@ ;\
+	done
+
+	@chmod 444 $@
+	@echo "Created $@"
+
+
 # Create domcore.js from domcore.idl
 src/domcore.js: src/domcore.idl tools/idl2domjs
 	@rm -f $@;
@@ -132,6 +177,28 @@ test-detailed: dom.js
 coverage: dom.js
 	rm -f coverage.html
 	tools/test_runner
+
+nodetests: domnode.js
+	@tests/nodetests test_DOMException.js
+	@tests/nodetests test_attr.js
+	@tests/nodetests test_basic.js
+	@tests/nodetests test_collections.js
+	@tests/nodetests test_createComment.js
+	@tests/nodetests test_createElement.js
+	@tests/nodetests test_createProcessingInstruction.js
+	@tests/nodetests test_createTextNode.js
+	@tests/nodetests test_document.js
+	@tests/nodetests test_events.js
+	@tests/nodetests test_hierarchy.js
+	@tests/nodetests test_importNode.js
+	@tests/nodetests test_innerHTML.js
+	@tests/nodetests test_lookup.js
+	@tests/nodetests test_namespaces.js
+	@tests/nodetests test_reflected_attributes.js
+	@tests/nodetests test_replaceChild.js
+	@tests/nodetests node_test_tokenizer.js
+	@tests/nodetests node_test_parser.js
+	@tests/nodetests test_attributes.js
 
 clean:
 	@rm -f dom.js

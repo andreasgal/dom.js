@@ -101,7 +101,13 @@ function IDLInterface(o) {
     }
 
     // WebIDL says that the interface object has this prototype property
-    defineHiddenConstantProp(interfaceObject, "prototype", prototype);
+    interfaceObject.prototype = prototype;
+    // Make it read-only
+    O.defineProperty(interfaceObject, "prototype", { writable: false });
+    // XXX: the line below works in spidermonkey, but not in node.
+    // probably related the fact that prototype already exists and
+    // is writable but non-configurable?
+    //  defineHiddenConstantProp(interfaceObject, "prototype", prototype);
 
     // WebIDL also says that the prototype points back to the interface object
     // instead of the real constructor.

@@ -54,8 +54,10 @@ parent.childNodes.foo = "bar";
 assert(parent.childNodes.foo === "bar", parent.childNodes.foo);
 
 // Trigger the enumerate func
-for (var i in parent.childNodes) {
-}
+// XXX: commented out for now since it isn't actually asserting anything
+// and because the for/in over a proxy crashes node 0.5.10
+// for (var i in parent.childNodes) {
+// }
 
 delete parent.childNodes.foo;
 assert(parent.childNodes.foo === undefined, parent.childNodes.foo);
