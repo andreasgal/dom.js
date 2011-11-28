@@ -485,7 +485,10 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // See http://www.whatwg.org/specs/web-apps/current-work/multipage/webappapis.html#create-a-script
             try {
                 var geval = eval;
+                var olddoc = global.document;
+                global.document = wrap(this.ownerDocument);
                 geval(code);
+                global.document = olddoc;
             }
             catch(e) {
                 // XXX fire an onerror event before reporting
