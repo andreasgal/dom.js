@@ -65,7 +65,6 @@ defineLazyProperty(impl, "EventTarget", function() {
         // internal use, one that does not set isTrusted to false.
         // 
         dispatchEvent: function dispatchEvent(event) {
-
             function invoke(target, event) {
                 var type = event.type, phase = event.eventPhase;
                 event.currentTarget = target;

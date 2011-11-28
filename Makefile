@@ -43,6 +43,7 @@ NUM_CORES=4
 TEST_PAT='' #override from command line to limit the tests
 DOM_TEST_DIR=tests/cmdline
 
+all: dom.js domnode.js
 
 dom.js: LICENSE ${FILES} src/loose.js
 # Output preamble
@@ -107,11 +108,6 @@ domnode.js: LICENSE ${FILES} src/loose.js
 	@echo '/************************************************************************' >> $@
 	@cat LICENSE >> $@
 	@echo '************************************************************************/' >> $@
-
-# Define the global var.  In regular dom.js, this is a method argument
-# But in this version we don't need the method since we have modules
-# so just define it as a constant.
-	@echo 'const global = (function() { return this; }());' >> $@
 
 # Output src/loose.js for any code that requires non-strict mode
 	@echo '/************************************************************************' >> $@

@@ -129,6 +129,18 @@ interface DocumentFragment : Node {
 // The OverrideBuiltins attribute is from the HTML spec.
 [OverrideBuiltins]
 interface Document : Node {
+  // XXX: a few private methods that dom.js needs to expose
+
+  // This is a private method for registering a mutation handler on the
+  // document. The renderer uses this to track changes to the document tree.
+  void _setMutationHandler(MozMutationHandler handler);
+
+  // This is a private method that the renderer process uses to pass
+  // events back to dom.js so that they can be dispatched.  Note that the
+  // target argument is a nid, not a node.  Unlike the public 
+  // EventTarget.dispatchEvent() method, this one dispatches trusted events
+  void _dispatchEvent(unsigned long target, DOMString type, EventInit details);
+
   readonly attribute DOMImplementation implementation;
            attribute DOMString documentURI;
   readonly attribute DOMString compatMode;

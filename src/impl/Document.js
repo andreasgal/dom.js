@@ -21,6 +21,7 @@ defineLazyProperty(impl, "Document", function() {
         // Documents are always rooted, by definition
         this._nid = 1;
         this._nextnid = 2; // For numbering children of the document
+        this._nodes = [null, this];  // nid to node map
 
         // This maintains the mapping from element ids to element nodes.
         // We may need to update this mapping every time a node is rooted
@@ -54,6 +55,18 @@ defineLazyProperty(impl, "Document", function() {
 
     Document.prototype = O.create(impl.Node.prototype, {
         _idlName: constant("Document"),
+
+        _setMutationHandler: constant(function(handler) {
+            this.mutationHandler = handler;
+        }),
+
+        _dispatchEvent: constant(function(targetNid, type, details) {
+            var target = this._nodes[targetNid];
+            if (!target) return;
+            target.dispatchEvent(new impl.Event(type, details));
+        }),
+
+
 //        nodeType: constant(DOCUMENT_NODE),
         nodeName: constant("#document"),
         nodeValue: attribute(fnull, fnoop),
@@ -132,10 +145,14 @@ defineLazyProperty(impl, "Document", function() {
             var name = replacementEvent[interfaceName] || interfaceName;
             var constructor = impl[supportedEvents[name]];
 
-            if (constructor) 
-                return new constructor();
-            else
+            if (constructor) {
+                var e = new constructor();
+                e._initialized = false;
+                return e;
+            }
+            else {
                 NotSupportedError();
+            }
         }),
 
 
@@ -612,6 +629,7 @@ defineLazyProperty(impl, "Document", function() {
 
     function root(n) {
         n._nid = n.ownerDocument._nextnid++;
+        n.ownerDocument._nodes[n._nid] = n;
         // Manage id to element mapping 
         if (n.nodeType === ELEMENT_NODE) {
             var id = n.getAttribute("id");
@@ -629,6 +647,7 @@ defineLazyProperty(impl, "Document", function() {
             var id = n.getAttribute("id");
             if (id) n.ownerDocument.delId(id, n);
         }
+        delete n.ownerDocument._nodes[n._nid];
         delete n._nid;
     }
 
@@ -668,7 +687,7 @@ defineLazyProperty(impl, "Document", function() {
     }
 
 
-    // These function return predicates for filtering elements.
+    // These functions return predicates for filtering elements.
     // They're used by the Document and Element classes for methods like
     // getElementsByTagName and getElementsByClassName
 

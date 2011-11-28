@@ -10,6 +10,36 @@ var doc = frame.document;
 // XXX: is my starting nid off by one?
 var nodes = [null, doc];  // Maps nid to node
 
+// Set up event handling
+function handleEvent(e) {
+    ws.send("event " + JSON.stringify({
+        type: e.type,
+        bubbles: e.bubbles,
+        cancelable: e.cancelable,
+        target: e.target._nid,
+    }));
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    return false;
+}
+
+[
+    "click",
+    "mousedown",
+    "mouseup",
+    "mousemove",
+    "mouseover",
+    "mouseout",
+    "keydown",
+    "keyup",
+    "keypress",
+    "focus",
+    "blur"
+].forEach(function(t) {
+    doc.addEventListener(t, handleEvent, true);
+});
+
+
 ws.onmessage = function(e) {
     console.log(e.data);
 
@@ -63,6 +93,7 @@ ws.onmessage = function(e) {
 };
 
 function assignNid(node, nid) {
+    node._nid = nid;
     nodes[nid++] = node;
 
     for(var kid = node.firstChild; kid; kid = kid.nextSibling) {
@@ -261,6 +292,11 @@ var DOMSTR = (function() {
                 else
                     e.setAttributeNS(parseNamespace(), next(), next());
             }
+
+            // XXX 
+            // Quick hack to prevent scripts from being run in the iframe
+            if (e.tagName === "SCRIPT")
+                e.setAttribute("type", "dont-run-me");
 
             var numkids = parseLength();
             for(var i = 0; i < numkids; i++) {

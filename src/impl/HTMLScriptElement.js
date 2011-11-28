@@ -325,23 +325,48 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                     this.ownerDocument._parser.pause();
                 }
 
+                // XXX: this is a hack
+                // If we're running in node, and the document has an 
+                // _address, then we can resolve the URL
+                if (this.ownerDocument._address && 
+                    typeof require === "function") {
+                    url = require('url').resolve(this.ownerDocument._address,
+                                                 url);
+                }
+
                 var script = this;
                 var xhr = new XMLHttpRequest();
-                // XXX: need to resolve the URL to make it absolute
                 xhr.open("GET", url);
                 xhr.send();
-                xhr.onloadend = function() {
+
+                // xhr.onloadend = function() {
+                //     if (xhr.status === 200 ||
+                //         xhr.status === 0 /* file:// urls */) {
+                //         script._script_text = xhr.responseText;
+                //         script._execute();
+                //         delete script._script_text;
+                //     }
+                //     // Do this even if we failed
+                //     if (script.ownerDocument._parser) {
+                //         script.ownerDocument._parser.resume();
+                //     }
+                // };
+
+                // My node version of XHR defines the old event handlers
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState !== 4) return;
                     if (xhr.status === 200 ||
                         xhr.status === 0 /* file:// urls */) {
                         script._script_text = xhr.responseText;
                         script._execute();
                         delete script._script_text;
                     }
+                    
                     // Do this even if we failed
                     if (script.ownerDocument._parser) {
                         script.ownerDocument._parser.resume();
                     }
-                };
+                }
             }
             else {
                 
@@ -459,7 +484,8 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // There is actually more to executing a script than this.
             // See http://www.whatwg.org/specs/web-apps/current-work/multipage/webappapis.html#create-a-script
             try {
-                (new Function("document", code))(wrap(this.ownerDocument));
+                var geval = eval;
+                geval(code);
             }
             catch(e) {
                 // XXX fire an onerror event before reporting

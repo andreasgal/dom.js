@@ -1892,14 +1892,17 @@ const HTMLParser = (function() {
             // Internal function used from HTMLScriptElement to pause the
             // parser while a script is being loaded from the network
             pause: function() {
-                print("pausing parser");
+                // print("pausing parser");
                 paused++;
             },
 
             // Called when a script finishes loading
             resume: function() {
-                print("resuming parser");
+                // print("resuming parser");
                 paused--;
+                // XXX: added this to force a resumption.
+                // Is this the right thing to do?
+                this.parse("");
             },
 
             // Parse the HTML text s.

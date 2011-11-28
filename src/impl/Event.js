@@ -15,7 +15,7 @@ defineLazyProperty(impl, "Event", function() {
         // XXX: Would it be better to inherit these defaults from the prototype?
         this._propagationStopped = false;
         this._immediatePropagationStopped = false;
-        this._initialized = false;
+        this._initialized = true;
         this._dispatching = false;
 
         // Now initialize based on the constructor arguments (if any)

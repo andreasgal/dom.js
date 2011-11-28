@@ -91,7 +91,6 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
     O.defineProperty(o, p, {
         get: function() {            // When the property is first retrieved
             var realval = f();       // compute its actual value
-            print("getting property value", p);
             O.defineProperty(o, p, { // Store that value
                 value: realval,
                 writable: !readonly,
@@ -133,7 +132,6 @@ function defineLazyProperty(o, p, f) {
             // If the property is writable and is set before being read,
             // just replace the value and f() will never be invoked
 //            delete o[p];  // XXX SM doesn't work right if we don't do this
-            print("setting", p, "before reading");
             O.defineProperty(o, p, {
                 value: newval,
                 writable: true,
@@ -142,7 +140,6 @@ function defineLazyProperty(o, p, f) {
             });
 
             newval = o[p];
-            print(newval, typeof newval);
         },
         enumerable: true,
         configurable: true

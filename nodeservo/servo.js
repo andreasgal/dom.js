@@ -7,6 +7,20 @@ var WebSocketServer = require('websocket').server;
 var http = require('http');
 var fs = require('fs');
 
+global.XMLHttpRequest = require("XMLHttpRequest").XMLHttpRequest;
+
+// Define a simple window object
+global.window = global;
+window.navigator = Object.freeze({
+    userAgent: "dom.js",
+    appName: "dom.js",
+    appVersion: "0.1",
+    platform: "unknown"
+});
+
+// Map connection objects to document objects
+var documents = new WeakMap();
+
 var server = http.createServer(function(request, response) {
     console.log((new Date()) + " Received request for " + request.url);
     response.writeHead(404);
@@ -31,10 +45,26 @@ wsServer.on('request', function(request) {
     console.log((new Date()) + " Connection accepted.");
     connection.on('message', function(message) {
         if (message.type === 'utf8') {
-            console.log("Received Message: " + message.utf8Data);
             var cmd = message.utf8Data;
             if (cmd.substring(0,5) === "load ") {
                 load(connection, cmd.substring(5));
+            }
+            else if (cmd.substring(0,6) === "event ") {
+                var e = JSON.parse(cmd.substring(6));
+                console.log("Event", e);
+
+                var doc = documents.get(connection);
+                if (doc) {
+                    // XXX: kind of a hack
+                    // Set the document of the global window before
+                    // dispatching the event.
+                    window.document = doc;
+                    doc._dispatchEvent(e.target, e.type, {
+                        // XXX: add more event detail fields
+                        bubbles: e.bubbles,
+                        cancelable: e.cancelable
+                    });
+                }
             }
         }
     });
@@ -43,23 +73,26 @@ wsServer.on('request', function(request) {
     });
 });
 
-// Map connection objects to document objects
-var connections = new WeakMap();
-
 function load(connection, url) {
     console.log("loading ", url);
 
     var parser = document.implementation.mozHTMLParser(url);
     
     var doc = parser.document();
-    connections.set(connection, document);
-    doc.implementation.mozSetOutputMutationHandler(doc, function(msg) {
+    window.document = doc;
+    window.location = url;
+    documents.set(connection, doc);
+    doc._setMutationHandler(function(msg) {
         connection.sendUTF(JSON.stringify(msg));
     });
 
-    // for now the url is a filename
-    // XXX: make this fetch any url.
-    // Also, change the HTML parser to use 
-    // something other than xhr for scxripts when running in node.
-    parser.parse(fs.readFileSync(url, "utf-8"));
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", url);
+    xhr.send();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState !== 4) return;
+        if (xhr.status === 200 || xhr.status === 0) {
+            parser.parse(xhr.responseText);
+        }
+    };
 }
