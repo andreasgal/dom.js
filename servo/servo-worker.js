@@ -28,9 +28,6 @@ onerror = function(err) {
     return false;
 }
 
-var jQuery;
-var $;
-
 function handle_message(message) {
     try {
         var data = message.data;
@@ -60,8 +57,6 @@ function handle_message(message) {
             reply.finished = true;
             parsing[reply.parser] = undefined;
             postMessage("Document loaded.");
-            jQuery = window.jQuery;
-            $ = window.$;
             var event = document.createEvent('event');
             event.initEvent('load', false, true);
             document.dispatchEvent(event);
