@@ -1,4 +1,14 @@
-Load: <input id='url'> <button onclick="loadURL()">Load</button>
+<style type="text/css">
+iframe { height: 90%; width: 100%; }
+input { width: 85%; }
+form { margin-bottom: 0em; }
+</style>
+
+<form onsubmit="return loadURL()">
+    Load:
+    <input id='url'>
+    <button>Load</button>
+</form>
 <br>
 <!-- need the # url to defeat same-origin restrictions -->
 <iframe name="myframe" width=500 height=800 src="#"></iframe>
@@ -108,6 +118,7 @@ function loadURL() {
     while(doc.hasChildNodes()) doc.removeChild(doc.firstChild);
     var msg = "load " + url.value;
     ws.send(msg);
+    return false;
 }
 
 // The value of a Text, Comment or PI node changed

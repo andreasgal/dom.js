@@ -12,6 +12,7 @@ global.XMLHttpRequest = require("XMLHttpRequest").XMLHttpRequest;
 
 // Define a simple window object
 global.window = global;
+window.location = {href: "http://example.com/foo", search: "", protocol: "http", pathname: "/foo"}
 window.navigator = Object.freeze({
     userAgent: "dom.js",
     appName: "dom.js",
@@ -95,7 +96,8 @@ function load(connection, url) {
     
     var doc = parser.document();
     window.document = doc;
-    window.location = url;
+    // TODO parse url and set other properties of location
+    window.location.href = url;
     documents.set(connection, doc);
     doc._setMutationHandler(function(msg) {
         connection.sendUTF(JSON.stringify(msg));
