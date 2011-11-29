@@ -339,20 +339,23 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                 xhr.open("GET", url);
                 xhr.send();
 
-                // xhr.onloadend = function() {
-                //     if (xhr.status === 200 ||
-                //         xhr.status === 0 /* file:// urls */) {
-                //         script._script_text = xhr.responseText;
-                //         script._execute();
-                //         delete script._script_text;
-                //     }
-                //     // Do this even if we failed
-                //     if (script.ownerDocument._parser) {
-                //         script.ownerDocument._parser.resume();
-                //     }
-                // };
+                // Web workers support this handler but not the old
+                // onreadystatechange handler
+                xhr.onloadend = function() {
+                    if (xhr.status === 200 ||
+                        xhr.status === 0 /* file:// urls */) {
+                        script._script_text = xhr.responseText;
+                        script._execute();
+                        delete script._script_text;
+                    }
+                    // Do this even if we failed
+                    if (script.ownerDocument._parser) {
+                        script.ownerDocument._parser.resume();
+                    }
+                };
 
-                // My node version of XHR defines the old event handlers
+                // My node version of XHR responds to this handler but
+                // not to onloadend above.
                 xhr.onreadystatechange = function() {
                     if (xhr.readyState !== 4) return;
                     if (xhr.status === 200 ||
@@ -487,7 +490,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                 var geval = eval;
                 var olddoc = global.document;
                 global.document = wrap(this.ownerDocument);
-                geval(code);
+                evalScript(code);
                 global.document = olddoc;
             }
             catch(e) {

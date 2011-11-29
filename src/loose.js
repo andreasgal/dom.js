@@ -30,3 +30,10 @@ EventHandlerBuilder.prototype.build = function build() {
             with(this.element)
                 return eval("(function(event){" + this.body + "})");
 };
+
+// Define this here so it is not in strict mode
+// Because strict mode eval can't define variables.
+function evalScript(s) {
+    var geval = eval; // Do an indirect eval to get global context
+    geval(s);
+}
