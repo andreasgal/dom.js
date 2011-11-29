@@ -2,16 +2,13 @@
 <html>
 	<head>
 		<script type="text/javascript">
-
-var counter = 0;
+var counter = 1;
 function func() {
 	var out = document.getElementById('output');
 	out.innerHTML = 'Hello World ' + counter++; setTimeout(func, 1000);
 }
-$(document).ready(function() {
-	var out = document.getElementById('output');
-	out.innerHTML = 'Hello World ' + counter++; setTimeout(func, 1000);
-});
+
+document.addEventListener('load', func);
 
 		</script>
 	</head>
