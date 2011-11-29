@@ -12,7 +12,13 @@ global.XMLHttpRequest = require("XMLHttpRequest").XMLHttpRequest;
 
 // Define a simple window object
 global.window = global;
-window.location = {href: "http://example.com/foo", search: "", protocol: "http", pathname: "/foo"}
+window.location = {
+    href: "http://example.com/foo",
+    search: "",
+    protocol: "http",
+    pathname: "/foo",
+    toString: function() { return this.href; }
+};
 window.navigator = Object.freeze({
     userAgent: "dom.js",
     appName: "dom.js",
@@ -109,7 +115,19 @@ function load(connection, url) {
     xhr.onreadystatechange = function() {
         if (xhr.readyState !== 4) return;
         if (xhr.status === 200 || xhr.status === 0) {
-            parser.parse(xhr.responseText);
+            parser.parse(xhr.responseText, true);
+
+            console.log("done parsing; try to trigger onload stuff");
+
+            doc._dispatchEvent(doc, "DOMContentLoaded", {});
+            // XXX: this is supposed to be dispatched at the window
+            // or at least bubble up to the window.
+            doc._dispatchEvent(doc, "load", {});
+
+            if (typeof jQuery !== "undefined") {
+                console.log("calling jQuery.ready");
+                jQuery.ready();
+            }
         }
     };
 }

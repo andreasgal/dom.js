@@ -495,7 +495,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             }
             catch(e) {
                 // XXX fire an onerror event before reporting
-                error(e + e.stack);
+                error(e + " " + e.stack);
             }
 
             // Decrement the ignore-destructive-writes counter of neutralized
