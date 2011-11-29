@@ -6,6 +6,7 @@ require('../domnode.js');
 var WebSocketServer = require('websocket').server;
 var http = require('http');
 var fs = require('fs');
+var path = require('path');
 
 global.XMLHttpRequest = require("XMLHttpRequest").XMLHttpRequest;
 
@@ -22,6 +23,20 @@ window.navigator = Object.freeze({
 var documents = new WeakMap();
 
 var server = http.createServer(function(request, response) {
+    if (request.url === "/") {
+        response.writeHead(200, {'Content-type': 'text/html'});
+
+        var filename = path.join(
+            path.dirname(process.argv[1]), 'client.html');
+
+        fs.readFile(filename, function (err, data) {
+            if (err) throw err;
+            console.log("file!", filename);
+            response.write(data, "binary");
+            response.end();
+        });
+        return;
+    }
     console.log((new Date()) + " Received request for " + request.url);
     response.writeHead(404);
     response.end();
