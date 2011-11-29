@@ -1,4 +1,5 @@
 
+"use strict";
 
 const CHUNK_SIZE = 32767;
 const NULL = '\0';
@@ -10,6 +11,7 @@ var glcanvas = null;
 var glctx = null;
 
 var worker = new Worker('servo-worker.js');
+
 var depths = {1: 0};
 var colors = {
     html: 'green',
@@ -31,9 +33,6 @@ var colors = {
     p: 'teal',
     br: 'olive'
 };
-
-// for building the dom explorer view
-var previous = null;
 
 // for building the canvas view
 var tree_offset = 0;
@@ -80,6 +79,9 @@ function parse_event(event) {
     if (evt.nid === undefined) {
         evt.nid = -1;
     }
+
+    var nodeid = evt.nid;
+
     if (evt.parent !== undefined) {
         depths[evt.nid] = depths[evt.parent] + 1;
     } else {
@@ -130,7 +132,7 @@ function parse_event(event) {
         return;
     }
 
-    console.info(domjsNodeStr);
+    //console.info(domjsNodeStr);
     switch (domjsNodeStr.charAt(0)) {
       case 'T':
         var val = domjsNodeStr.substr(1).split(NULL)[0];
@@ -152,6 +154,24 @@ function parse_event(event) {
       case 'E':
         var spl = domjsNodeStr.substr(1).split(NULL);
         var attrstr = spl[1];
+
+        child.setAttribute('class', 'element');
+
+        ctx.fillStyle = "rgb(150,0,0)";  
+
+        if (colors[spl[0]] !== undefined) {
+            child.setAttribute('style', 'color: ' + colors[spl[0]]);
+			ctx.fillStyle = colors[spl[0]];  
+        }
+
+        tree_offset += 1;
+        ctx.fillRect(5 * (depths[evt.nid] - 1), 5 * (tree_offset - 1), 5, 5); 
+
+        if (attrstr === undefined) {
+            out("<", spl[0], ">");
+            return;
+        }
+
         var l = attrstr.charCodeAt(0);
         if (l === 0xFFFF) l = parseInt(attrstr.charCodeAt(1 + 1));
 
@@ -170,26 +190,18 @@ function parse_event(event) {
         } else {
             out("<", spl[0], ">");
         }
-        child.setAttribute('class', 'element');
 
-        ctx.fillStyle = "rgb(150,0,0)";  
-
-        if (colors[spl[0]] !== undefined) {
-            child.setAttribute('style', 'color: ' + colors[spl[0]]);
-			ctx.fillStyle = colors[spl[0]];  
-        }
-
-        tree_offset += 1;
-        ctx.fillRect(5 * (depths[evt.nid] - 1), 5 * (tree_offset - 1), 5, 5); 
-        //canvas.height = 5 * tree_offset;
         if (children !== null && children != ["", ""]) {
+            //console.log("children", children);
             var numchildren = parseInt(children[0].charCodeAt(0));
             if (numchildren === numchildren) {
                 console.log('numchildren', numchildren);
                 children[0] = children[0].slice(1);
+                var offset = 0;
                 for (var i = 0; i < numchildren; i++) {
-                    parse_event({data: {recursive: true,
-                        type: 6, parent: evt.nid, nid: evt.nid + 1 + i, child: children[i]
+                    nodeid++;
+                    nodeid = parse_event({data: {
+                        type: 6, parent: evt.nid, nid: nodeid, child: children
                     }});
                 }
             }
@@ -202,9 +214,7 @@ function parse_event(event) {
       default:
         throw new Error('Unhandled case of stringified node: ' + domjsNodeStr.charAt(0));
     }
-    if (evt.type === 6) {
-        previous = child;
-    }
+    return nodeid;
 }
 
 worker.onmessage = parse_event;
