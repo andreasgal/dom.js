@@ -8,7 +8,7 @@ var addEventListener = function(type, cb, bubble) {
 };
 
 var navigator = { userAgent: 'servo 0.1 webworker' }
-var location = {href: "http://example.com/foo", search: ""}
+var location = {href: "http://example.com/foo", search: "", protocol: "http"}
 var window = this;
 
 function print() {
