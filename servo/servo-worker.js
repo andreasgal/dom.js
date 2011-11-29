@@ -7,15 +7,9 @@ var addEventListener = function(type, cb, bubble) {
     document.addEventListener(type, cb, bubble);
 };
 
-var window = {
-    navigator: {
-        userAgent: 'servo 0.1 webworker'
-    },
-    document: document
-}
-
-var jQuery;
-var $;
+var navigator = { userAgent: 'servo 0.1 webworker' }
+var location = {href: "http://example.com/foo", search: ""}
+var window = this;
 
 function print() {
     var out = '';
@@ -31,12 +25,13 @@ var parser_num = 1;
 var parsing = {}
 
 onerror = function(err) {
-//	var stack = new Error().stack;
-//	postMessage("ERROR " + err);// + " " + stack);
     return false;
 }
 
-onmessage = function(message) {
+var jQuery;
+var $;
+
+function handle_message(message) {
     try {
         var data = message.data;
         var reply = {}
@@ -45,10 +40,8 @@ onmessage = function(message) {
         if (data.url) {
             parser = document.implementation.mozHTMLParser(data.url);
             var doc = parser.document();
+            // work around for a proxy bug in ff
             Object.defineProperty(this, "document", { value: doc});
-            importScripts('jquery.js', 'qunit.js');
-            jQuery = window.jQuery;
-            $ = jQuery;
 
             doc.implementation.mozSetOutputMutationHandler(
                 doc, function(msg) { postMessage(msg) }
@@ -67,6 +60,8 @@ onmessage = function(message) {
             reply.finished = true;
             parsing[reply.parser] = undefined;
             postMessage("Document loaded.");
+            jQuery = window.jQuery;
+            $ = window.$;
             var event = document.createEvent('event');
             event.initEvent('load', false, true);
             document.dispatchEvent(event);
@@ -75,4 +70,9 @@ onmessage = function(message) {
     } catch (e) {
         postMessage("ERR " + e);
     }
+}
+
+onmessage = function(message) {
+    var global = this;
+    setTimeout(function() { handle_message.call(global, message) }, 0);
 }
