@@ -42,15 +42,15 @@ var send_chunk = null;
 
 function maybe_insert_node(evt, child) {
     if (evt.type === 6) {
+        if (evt.nid === 42 || evt.nid == 41) {
+            console.log(evt, document.getElementById(evt.parent));
+        }
         if (evt['parent'] !== undefined) {
             var parent = document.getElementById(evt.parent);
             if (parent) {
                 parent.appendChild(child);
-            } else {
-                document.getElementById('output').appendChild(child);
+                return;
             }
-        } else {
-            document.getElementById('output').appendChild(child);
         }
     }
 }
@@ -80,10 +80,10 @@ function parse_event(event) {
         evt.nid = -1;
     }
 
-    var nodeid = evt.nid;
+    var nid = evt.nid;
 
     if (evt.parent !== undefined) {
-        depths[evt.nid] = depths[evt.parent] + 1;
+        depths[nid] = depths[evt.parent] + 1;
     } else {
         if (evt.type === 4) {
             // remove event
@@ -92,7 +92,8 @@ function parse_event(event) {
             if (node === null) {
                 console.log(JSON.stringify(evt));
             } else {
-                node.parentNode.removeChild(node);
+                node.setAttribute('class', node.getAttribute('class') + ' removed');
+                //node.parentNode.removeChild(node);
             }
         } else if (evt.type === 1) {
             // mutate value event
@@ -109,11 +110,11 @@ function parse_event(event) {
     }
 
     var child = document.createElement('span');
-    child.setAttribute('id', evt.nid);
+    child.setAttribute('id', nid);
     var node = document.createElement('span');
     var nodeId = document.createElement('span');
     nodeId.setAttribute('class', 'node-id');
-    nodeId.appendChild(document.createTextNode(evt.nid));
+    nodeId.appendChild(document.createTextNode(nid));
     child.appendChild(nodeId);
     child.appendChild(node);
 
@@ -132,10 +133,13 @@ function parse_event(event) {
         return;
     }
 
+    var characters_consumed = 0;
+
     //console.info(domjsNodeStr);
     switch (domjsNodeStr.charAt(0)) {
       case 'T':
         var val = domjsNodeStr.substr(1).split(NULL)[0];
+        characters_consumed += val.length + 2;
         nodeId.setAttribute('title', JSON.stringify(val));
         // don't show whitespace-only text nodes.
         node.setAttribute('style',
@@ -145,27 +149,28 @@ function parse_event(event) {
 
         break;
       case 'C':
-        out("Comment node", JSON.stringify(
-            domjsNodeStr.substr(1).split(NULL)[0])
-        );
+        var val = domjsNodeStr.substr(1).split(NULL)[0];
+        characters_consumed += val.length + 2;
+        out("Comment node", JSON.stringify(val));
         break;
       case 'H':
           // html node
       case 'E':
-        var spl = domjsNodeStr.substr(1).split(NULL);
-        var attrstr = spl[1];
-
         child.setAttribute('class', 'element');
 
-        ctx.fillStyle = "rgb(150,0,0)";  
+		var children = null;
+
+        var spl = domjsNodeStr.substr(1).split(NULL);
+        characters_consumed += spl[0].length + 2;
+        var attrstr = spl[1];
 
         if (colors[spl[0]] !== undefined) {
             child.setAttribute('style', 'color: ' + colors[spl[0]]);
-			ctx.fillStyle = colors[spl[0]];  
+			//ctx.fillStyle = colors[spl[0]];  
         }
 
         tree_offset += 1;
-        ctx.fillRect(5 * (depths[evt.nid] - 1), 5 * (tree_offset - 1), 5, 5); 
+
 
         if (attrstr === undefined) {
             out("<", spl[0], ">");
@@ -173,16 +178,22 @@ function parse_event(event) {
         }
 
         var l = attrstr.charCodeAt(0);
-        if (l === 0xFFFF) l = parseInt(attrstr.charCodeAt(1 + 1));
+        if (l === 0xFFFF) {
+            l = parseInt(attrstr.charCodeAt(1 + 1));
+            characters_consumed += l + 1;
+        } else if (l === l) {
+            characters_consumed += 1;
+        }
 
-		var children = null;
         if (l === l) { // if l is not NaN
             var attrstr = domjsNodeStr.substr(domjsNodeStr.indexOf(NULL) + 2);
             var attrsplit = attrstr.split(NULL);
             var attributes = "";
             for (var i = 0; i < l; i++) {
                 var attrname = attrsplit[i * 2].substr(1);
-				attributes += attrname + '="' + attrsplit[i * 2 + 1] + '" ';
+                var attrval = attrsplit[i * 2 + 1];
+				attributes += attrname + '="' + attrval + '" ';
+                characters_consumed += attrname.length + attrval.length + 2;
             }
             children = attrsplit.slice(i * 2);
 
@@ -191,33 +202,46 @@ function parse_event(event) {
             out("<", spl[0], ">");
         }
 
-        if (children !== null && children != ["", ""]) {
+        if (children !== null && children !== ["", ""]) {
             //console.log("children", children);
             var numchildren = parseInt(children[0].charCodeAt(0));
             if (numchildren === numchildren) {
-                console.log('numchildren', numchildren);
+                console.log('numchildren', nid, numchildren);
                 children[0] = children[0].slice(1);
+                characters_consumed += 1;
+                var childstr = children.join(NULL);
                 var offset = 0;
+                var consumed = 0;
                 for (var i = 0; i < numchildren; i++) {
-                    nodeid++;
-                    nodeid = parse_event({data: {
-                        type: 6, parent: evt.nid, nid: nodeid, child: children
+                    nid++;
+                    /*console.info("parsing node", nid, childstr.substr(characters_consumed));*/
+                    [nid, consumed] = parse_event({data: {
+                        type: 6,
+                        parent: evt.nid,
+                        nid: nid,
+                        child: childstr.substr(characters_consumed)
                     }});
+                    characters_consumed += consumed;
                 }
             }
         }
         break;
     case 'D':
         var spl = domjsNodeStr.substr(1).split(NULL);
+        characters_consumed += spl.length + 1;
         out("< !DOCTYPE", spl[0], ">");
+        child.setAttribute('class', 'element');
         break;
       default:
         throw new Error('Unhandled case of stringified node: ' + domjsNodeStr.charAt(0));
     }
-    return nodeid;
+    return [nid, characters_consumed];
 }
 
-worker.onmessage = parse_event;
+worker.onmessage = function (msg) {
+    var message = msg;
+    setTimeout(function() { parse_event(message) }, 0);
+}
 
 function GET(url) {
     var xhr = new XMLHttpRequest();
@@ -263,13 +287,13 @@ $(document).ready(function () {
         }
     );
 
-    canvas = document.getElementById('tree-view');
-    ctx = canvas.getContext('2d');
+    //canvas = document.getElementById('tree-view');
+    //ctx = canvas.getContext('2d');
 
     $('#url').on('submit', function() {
         tree_offset = 0;
-        ctx.clearRect(0 , 0 , canvas.width, canvas.height);
-        document.getElementById('output').innerHTML = '';
+        //ctx.clearRect(0 , 0 , canvas.width, canvas.height);
+        document.getElementById('1').innerHTML = '';
         GET(this.url.value);
         return false;
     });

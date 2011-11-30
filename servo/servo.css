@@ -1,5 +1,6 @@
 body {
-    padding: 1em;
+    padding-top: 0.25em;
+    padding-left: 0em;
 	padding-right: 325px;
 }
 
@@ -30,6 +31,10 @@ body {
     display: block;
     padding: 0.5em;
 	padding-left: 1em;
+}
+
+.removed {
+    text-decoration: line-through;
 }
 
 .node-id {
