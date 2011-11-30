@@ -30,11 +30,12 @@ window.navigator = Object.freeze({
 var documents = new WeakMap();
 
 var server = http.createServer(function(request, response) {
-    if (request.url === "/") {
+    if (request.url === "/" || request.url === "/servotest.html" || request.url === "/servotest.js") {
         response.writeHead(200, {'Content-type': 'text/html'});
 
         var filename = path.join(
-            path.dirname(process.argv[1]), 'client.html');
+            path.dirname(process.argv[1]),
+            request.url === "/" ? "client.html" : request.url);
 
         fs.readFile(filename, function (err, data) {
             if (err) throw err;
@@ -96,7 +97,7 @@ wsServer.on('request', function(request) {
 });
 
 function load(connection, url) {
-    console.log("loading ", url);
+    console.log("loading", url);
 
     var parser = document.implementation.mozHTMLParser(url);
     
@@ -128,6 +129,8 @@ function load(connection, url) {
                 console.log("calling jQuery.ready");
                 jQuery.ready();
             }
+        } else {
+            console.log("Bad status", xhr.status);
         }
     };
 }
