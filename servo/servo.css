@@ -1,7 +1,7 @@
 body {
     padding-top: 0.25em;
     padding-left: 0em;
-	padding-right: 325px;
+	padding-right: 1em;
 }
 
 #url>input[type="text"] {
@@ -31,6 +31,13 @@ body {
     display: block;
     padding: 0.5em;
 	padding-left: 1em;
+    padding-bottom: 0em;
+}
+
+.textnode {
+    white-space: pre;
+    font-family: monospace;
+    margin: 0.5em; 
 }
 
 .removed {
@@ -38,6 +45,7 @@ body {
 }
 
 .node-id {
+    padding-left: 0.5em;
     padding-right: 0.5em;
     color: #cccccc;
     cursor: pointer;
