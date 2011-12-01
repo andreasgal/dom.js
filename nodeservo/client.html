@@ -72,7 +72,7 @@ ws.onmessage = function(e) {
         }
         break;
 
-    case MUTATE_ATTR:
+    case MUTATE_REMOVE_ATTR:
         if (mutation.ns) {
             target.removeAttributeNS(mutation.ns, mutation.name);
         }
