@@ -47,7 +47,7 @@ window.onload = function () {
 }
 
 
-var nodes = [null, document.documentElement];  // Maps nid to node
+var nodes = [null, document];  // Maps nid to node
 
 function handle_event(mutation) {
     var target;
@@ -92,13 +92,8 @@ function handle_event(mutation) {
         var target = parent.childNodes[mutation.index];
         var child = DOMSTR.parse(mutation.child);
         assignNid(child, mutation.nid);
-        if (mutation.parent === 1) {
-            document.appendChild(child);
-        } else {
-            parent.insertBefore(child, target);
-        }
+        parent.insertBefore(child, target);
         break;
-        
     }
 };
 
