@@ -46,11 +46,14 @@ function handle_message(data) {
             return;
         }
         if (data.load !== undefined) {
-            postMessage("about to load");
+            // dom.js needs a callback to parse so we can know when to fire load.
+            // or, dom.js may handle the load event itself soon.
+            // for now, test pages will have to fire their own loaded event
+            /*postMessage("about to load");
             var event = document.createEvent('event');
             event.initEvent('load', false, true);
             document.dispatchEvent(event);
-            postMessage("Document loaded.");
+            postMessage("Document loaded.");*/
             return;
         }
 
