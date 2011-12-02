@@ -44,6 +44,10 @@ test("some other test", function() {
   equal( true, true, "passing test" );
 });
 
+var event = document.createEvent('event');
+event.initEvent('load', false, true);
+document.dispatchEvent(event);
+
 });
 -->
 	</script>
