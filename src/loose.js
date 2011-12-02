@@ -35,5 +35,9 @@ EventHandlerBuilder.prototype.build = function build() {
 // Because strict mode eval can't define variables.
 function evalScript(s) {
     var geval = eval; // Do an indirect eval to get global context
+    s = 'try{' +
+        s +
+        '}catch(e){throw Error("exception while evaling script:\\n\\t" + e.message + "\\n" + e.stack);}';
+
     geval(s);
 }
