@@ -190,6 +190,8 @@ function GET(url) {
 $(document).ready(function () {
     $('#url').on('submit', function() {
         document.getElementById('1').innerHTML = '';
+        var iframe = document.getElementById('render-iframe');
+        iframe.src = iframe.src;
         GET(this.url.value);
         return false;
     });
