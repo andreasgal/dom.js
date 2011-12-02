@@ -37,7 +37,15 @@ function handle_message(data) {
         var reply = {}
         var parser = null;
 
-        if (data.load) {
+        if (data.event !== undefined) {
+            document._dispatchEvent(data.target, data.type, {
+                // XXX: add more event detail fields
+                bubbles: data.bubbles,
+                cancelable: data.cancelable
+            });
+            return;
+        }
+        if (data.load !== undefined) {
             postMessage("about to load");
             var event = document.createEvent('event');
             event.initEvent('load', false, true);
@@ -46,7 +54,7 @@ function handle_message(data) {
             return;
         }
 
-        if (data.url) {
+        if (data.url !== undefined) {
             parser = document.implementation.mozHTMLParser(data.url);
             var doc = parser.document();
             // work around for a proxy bug in ff
@@ -62,10 +70,10 @@ function handle_message(data) {
             parser = parsing[data.parser];
             reply.parser = data.parser;
         }
-        if (data.chunk) {
+        if (data.chunk !== undefined) {
             parser.parse(data.chunk, data.finished);
         }
-        if (data.finished) {
+        if (data.finished !== undefined) {
             reply.finished = true;
             parsing[reply.parser] = undefined;
         }

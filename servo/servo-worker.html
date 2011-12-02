@@ -4,8 +4,39 @@
         <script type="application/javascript; version=1.8">
 "use strict";
 
+// Set up event handling
+function handleEvent(e) {
+    var event = {
+        event: true,
+        type: e.type,
+        bubbles: e.bubbles,
+        cancelable: e.cancelable,
+        target: e.target._nid,
+    }
+    window.parent.postMessage(event, "*");
+
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    return false;
+}
+
+[
+    "click",
+    "mousedown",
+    "mouseup",
+    "mousemove",
+    "mouseover",
+    "mouseout",
+    "keydown",
+    "keyup",
+    "keypress",
+    "focus",
+    "blur"
+].forEach(function(t) {
+    document.addEventListener(t, handleEvent, true);
+});
+
 window.onload = function () {
-    console.log("HELLO");
     window.addEventListener('message', function(evt) {
         //console.log('worker.html got message', evt.data);
         handle_event(evt.data);
@@ -16,6 +47,7 @@ window.onload = function () {
         );
     }
 }
+
 
 var nodes = [null, document.documentElement];  // Maps nid to node
 
@@ -61,7 +93,6 @@ function handle_event(mutation) {
         var parent = nodes[mutation.parent];
         var target = parent.childNodes[mutation.index];
         var child = DOMSTR.parse(mutation.child);
-        console.log("CHILD", mutation.nid, mutation.parent, mutation.index, mutation.child);
         assignNid(child, mutation.nid);
         parent.insertBefore(child, target);
         break;

@@ -1,3 +1,4 @@
+"use strict";
 
 var worker = new Worker('servo-worker.js');
 
@@ -10,6 +11,16 @@ worker.onmessage = function (msg) {
     }
     setTimeout(function() { parse_event(message) }, 0);
 }
+
+function iframe_event(evt) {
+    var message = evt.data;
+    if (message.event !== undefined) {
+        worker.postMessage(message);
+        return;
+    }
+}
+
+window.addEventListener("message", iframe_event, false);
 
 function assign_nid(node, nid) {
     node.nid = nid++;
@@ -267,7 +278,7 @@ SDocument.prototype = {
     }
 }
 
-fakedocument = new SDocument();
+var fakedocument = new SDocument();
 
 // *******************************************************
 // DOMSTR 
