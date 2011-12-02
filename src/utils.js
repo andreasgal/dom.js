@@ -86,7 +86,6 @@ function defineHiddenConstantProp(o,p,v) {
 // an exception when used.
 // Based on Andreas's AddResolveHook function.
 // 
-/*
 function defineLazyProperty(o, p, f, hidden, readonly) {
     O.defineProperty(o, p, {
         get: function() {            // When the property is first retrieved
@@ -102,7 +101,11 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
         set: readonly ? undefined : function(newval) {
             // If the property is writable and is set before being read,
             // just replace the value and f() will never be invoked
-//            delete o[p];  // XXX SM doesn't work right if we don't do this
+
+            // Remove the line below when this bug is fixed:
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=703157 
+            delete o[p];
+
             O.defineProperty(o, p, {
                 value: newval,
                 writable: !readonly,
@@ -114,38 +117,6 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
         configurable: true
     });
 }
-*/
-
-function defineLazyProperty(o, p, f) {
-    O.defineProperty(o, p, {
-        get: function() {            // When the property is first retrieved
-            var realval = f();       // compute its actual value
-            O.defineProperty(o, p, { // Store that value
-                value: realval,
-                writable: true,
-                enumerable: true,
-                configurable: true
-            });
-            return realval;          // And return the computed value
-        },
-        set: function(newval) {
-            // If the property is writable and is set before being read,
-            // just replace the value and f() will never be invoked
-//            delete o[p];  // XXX SM doesn't work right if we don't do this
-            O.defineProperty(o, p, {
-                value: newval,
-                writable: true,
-                enumerable: true,
-                configurable: true
-            });
-
-            newval = o[p];
-        },
-        enumerable: true,
-        configurable: true
-    });
-}
-
 
 
 // Compare two nodes based on their document order. This function is intended
