@@ -37,7 +37,7 @@ function evalScript(s) {
     var geval = eval; // Do an indirect eval to get global context
     s = 'try{' +
         s +
-        '}catch(e){throw Error("exception while evaling script:\\n\\t" + e.message + "\\n" + e.stack);}';
+        '}catch(e){var msg="exception while evaling script:\\n\\t" + e.message + "\\n" + e.stack; console.log(msg); throw Error(msg);}';
 
     geval(s);
 }
