@@ -41,10 +41,8 @@ window.onload = function () {
         //console.log('worker.html got message', evt.data);
         handle_event(evt.data);
     });
-    for (var i = 0; i < document.childNodes.length; i++) {
-        document.removeChild(
-            document.childNodes[i]
-        );
+    while(document.hasChildNodes()) {
+        document.removeChild(document.firstChild);
     }
 }
 
@@ -94,7 +92,11 @@ function handle_event(mutation) {
         var target = parent.childNodes[mutation.index];
         var child = DOMSTR.parse(mutation.child);
         assignNid(child, mutation.nid);
-        parent.insertBefore(child, target);
+        if (mutation.parent === 1) {
+            document.appendChild(child);
+        } else {
+            parent.insertBefore(child, target);
+        }
         break;
         
     }
