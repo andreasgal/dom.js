@@ -8,23 +8,12 @@ body {
 	width: 20em;
 }
 
-#output {
-}
-
-#tree-view {
-	position: absolute;
-	top: 1em;
-	right: 25px;
-	border: 1px solid black;
-	background: white;
-}
-
-#gl-view {
-	position: absolute;
-	top: 1em;
-	right: 125px;
-	border: 1px solid black;
-	background: white;
+#render-iframe {
+    position: fixed;
+    top: 0px;
+    right: 0px;
+    height: 100%;
+    width: 50%;
 }
 
 .element {
@@ -41,6 +30,7 @@ body {
 }
 
 .removed {
+    display: none;
     text-decoration: line-through;
 }
 

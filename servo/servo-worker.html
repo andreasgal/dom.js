@@ -1,276 +1,84 @@
+<!DOCTYPE html>
+<html>
+    <body id="1">
+        <script type="application/javascript; version=1.8">
+"use strict";
 
-var worker = new Worker('servo-worker.js');
-
-worker.onmessage = function (msg) {
-    var message = msg.data;
-    if (message.type !== undefined) {
-        document.getElementById('render-iframe').contentWindow.postMessage(
-            message, "*"
+window.onload = function () {
+    console.log("HELLO");
+    window.addEventListener('message', function(evt) {
+        //console.log('worker.html got message', evt.data);
+        handle_event(evt.data);
+    });
+    for (var i = 0; i < document.childNodes.length; i++) {
+        document.removeChild(
+            document.childNodes[i]
         );
     }
-    setTimeout(function() { parse_event(message) }, 0);
 }
 
-function assign_nid(node, nid) {
-    node.nid = nid++;
+var nodes = [null, document.documentElement];  // Maps nid to node
 
-    if (node.children === undefined) {
-        return nid;
-    }
-
-    for(var i = 0; i < node.children.length; i++) {
-        nid = assign_nid(node.children[i], nid++);
-    }
-
-    return nid;
-}
-
-function parse_event(mutation) {
-    if (mutation.type === undefined) {
-        if (mutation.finished) {
-            return;
-        }
-        console.log(mutation);
-        return;
-    }
-
+function handle_event(mutation) {
+    var target;
+    if (mutation.target) target = nodes[mutation.target];
     switch(mutation.type) {
     case MUTATE_VALUE:
-        var target = document.getElementById(mutation.target);
-        var text = mutation.data.trim();
-
-        var textnode = document.createElement('span');
-        textnode.setAttribute("class", "textnode");
-        textnode.setAttribute("title", JSON.stringify(mutation.data));
-        textnode.appendChild(
-            document.createTextNode(text));
-        target.replaceChild(textnode, target.lastChild);
+        target.data = mutation.data;
         break;
         
     case MUTATE_ATTR:
-        // NOT IMPLEMENTED YET
         if (mutation.ns) {
-            /*target.setAttributeNS(mutation.ns,
+            target.setAttributeNS(mutation.ns,
                                   mutation.prefix + ":" + mutation.name,
-                                  mutation.value);*/
-            //console.log(mutation.ns, mutation.prefix, mutation.name, mutation.value);
+                                  mutation.value);
         }
         else {
-            //console.log(mutation.name, mutation.value);
-            //target.setAttribute(mutation.name, mutation.value);
+            target.setAttribute(mutation.name, mutation.value);
         }
         break;
 
     case MUTATE_REMOVE_ATTR:
-        // NOT IMPLEMENTED YET
         if (mutation.ns) {
-            //console.log(mutation.ns, mutation.name);
-            //target.removeAttributeNS(mutation.ns, mutation.name);
+            target.removeAttributeNS(mutation.ns, mutation.name);
         }
         else {
-            //console.log(mutation.name);
-            //target.removeAttribute(mutation.name);
+            target.removeAttribute(mutation.name);
         }
         break;
 
     case MUTATE_REMOVE:
-        var target = document.getElementById(mutation.target);
-        var oldclass = target.getAttribute('class') || '';
-        target.setAttribute('class', oldclass + ' removed');
+        target.parentNode.removeChild(target);
         break;
         
     case MUTATE_MOVE:
-        var target = document.getElementById(mutation.target);
-        var parent = document.getElementById(mutation.parent);
+        var parent = nodes[mutation.parent];
         var child = parent.childNodes[mutation.index];
         parent.insertBefore(target, child);
         break;
         
     case MUTATE_INSERT:
-        var parsed = DOMSTR.parse(mutation.child, fakedocument);
-        assign_nid(parsed, mutation.nid);
-        var nodes = create_dom(parsed);
-        document.getElementById(
-            mutation.parent
-        ).appendChild(
-            nodes
-        );
+        var parent = nodes[mutation.parent];
+        var target = parent.childNodes[mutation.index];
+        var child = DOMSTR.parse(mutation.child);
+        console.log("CHILD", mutation.nid, mutation.parent, mutation.index, mutation.child);
+        assignNid(child, mutation.nid);
+        parent.insertBefore(child, target);
         break;
+        
     }
-}
-
-var colors = {
-    html: 'green',
-    head: 'maroon',
-    title: 'red',
-    style: 'purple',
-    script: 'blueviolet',
-    body: 'orange',
-    div: 'blue',
-    span: 'darkgreen',
-    h1: '#333333',
-    h2: '#999999',
-    a: 'navy',
-    label: 'lightblue',
-    ol: 'lime',
-    ul: 'green',
-    li: 'navy',
-    strong: 'aqua',
-    p: 'teal',
-    br: 'olive'
 };
 
-function create_dom(tree) {
-    var wrapper = document.createElement('span');
-    wrapper.setAttribute('id', tree.nid);
-    if (tree.children !== undefined) {
-        wrapper.setAttribute('class', 'element');
+function assignNid(node, nid) {
+    node._nid = nid;
+    nodes[nid++] = node;
+
+    for(var kid = node.firstChild; kid; kid = kid.nextSibling) {
+        nid = assignNid(kid, nid);
     }
 
-    var nodeid = document.createElement('span');
-    wrapper.appendChild(nodeid);
-    nodeid.setAttribute('class', 'node-id');
-    nodeid.appendChild(
-        document.createTextNode(tree.nid));
-
-    var output;
-    if (tree.children !== undefined) {
-        // Element node
-        var color = colors[tree.type];
-        if (color !== undefined) {
-            wrapper.setAttribute('style', 'color: ' + color);
-        }
-        var attributes = "";
-        for (var attr in tree.attributes) {
-            attributes += attr + '="' + tree.attributes[attr] + '" ';
-        }
-        output = "< " + tree.type + " " + attributes + ">";
-        for (var i = 0; i < tree.children.length; i++) {
-            var child = create_dom(tree.children[i]);
-            wrapper.appendChild(child);
-        }
-    } else if (tree.doctype !== undefined) {
-        // Doctype node
-        output = "<!DOCTYPE " + tree.doctype[0] + " >";
-    } else if (tree.value !== undefined) {
-        // Text node
-        var textnode = document.createElement('span');
-        textnode.setAttribute("class", "textnode");
-        textnode.appendChild(
-            document.createTextNode(tree.value.trim()));
-        wrapper.setAttribute("title", JSON.stringify(tree.value));
-        wrapper.appendChild(textnode);
-        output = null;
-    } else {
-        output = JSON.stringify(tree);
-    }
-    if (output != null) {
-        wrapper.insertBefore(
-            document.createTextNode(output),
-            wrapper.firstChild.nextSibling
-        );
-    }
-    return wrapper;
+    return nid;
 }
-
-function GET(url) {
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function() {
-        var self = this;
-        if (this.readyState === 4) {
-            var message = {url: url, finished: true};
-            message.chunk = self.responseText;
-            worker.postMessage(message);
-        }
-    }
-    xhr.open('GET', url);
-    xhr.send();
-}
-
-$(document).ready(function () {
-    $('#url').on('submit', function() {
-        document.getElementById('1').innerHTML = '';
-        GET(this.url.value);
-        return false;
-    });
-    $('#url').submit();
-});
-
-function STextNode(value) {
-    this.value = value;
-}
-
-function SComment(value) {
-    this.comment = value;
-}
-
-function SProcessingInstruction(x, y) {
-    this.procinstruction = [x, y];
-}
-
-function SDocumentType(x, y, z) {
-    this.doctype = [x, y, z];
-}
-
-function SElement(type) {
-    this.type = type;
-    this.attributes = {};
-    this.children = [];
-}
-
-SElement.prototype = {
-    setAttribute: function(name, value) {
-        this.attributes[name] = value;
-    },
-    setAttributeNS: function(ns, name, value) {
-        this.attributes[ns + ":" + name] = value;
-    },
-    appendChild: function(child) {
-        this.children.push(child);
-    }
-}
-
-function SDocumentFragment() {
-    this.fragment = true;
-    this.prototype = new Element('');
-}
-
-function SDocument() {
-
-}
-
-SDocument.prototype = {
-    createTextNode: function(txt) {
-        return new STextNode(txt);
-    },
-    createComment: function(cmt) {
-        return new SComment(cmt);
-    },
-    createProcessingInstruction: function(x, y) {
-        return new SProcessingInstruction(x, y);
-    },
-    implementation: {
-        createDocumentType: function(x, y, z) {
-            return new SDocumentType(x, y, z);
-        }
-    },
-    createDocumentFragment: function() {
-        return new SDocumentFragment();
-    },
-    createElement: function(typ) {
-        return new SElement(typ);
-    },
-    createElementNS: function(ns, typ) {
-        return new SElement( ns + ":" + typ);
-    }
-}
-
-fakedocument = new SDocument();
-
-// *******************************************************
-// DOMSTR 
-// *******************************************************
-
 
 // The value of a Text, Comment or PI node changed
 const MUTATE_VALUE = 1;
@@ -505,6 +313,6 @@ var DOMSTR = (function() {
 
     return { stringify: stringify, parse: parse };
 }());
-
-
-
+        </script>
+    </body>
+</html>
