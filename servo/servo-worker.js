@@ -7,6 +7,9 @@ var addEventListener = function(type, cb, bubble) {
     document.addEventListener(type, cb, bubble);
 };
 
+/*
+ * commented out since dom.js now gives us a window object
+ *
 var navigator = { userAgent: 'servo 0.1 webworker' }
 var location = {
     href: "http://example.com/foo",
@@ -14,6 +17,7 @@ var location = {
     protocol: "http",
     pathname: "/foo"}
 var window = this;
+*/
 
 function print() {
     var out = '';

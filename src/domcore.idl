@@ -176,7 +176,7 @@ interface Document : Node {
   // resource metadata management
 
   // XXX: this is breaking jstests.py, so it is commented out for now
-  //  [PutForwards=href] readonly attribute Location? location;
+  // [PutForwards=href] readonly attribute Location? location;
 
   readonly attribute DOMString URL;
            attribute DOMString domain;

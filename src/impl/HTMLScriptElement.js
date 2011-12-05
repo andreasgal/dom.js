@@ -487,10 +487,13 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // There is actually more to executing a script than this.
             // See http://www.whatwg.org/specs/web-apps/current-work/multipage/webappapis.html#create-a-script
             try {
-                var olddoc = global.document;
-                global.document = wrap(this.ownerDocument);
+// XXX For now, we're just assuming that there is never more than
+// one document at a time, and all scripts get executed against the
+// same global object.
+//                var olddoc = global.document;
+//                global.document = wrap(this.ownerDocument);
                 evalScript(code);
-                global.document = olddoc;
+//                global.document = olddoc;
             }
             catch(e) {
                 // XXX fire an onerror event before reporting

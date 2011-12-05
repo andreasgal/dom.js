@@ -63,6 +63,9 @@ defineLazyProperty(impl, "EventTarget", function() {
         // See DOMCore §4.4
         // XXX: I'll probably need another version of this method for 
         // internal use, one that does not set isTrusted to false.
+        // XXX: see Document._dispatchEvent: perhaps that and this could
+        // call a common internal function with different settings of
+        // a trusted boolean argument
         // 
         dispatchEvent: function dispatchEvent(event) {
             function invoke(target, event) {

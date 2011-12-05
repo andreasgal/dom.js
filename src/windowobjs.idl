@@ -1,0 +1,35 @@
+interface Location {
+  //  stringifier attribute DOMString href;
+  // XXX: for now comment out the stringifier and just add a toString method
+  attribute DOMString href;
+  DOMString toString();
+  void assign(DOMString url);
+  void replace(DOMString url);
+  void reload();
+
+  // URL decomposition IDL attributes 
+           attribute DOMString protocol;
+           attribute DOMString host;
+           attribute DOMString hostname;
+           attribute DOMString port;
+           attribute DOMString pathname;
+           attribute DOMString search;
+           attribute DOMString hash;
+};
+
+interface History {
+  //readonly attribute long length;
+  //  readonly attribute any state;
+  void go(optional long delta);
+  void back();
+  void forward();
+  // void pushState(any data, DOMString title, optional DOMString url);
+  // void replaceState(any data, DOMString title, optional DOMString url);
+};
+
+interface Navigator {
+  readonly attribute DOMString appName;
+  readonly attribute DOMString appVersion;
+  readonly attribute DOMString platform;
+  readonly attribute DOMString userAgent;
+};

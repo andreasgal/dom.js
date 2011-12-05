@@ -7,6 +7,7 @@ FILES= \
 	src/idl.js \
 	src/domcore.js \
 	src/htmlelts.js \
+	src/windowobjs.js \
 	src/AttrArrayProxy.js \
 	src/NodeListProxy.js \
 	src/HTMLCollectionProxy.js \
@@ -33,6 +34,10 @@ FILES= \
 	src/impl/HTMLParser.js \
 	src/impl/CSSStyleDeclaration.js \
 	src/impl/cssparser.js \
+	src/impl/URL.js \
+	src/impl/URLDecompositionAttributes.js \
+	src/impl/Location.js \
+	src/impl/Window.js \
 	src/main.js
 
 ###  Details for jstests.py
@@ -151,6 +156,13 @@ src/domcore.js: src/domcore.idl tools/idl2domjs
 src/htmlelts.js: src/htmlelts.idl tools/idl2domjs
 	@rm -f $@;
 	tools/idl2domjs src/htmlelts.idl > src/htmlelts.js
+	@chmod 444 $@
+	@echo "Created $@"
+
+# Create windowobjs.js from windowobjs.idl
+src/windowobjs.js: src/windowobjs.idl tools/idl2domjs
+	@rm -f $@;
+	tools/idl2domjs src/windowobjs.idl > src/windowobjs.js
 	@chmod 444 $@
 	@echo "Created $@"
 

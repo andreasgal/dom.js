@@ -2969,6 +2969,13 @@ const HTMLParser = (function() {
             delete doc._parser; 
 
             stack.elements.length = 0;  // pop everything off
+
+            // If there is a window object associated with the document
+            // then trigger an load event on it
+            if (doc.defaultView) {
+                doc.defaultView.dispatchEvent(new impl.Event("load",{}));
+            }
+
         }
 
         /****
