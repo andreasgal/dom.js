@@ -25,6 +25,7 @@ Location.prototype = Object.create(URLDecompositionAttributes.prototype, {
         // So this is good enough for now.
         var current = new URL(this._href);
         var newurl = current.resolve(url);
+        var self = this; // for the XHR callback below
 
         // Save the new url
         this._href = newurl;
@@ -33,13 +34,13 @@ Location.prototype = Object.create(URLDecompositionAttributes.prototype, {
         // XXX
         // This is just something hacked together. 
         // The real algorithm is: http://www.whatwg.org/specs/web-apps/current-work/multipage/history.html#navigate
-        var xhr = new XMLHttpRequest();
+        var xhr = new XMLHttpRequest(); 
         xhr.open("GET", newurl);
         xhr.send();
         xhr.onload = function() {
-            var olddoc = this._window.document;
-            var parser = olddoc.implementation.mozHTMLParser(newurl);
-            var newdoc = parser.document();
+            var olddoc = self._window.document;
+            var parser = new HTMLParser(newurl);
+            var newdoc = unwrap(parser.document());
             newdoc.mutationHandler = olddoc.mutationHandler;
             
             // Get rid of any current content in the old doc
@@ -49,11 +50,13 @@ Location.prototype = Object.create(URLDecompositionAttributes.prototype, {
             while(olddoc.hasChildNodes()) olddoc.removeChild(olddoc.firstChild);
 
             // Make the new document the current document in the window
-            this._window.document = newdoc;
-            newdoc.defaultView = this._window;
+            self._window.document = newdoc;
+            newdoc.defaultView = self._window;
+
+            newdoc.mutationHandler({mutation:"testing, testing"});
 
             // And parse the new file
-            parser.parse(xhr.response, true);
+            parser.parse(xhr.responseText, true);
         };
         
     }),

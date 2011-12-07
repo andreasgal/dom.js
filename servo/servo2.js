@@ -2,14 +2,34 @@
 
 var worker = new Worker('servo-worker.js');
 
+window.onload = function() {
+    var form = document.getElementById("url");
+    form.onsubmit = function(e) {
+//        document.getElementById('1').innerHTML = '';
+//        var iframe = document.getElementById('render-iframe');
+//        iframe.src = iframe.src;
+        var url = form.url.value;
+        worker.postMessage({url: url});
+        e.preventDefault();
+    }
+// 
+//    form.submit();
+};
+
 worker.onmessage = function (msg) {
     var message = msg.data;
+    if (typeof message === "string") {
+        console.log("WORKER:", message);
+        return;
+    }
+
     if (message.type !== undefined) {
         document.getElementById('render-iframe').contentWindow.postMessage(
             message, "*"
         );
     }
-    setTimeout(function() { parse_event(message) }, 0);
+// XXX: temporarily remove the tree view
+//    setTimeout(function() { parse_event(message) }, 0);
 }
 
 function iframe_event(evt) {
@@ -184,30 +204,6 @@ function create_dom(tree) {
     return wrapper;
 }
 
-function GET(url) {
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function() {
-        var self = this;
-        if (this.readyState === 4) {
-            var message = {url: url, finished: true};
-            message.chunk = self.responseText;
-            worker.postMessage(message);
-        }
-    }
-    xhr.open('GET', url);
-    xhr.send();
-}
-
-$(document).ready(function () {
-    $('#url').on('submit', function() {
-        document.getElementById('1').innerHTML = '';
-        var iframe = document.getElementById('render-iframe');
-        iframe.src = iframe.src;
-        GET(this.url.value);
-        return false;
-    });
-    $('#url').submit();
-});
 
 function STextNode(value) {
     this.value = value;

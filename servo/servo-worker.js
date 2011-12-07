@@ -1,23 +1,14 @@
-
 "use strict";
 
 importScripts('../dom.js');
 
-var addEventListener = function(type, cb, bubble) {
-    document.addEventListener(type, cb, bubble);
-};
+window.addEventListener("load", function() { console.log("load event"); }, false);
 
-/*
- * commented out since dom.js now gives us a window object
- *
-var navigator = { userAgent: 'servo 0.1 webworker' }
-var location = {
-    href: "http://example.com/foo",
-    search: "",
-    protocol: "http",
-    pathname: "/foo"}
-var window = this;
-*/
+while(document.hasChildNodes()) document.removeChild(document.firstChild);
+
+// XXX: make all postMessage calls pass a [cmd,data] array
+// where cmd can be "mutation", "log", "warn", "error", etc.
+document._setMutationHandler(function(e) { postMessage(e); });
 
 function print() {
     var out = '';
@@ -27,20 +18,23 @@ function print() {
     postMessage(out);
 }
 
-var console = {log: print}
 
-var parser_num = 1;
-var parsing = {}
+var console = {
+    log: print,
+    warn: print,  // XXX make these better
+    error: print
+};
 
+// XXX what is this for?
+// Does it improve error reporting somehow?
 onerror = function(err) {
     return false;
 }
 
-function handle_message(data) {
-    try {
-        var reply = {}
-        var parser = null;
 
+onmessage = function(message) {
+    try {
+        var data = message.data;
         if (data.event !== undefined) {
             document._dispatchEvent(data.target, data.type, {
                 // XXX: add more event detail fields
@@ -49,49 +43,12 @@ function handle_message(data) {
             });
             return;
         }
-        if (data.load !== undefined) {
-            // dom.js needs a callback to parse so we can know when to fire load.
-            // or, dom.js may handle the load event itself soon.
-            // for now, test pages will have to fire their own loaded event
-            /*postMessage("about to load");
-            var event = document.createEvent('event');
-            event.initEvent('load', false, true);
-            document.dispatchEvent(event);
-            postMessage("Document loaded.");*/
-            return;
-        }
 
         if (data.url !== undefined) {
-            parser = document.implementation.mozHTMLParser(data.url);
-            var doc = parser.document();
-            // work around for a proxy bug in ff
-            Object.defineProperty(this, "document", { value: doc});
-
-            doc.implementation.mozSetOutputMutationHandler(
-                doc, function(msg) { postMessage(msg) }
-            );
-            parsing[parser_num] = parser;
-            reply.parser = parser_num;
-            parser_num++;
-        } else {
-            parser = parsing[data.parser];
-            reply.parser = data.parser;
+            setTimeout(function() { window.location = data.url; }, 0);
         }
-        if (data.chunk !== undefined) {
-            parser.parse(data.chunk, data.finished);
-        }
-        if (data.finished !== undefined) {
-            reply.finished = true;
-            parsing[reply.parser] = undefined;
-        }
-        postMessage(reply);
     } catch (e) {
-        postMessage("ERR " + e);
+        console.log("ERR " + e);
     }
 }
 
-onmessage = function(message) {
-    var global = this;
-    var data = message.data;
-    setTimeout(function() { handle_message.call(global, data) }, 0);
-}

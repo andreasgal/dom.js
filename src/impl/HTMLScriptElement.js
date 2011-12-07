@@ -325,6 +325,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                     this.ownerDocument._parser.pause();
                 }
 
+/*
                 // XXX: this is a hack
                 // If we're running in node, and the document has an 
                 // _address, then we can resolve the URL
@@ -333,6 +334,11 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                     url = require('url').resolve(this.ownerDocument._address,
                                                  url);
                 }
+*/
+                // Resolve the script url against the document url
+                var documenturl = new URL(this.ownerDocument.defaultView.location.href);
+                url = documenturl.resolve(url);
+
 
                 var script = this;
                 var xhr = new XMLHttpRequest();
