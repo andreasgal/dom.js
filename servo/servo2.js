@@ -1,45 +1,60 @@
 "use strict";
 
+
 var worker = new Worker('servo-worker.js');
 
 window.onload = function() {
+    var frame = document.getElementById("render-iframe");
+    var renderer = new IFrameRenderer(worker, frame);
+
     var form = document.getElementById("url");
     form.onsubmit = function(e) {
         document.getElementById('1').innerHTML = '';
 //        var iframe = document.getElementById('render-iframe');
 //        iframe.src = iframe.src;
         var url = form.url.value;
-        worker.postMessage({url: url});
+        worker.postMessage(["load", url]);
         e.preventDefault();
     }
 // 
 //    form.submit();
 };
 
-worker.onmessage = function (msg) {
-    var message = msg.data;
-    if (typeof message === "string") {
-        console.log("WORKER:", message);
-        return;
-    }
+worker.onmessage = function(event) {
+    var cmd = event.data[0];
+    var data = event.data[1];
 
-    if (message.type !== undefined) {
-        document.getElementById('render-iframe').contentWindow.postMessage(
-            message, "*"
-        );
+    switch(cmd) {
+    case "log":
+        console.log("WORKER", data);
+        break;
+    case "warn":
+        console.warn("WORKER", data);
+        break;
+    case "error":
+        console.error("WORKER", data);
+        break;
+
+    case "mutation":
+//        document.getElementById('render-iframe').contentWindow.postMessage(
+//            data, "*"
+//        );
+        setTimeout(function() { parse_event(data) }, 0);
+        break;
     }
-    setTimeout(function() { parse_event(message) }, 0);
 }
 
+/*
 function iframe_event(evt) {
     var message = evt.data;
     if (message.event !== undefined) {
-        worker.postMessage(message);
+        worker.postMessage(["event", message]);
         return;
     }
 }
 
 window.addEventListener("message", iframe_event, false);
+*/
 
 function assign_nid(node, nid) {
     node.nid = nid++;

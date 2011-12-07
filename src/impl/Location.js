@@ -53,8 +53,6 @@ Location.prototype = Object.create(URLDecompositionAttributes.prototype, {
             self._window.document = newdoc;
             newdoc.defaultView = self._window;
 
-            newdoc.mutationHandler({mutation:"testing, testing"});
-
             // And parse the new file
             parser.parse(xhr.responseText, true);
         };

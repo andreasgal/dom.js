@@ -1,51 +1,54 @@
 "use strict";
 
-importScripts('../dom.js');
+var console = {
+    log: function() {
+        var out = '';
+        for (var i = 0; i < arguments.length; i++) {
+            out += arguments[i] + ' ';
+        }
+        postMessage(["log", out]);
+    },
+    warn: function() {
+        var out = '';
+        for (var i = 0; i < arguments.length; i++) {
+            out += arguments[i] + ' ';
+        }
+        postMessage(["warn", out]);
+    },
+    error: function() {
+        var out = '';
+        for (var i = 0; i < arguments.length; i++) {
+            out += arguments[i] + ' ';
+        }
+        postMessage(["error", out]);
+    }
+};
 
-window.addEventListener("load", function() { console.log("load event"); }, false);
+var print = console.log;
+
+importScripts('../dom.js');
 
 while(document.hasChildNodes()) document.removeChild(document.firstChild);
 
-// XXX: make all postMessage calls pass a [cmd,data] array
-// where cmd can be "mutation", "log", "warn", "error", etc.
-document._setMutationHandler(function(e) { postMessage(e); });
+document._setMutationHandler(function(e) { postMessage(["mutation", e]); });
 
-function print() {
-    var out = '';
-    for (var i = 0; i < arguments.length; i++) {
-        out += arguments[i] + ' ';
-    }
-    postMessage(out);
-}
-
-
-var console = {
-    log: print,
-    warn: print,  // XXX make these better
-    error: print
-};
-
-// XXX what is this for?
-// Does it improve error reporting somehow?
-onerror = function(err) {
-    return false;
-}
-
-
-onmessage = function(message) {
+onmessage = function(event) {
+    var cmd = event.data[0];
+    var data = event.data[1];
+    
     try {
-        var data = message.data;
-        if (data.event !== undefined) {
+        switch(cmd) {
+        case "event":
             document._dispatchEvent(data.target, data.type, {
                 // XXX: add more event detail fields
                 bubbles: data.bubbles,
                 cancelable: data.cancelable
             });
             return;
-        }
-
-        if (data.url !== undefined) {
-            setTimeout(function() { window.location = data.url; }, 0);
+            
+        case "load":
+            window.location = data;
+            return;
         }
     } catch (e) {
         console.log("ERR " + e);

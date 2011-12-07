@@ -340,40 +340,58 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                 url = documenturl.resolve(url);
 
 
-                var script = this;
-                var xhr = new XMLHttpRequest();
-                xhr.open("GET", url);
-                xhr.send();
-
-                // Web workers support this handler but not the old
-                // onreadystatechange handler
-                xhr.onloadend = function() {
-                    if (xhr.status === 200 ||
-                        xhr.status === 0 /* file:// urls */) {
-                        script._script_text = xhr.responseText;
-                        script._execute();
-                        delete script._script_text;
+                // XXX: this is experimental
+                // If we're in a web worker, use importScripts
+                // to load and execute the script.
+                // Maybe this will give us better error messages
+                if (global.importScripts) {
+                    try {
+                        importScripts(url);
                     }
-                    // Do this even if we failed
-                    if (script.ownerDocument._parser) {
-                        script.ownerDocument._parser.resume();
+                    catch(e) {
+                        error(e + " " + e.stack);
                     }
-                };
-
-                // My node version of XHR responds to this handler but
-                // not to onloadend above.
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState !== 4) return;
-                    if (xhr.status === 200 ||
-                        xhr.status === 0 /* file:// urls */) {
-                        script._script_text = xhr.responseText;
-                        script._execute();
-                        delete script._script_text;
+                    finally {
+                        this.ownerDocument._parser.resume();
                     }
+                }
+                else {
                     
-                    // Do this even if we failed
-                    if (script.ownerDocument._parser) {
-                        script.ownerDocument._parser.resume();
+                    var script = this;
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("GET", url);
+                    xhr.send();
+                    
+                    // Web workers support this handler but not the old
+                    // onreadystatechange handler
+                    xhr.onloadend = function() {
+                        if (xhr.status === 200 ||
+                            xhr.status === 0 /* file:// urls */) {
+                            script._script_text = xhr.responseText;
+                            script._execute();
+                            delete script._script_text;
+                        }
+                        // Do this even if we failed
+                        if (script.ownerDocument._parser) {
+                            script.ownerDocument._parser.resume();
+                        }
+                    };
+
+                    // My node version of XHR responds to this handler but
+                    // not to onloadend above.
+                    xhr.onreadystatechange = function() {
+                        if (xhr.readyState !== 4) return;
+                        if (xhr.status === 200 ||
+                            xhr.status === 0 /* file:// urls */) {
+                            script._script_text = xhr.responseText;
+                            script._execute();
+                            delete script._script_text;
+                        }
+                        
+                        // Do this even if we failed
+                        if (script.ownerDocument._parser) {
+                            script.ownerDocument._parser.resume();
+                        }
                     }
                 }
             }
