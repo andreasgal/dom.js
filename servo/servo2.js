@@ -5,7 +5,7 @@ var worker = new Worker('servo-worker.js');
 window.onload = function() {
     var form = document.getElementById("url");
     form.onsubmit = function(e) {
-//        document.getElementById('1').innerHTML = '';
+        document.getElementById('1').innerHTML = '';
 //        var iframe = document.getElementById('render-iframe');
 //        iframe.src = iframe.src;
         var url = form.url.value;
@@ -28,8 +28,7 @@ worker.onmessage = function (msg) {
             message, "*"
         );
     }
-// XXX: temporarily remove the tree view
-//    setTimeout(function() { parse_event(message) }, 0);
+    setTimeout(function() { parse_event(message) }, 0);
 }
 
 function iframe_event(evt) {
