@@ -4,8 +4,9 @@
         <title>Servo WebWorkers</title>
         <link rel="stylesheet" type="text/css" href="servo.css"></link>
         <script src="domstr.js"></script>
+        <script src="TreeRenderer.js"></script> 
         <script src="IFrameRenderer.js"></script>
-        <script src="servo2.js"></script>
+        <script src="servo.js"></script>
     </head>
     <body>
         <div style="margin: 0.5em">
@@ -14,7 +15,7 @@
                 <input type="submit" value="fetch" />
             </form>
         </div>
-        <span id="1"></span>
-        <iframe id="render-iframe" src="#"></iframe>
+        <span id="n1">document</span>
+        <iframe id="renderer" src="#"></iframe>
     </body>
 </html>

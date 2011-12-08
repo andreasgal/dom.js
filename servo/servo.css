@@ -1,14 +1,14 @@
 body {
     padding-top: 0.25em;
     padding-left: 0em;
-	padding-right: 1em;
+    padding-right: 1em;
 }
 
 #url>input[type="text"] {
-	width: 20em;
+    width: 20em;
 }
 
-#render-iframe {
+#renderer {
     position: fixed;
     top: 0px;
     right: 0px;
@@ -19,7 +19,7 @@ body {
 .element {
     display: block;
     padding: 0.5em;
-	padding-left: 1em;
+    padding-left: 1em;
     padding-bottom: 0em;
 }
 

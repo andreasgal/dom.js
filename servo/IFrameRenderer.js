@@ -10,7 +10,6 @@ function IFrameRenderer(worker, frame) {
     // Remove the existing children of the document
     while(this.doc.hasChildNodes()) this.doc.removeChild(this.doc.firstChild);
 
-
     // Set up a handler for mutation events from the dom.js worker
     worker.addEventListener("message", this.handleMutation.bind(this), false);
 
@@ -118,7 +117,7 @@ IFrameRenderer.prototype.handleMutation = function(event) {
     case MUTATE_INSERT:
         var parent = this.nodes[mutation.parent];
         var target = parent.childNodes[mutation.index];
-        var child = DOMSTR.parse(mutation.child);
+        var child = DOMSTR.parse(mutation.child, parent.ownerDocument);
         this.assignNid(child, mutation.nid);
         parent.insertBefore(child, target);
         break;

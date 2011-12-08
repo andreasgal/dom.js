@@ -10,4 +10,4 @@ setTimeout(function() {
     document.getElementsByTagName("h1")[0].innerHTML += ": <b>timers</b>";
 }, 1000);
 
-foo();
+this_is_an_intentional_error();
