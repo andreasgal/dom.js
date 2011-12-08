@@ -120,17 +120,33 @@ IFrameRenderer.prototype.handleMutation = function(event) {
         var child = DOMSTR.parse(mutation.child, parent.ownerDocument);
         this.assignNid(child, mutation.nid);
         parent.insertBefore(child, target);
+
+        // XXX: temporary hack?
+        // If we've just inserted the <head>, add a <base href>
+        // so that URLs of stylesheets get resolved correctly
+        // XXX: this might mess up the indexes of children in the head
+        // and it could really break things
+        if (child.tagName === "HEAD") {
+            var base = child.ownerDocument.createElement("base");
+            base.href = this.basehref;
+            child.appendChild(base);
+        }
+
         break;
     }
 };
 
+IFrameRenderer.prototype.setBaseHref = function(url) {
+    this.basehref = url;
+};
+
 IFrameRenderer.prototype.assignNid = function assignNid(node, nid) {
-        node._nid = nid;
-        this.nodes[nid++] = node;
-
-        for(var kid = node.firstChild; kid; kid = kid.nextSibling) {
-            nid = this.assignNid(kid, nid);
-        }
-
-        return nid;
-}
+    node._nid = nid;
+    this.nodes[nid++] = node;
+    
+    for(var kid = node.firstChild; kid; kid = kid.nextSibling) {
+        nid = this.assignNid(kid, nid);
+    }
+    
+    return nid;
+};

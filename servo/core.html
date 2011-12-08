@@ -17,6 +17,16 @@
 	<div id="qunit-fixture"></div>
 	<script>
 <!--
+// I don't know where this function is supposed to be defined
+// but the jquery tests seem to rely on it
+function q() {
+    var rv = [];
+    for(var i = 0; i < arguments.length; i++) {
+        rv.push(document.getElementById(arguments[i]));
+    }
+}
+
+
 module("core");
 
 test("Basic requirements", function() {

@@ -1,4 +1,5 @@
 var worker = new Worker('servo-worker.js');
+var renderer;
 
 worker.addEventListener("message", function(event) {
     var cmd = event.data[0];
@@ -19,12 +20,13 @@ worker.addEventListener("message", function(event) {
 
 window.onload = function() {
     new TreeRenderer(worker, document.getElementById("n1"));
-    new IFrameRenderer(worker, document.getElementById("renderer"));
+    renderer = new IFrameRenderer(worker, document.getElementById("renderframe"));
 
     var form = document.getElementById("url");
     form.onsubmit = function(e) {
         document.getElementById('n1').innerHTML = '';
         var url = form.url.value;
+        renderer.setBaseHref(url);
         worker.postMessage(["load", url]);
         e.preventDefault();
     }
