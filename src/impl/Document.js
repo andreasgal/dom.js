@@ -304,7 +304,11 @@ defineLazyProperty(impl, "Document", function() {
             }
             names = names.split(/\s+/);  // Split on spaces
             return new impl.FilteredElementList(this, 
-                                           new classNamesElementFilter(names));
+                                                classNamesElementFilter(names));
+        }),
+
+        getElementsByName: constant(function getElementsByName(name) {
+            return new impl.FilteredElementList(this, elementNameFilter(name));
         }),
 
         adoptNode: constant(function adoptNode(node) {
@@ -368,7 +372,6 @@ defineLazyProperty(impl, "Document", function() {
         links: attribute(nyi),
         forms: attribute(nyi),
         scripts: attribute(nyi),
-        getElementsByName: constant(nyi),
         innerHTML: attribute(function() { return this.serialize() }, nyi),
 
         write: constant(function(args) {
@@ -727,6 +730,12 @@ defineLazyProperty(impl, "Document", function() {
             return every(names, function(n) {
                 return A.indexOf(classes, n) !== -1;
             })
+        }
+    }
+
+    function elementNameFilter(name) {
+        return function(e) {
+            return e.getAttribute("name") === name;
         }
     }
 
