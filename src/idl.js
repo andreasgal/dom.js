@@ -16,6 +16,10 @@ function toLong(x) {
     return x & 0xFFFFFFFF; // This should do ToInt32
 }
 
+function toUShort(x) {
+    return (x >>> 0) & 0xFFFF;  // Convert to uint32, and then truncate.
+}
+
 // Convert the value x to a number, and raise an exception if
 // it is NaN or infinite. This is not actually part of WebIDL:
 // HTML mandates this check "except where otherwise specified".

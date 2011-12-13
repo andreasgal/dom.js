@@ -59,6 +59,13 @@ defineLazyProperty(impl, "EventTarget", function() {
             }
         },
 
+        // This is the public API for dispatching untrusted public events.
+        // See _dispatchEvent for the implementation
+        dispatchEvent: function dispatchEvent(event) {
+            // Dispatch an untrusted event
+            return this._dispatchEvent(event, false);
+        },
+
         // 
         // See DOMCore §4.4
         // XXX: I'll probably need another version of this method for 
@@ -67,18 +74,29 @@ defineLazyProperty(impl, "EventTarget", function() {
         // call a common internal function with different settings of
         // a trusted boolean argument
         // 
-        dispatchEvent: function dispatchEvent(event) {
+        // XXX:
+        // The spec has changed in how to deal with handlers registered
+        // on idl or content attributes rather than with addEventListener.
+        // Used to say that they always ran first.  That's how webkit does it
+        // Spec now says that they run in a position determined by
+        // when they were first set.  FF does it that way.  See: 
+        // http://www.whatwg.org/specs/web-apps/current-work/multipage/webappapis.html#event-handlers
+        // 
+        _dispatchEvent: function _dispatchEvent(event, trusted) {
+            if (typeof trusted !== "boolean") trusted = false;
             function invoke(target, event) {
                 var type = event.type, phase = event.eventPhase;
                 event.currentTarget = target;
 
                 // If there was an individual handler defined, invoke it first
+                // XXX: see comment above: this shouldn't always be first.
                 if (phase !== CAPTURING_PHASE &&
                     target._handlers && target._handlers[type])
                 {
                     var handler = target._handlers[type];
+                    var rv;
                     if (typeof handler === "function") {
-                        handler.call(wrap(event.currentTarget), wrap(event));
+                        rv=handler.call(wrap(event.currentTarget), wrap(event));
                     }
                     else {
                         var f = handler.handleEvent;
@@ -86,7 +104,20 @@ defineLazyProperty(impl, "EventTarget", function() {
                             throw TypeError("handleEvent property of " +
                                             "event handler object is" +
                                             "not a function.");
-                        f.call(handler, wrap(event));
+                        rv=f.call(handler, wrap(event));
+                    }
+
+                    switch(event.type) {
+                    case "mouseover":
+                        if (rv === true)  // Historical baggage
+                            event.preventDefault();
+                        break;
+                    case "beforeunload":
+                        // XXX: eventually we need a special case here
+                    default:
+                        if (rv === false)
+                            event.preventDefault();
+                        break;
                     }
                 }
 
@@ -102,8 +133,8 @@ defineLazyProperty(impl, "EventTarget", function() {
                         continue;
                     if (l.f) {
                         // Wrap both the this value of the call and the
-                        // argument passed to the call, since these impl
-                        // objects are being exposed through the public API
+                        // argument passed to the call, since these objects
+                        // impl are being exposed through the public API
                         l.f.call(wrap(event.currentTarget), wrap(event));
                     }
                     else {
@@ -121,7 +152,7 @@ defineLazyProperty(impl, "EventTarget", function() {
             }
 
             if (!event._initialized || event._dispatching) InvalidStateError();
-            event.isTrusted = false;
+            event.isTrusted = trusted;
             
             // Begin dispatching the event now
             event._dispatching = true;

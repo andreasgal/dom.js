@@ -144,6 +144,39 @@ defineLazyProperty(impl, "HTMLElement", function() {
                 this._style = new impl.CSSStyleDeclaration(this);
             return this._style;
         }),
+
+        click: constant(function() {
+            if (this._click_in_progress) return;
+            this._click_in_progress = true;
+            try {
+                if (this._pre_click_activation_steps)
+                    this._pre_click_activation_steps();
+
+                var event = this.ownerDocument.createEvent("MouseEvent");
+                event.initMouseEvent("click", true, true,
+                                     this.ownerDocument.defaultView, 1,
+                                     0, 0, 0, 0, 
+                                     // These 4 should be initialized with
+                                     // the actually current keyboard state
+                                     // somehow...
+                                     false, false, false, false,
+                                     0, null)
+
+                var success = this.dispatchEvent(event);
+
+                if (success) {
+                    if (this._post_click_activation_steps)
+                        this._post_click_activation_steps();
+                }
+                else {
+                    if (this._cancelled_activation_steps)
+                        this._cancelled_activation_steps();
+                }
+            }
+            finally {
+                this._click_in_progress = false;
+            }
+        }),
     });
 
     impl.Element.reflectStringAttribute(HTMLElement, "title");

@@ -42,7 +42,9 @@ defineLazyProperty(impl, "Document", function() {
     // event constructor.
     var supportedEvents = {
         event: "Event",
-        customevent: "CustomEvent"
+        customevent: "CustomEvent",
+        uievent: "UIEvent",
+        mouseevent: "MouseEvent"
     };
 
     // Certain arguments to document.createEvent() must be treated specially
@@ -56,16 +58,22 @@ defineLazyProperty(impl, "Document", function() {
     Document.prototype = O.create(impl.Node.prototype, {
         _idlName: constant("Document"),
 
+
+        // This method allows dom.js to communicate with a renderer
+        // that displays the document in some way
+        // XXX: I should probably move this to the window object
         _setMutationHandler: constant(function(handler) {
             this.mutationHandler = handler;
         }),
 
-        _dispatchEvent: constant(function(targetNid, type, details) {
+        // This method allows dom.js to receive event notifications
+        // from the renderer.
+        // XXX: I should probably move this to the window object
+        _dispatchRendererEvent: constant(function(targetNid, type, details) {
             var target = this._nodes[targetNid];
             if (!target) return;
-            target.dispatchEvent(new impl.Event(type, details));
+            target._dispatchEvent(new impl.Event(type, details), true);
         }),
-
 
 //        nodeType: constant(DOCUMENT_NODE),
         nodeName: constant("#document"),

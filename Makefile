@@ -6,6 +6,7 @@ FILES= \
 	src/xmlnames.js \
 	src/idl.js \
 	src/domcore.js \
+	src/events.js \
 	src/htmlelts.js \
 	src/windowobjs.js \
 	src/AttrArrayProxy.js \
@@ -29,6 +30,8 @@ FILES= \
 	src/impl/FilteredElementList.js \
 	src/impl/Event.js \
 	src/impl/CustomEvent.js \
+	src/impl/UIEvent.js \
+	src/impl/MouseEvent.js \
 	src/impl/HTMLElement.js \
 	src/impl/HTMLScriptElement.js \
 	src/impl/HTMLParser.js \
@@ -156,6 +159,13 @@ src/domcore.js: src/domcore.idl tools/idl2domjs
 src/htmlelts.js: src/htmlelts.idl tools/idl2domjs
 	@rm -f $@;
 	tools/idl2domjs src/htmlelts.idl > src/htmlelts.js
+	@chmod 444 $@
+	@echo "Created $@"
+
+# Create events.js from events.idl
+src/events.js: src/events.idl tools/idl2domjs
+	@rm -f $@;
+	tools/idl2domjs src/events.idl > src/events.js
 	@chmod 444 $@
 	@echo "Created $@"
 

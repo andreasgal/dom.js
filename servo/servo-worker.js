@@ -39,7 +39,7 @@ onmessage = function(event) {
     try {
         switch(cmd) {
         case "event":
-            document._dispatchEvent(data.target, data.type, {
+            document._dispatchRendererEvent(data.target, data.type, {
                 // XXX: add more event detail fields
                 bubbles: data.bubbles,
                 cancelable: data.cancelable

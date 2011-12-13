@@ -483,6 +483,8 @@ function convert(a, v) {
         c = "toULong";
     else if (t.idlType === "long")
         c = "toLong";
+    else if (t.idlType === "unsigned short")
+        c = "toUShort";
     else if (t.idlType === "double")
         c = "toDouble";
     else if (t.idlType === "boolean")

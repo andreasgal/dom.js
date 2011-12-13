@@ -132,7 +132,6 @@ notYetImplemented(function() { document.plugins; });
 notYetImplemented(function() { document.links; });
 notYetImplemented(function() { document.forms; });
 notYetImplemented(function() { document.scripts; });
-notYetImplemented(function() { document.getElementsByName('foo'); });
 notYetImplemented(function() { document.URL; });
 notYetImplemented(function() { document.domain; });
 notYetImplemented(function() { document.domain = "foo"; });
