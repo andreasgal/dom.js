@@ -139,7 +139,7 @@ interface Document : Node {
   // events back to dom.js so that they can be dispatched.  Note that the
   // target argument is a nid, not a node.  Unlike the public 
   // EventTarget.dispatchEvent() method, this one dispatches trusted events
-  void _dispatchEvent(unsigned long target, DOMString type, EventInit details);
+  void _dispatchRendererEvent(unsigned long target, DOMString type, EventInit details);
 
   readonly attribute DOMImplementation implementation;
            attribute DOMString documentURI;

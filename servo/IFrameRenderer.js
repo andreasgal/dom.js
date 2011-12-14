@@ -18,7 +18,6 @@ function IFrameRenderer(worker, frame) {
     // Set up capturing event handlers on the document to pass local events
     // to the dom.js worker
     [
-        "click",
         "mousedown",
         "mouseup",
         "mousemove",
