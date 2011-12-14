@@ -5,7 +5,7 @@ function Window() {
     this.document = new impl.DOMImplementation().createHTMLDocument("");
     this.document._scripting_enabled = true;
     this.document.defaultView = this;
-    this.location = new Location(this, "about:blank");
+    this.location = new impl.Location(this, "about:blank");
 }
 
 Window.prototype = O.create(impl.EventTarget.prototype, {
@@ -40,7 +40,7 @@ Window.prototype = O.create(impl.EventTarget.prototype, {
     frameElement: constant(null),  // not part of a frame
     opener: constant(null),        // not opened by another window
 
-    // The onload event handler.  
+    // The onload event handler.
     // XXX: need to support a bunch of other event types, too,
     // and have them interoperate with document.body.
 
