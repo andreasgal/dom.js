@@ -72,7 +72,7 @@ dom.js: LICENSE ${FILES} src/loose.js
 	@echo '//@line 1 "src/loose.js"' >> $@
 	@cat src/loose.js >> $@
 
-# Output another function wrapper for the bulk of the code in strict mode	
+# Output another function wrapper for the bulk of the code in strict mode
 	@echo '(function(global) {' >> $@
 	@echo '"use strict";' >> $@
 
@@ -149,30 +149,30 @@ domnode.js: LICENSE ${FILES} src/loose.js
 
 
 # Create domcore.js from domcore.idl
-src/domcore.js: src/domcore.idl tools/idl2domjs
+src/domcore.js: src/idl/domcore.idl tools/idl2domjs
 	@rm -f $@;
-	tools/idl2domjs src/domcore.idl > src/domcore.js
+	tools/idl2domjs src/idl/domcore.idl > src/domcore.js
 	@chmod 444 $@
 	@echo "Created $@"
 
 # Create htmlelts.js from htmlelts.idl
-src/htmlelts.js: src/htmlelts.idl tools/idl2domjs
+src/htmlelts.js: src/idl/htmlelts.idl tools/idl2domjs
 	@rm -f $@;
-	tools/idl2domjs src/htmlelts.idl > src/htmlelts.js
+	tools/idl2domjs src/idl/htmlelts.idl > src/htmlelts.js
 	@chmod 444 $@
 	@echo "Created $@"
 
 # Create events.js from events.idl
-src/events.js: src/events.idl tools/idl2domjs
+src/events.js: src/idl/events.idl tools/idl2domjs
 	@rm -f $@;
-	tools/idl2domjs src/events.idl > src/events.js
+	tools/idl2domjs src/idl/events.idl > src/events.js
 	@chmod 444 $@
 	@echo "Created $@"
 
 # Create windowobjs.js from windowobjs.idl
-src/windowobjs.js: src/windowobjs.idl tools/idl2domjs
+src/windowobjs.js: src/idl/windowobjs.idl tools/idl2domjs
 	@rm -f $@;
-	tools/idl2domjs src/windowobjs.idl > src/windowobjs.js
+	tools/idl2domjs src/idl/windowobjs.idl > src/windowobjs.js
 	@chmod 444 $@
 	@echo "Created $@"
 
@@ -180,7 +180,7 @@ src/windowobjs.js: src/windowobjs.idl tools/idl2domjs
 # build parserlib.js in the submodule if necessary
 # this step requires ant.
 src/impl/cssparser.js: deps/parser-lib/src/css/*.js deps/parser-lib/src/util/*.js
-	cd deps/parser-lib; ant; 
+	cd deps/parser-lib; ant;
 	cp deps/parser-lib/build/parserlib.js src/impl/cssparser.js
 
 # To limit the tests, specify a value for TEST_PAT from the command line.
@@ -222,3 +222,5 @@ clean:
 	@rm -f dom.js
 	@rm -f src/domcore.js
 	@rm -f src/htmlelts.js
+	@rm -f src/events.js
+	@rm -f src/windowobjs.js
