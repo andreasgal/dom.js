@@ -5,7 +5,7 @@
 
 // Convert x to an unsigned long and return it
 // WebIDL currently says to use ES ToUint32() unless there is a [Clamp]
-// attribute on the operation.  We can invoke the ToUint32 operation 
+// attribute on the operation.  We can invoke the ToUint32 operation
 // with the >>> operator.
 //
 function toULong(x) {
@@ -23,8 +23,8 @@ function toUShort(x) {
 // Convert the value x to a number, and raise an exception if
 // it is NaN or infinite. This is not actually part of WebIDL:
 // HTML mandates this check "except where otherwise specified".
-// I'll probably want to change the idl type of attributes or 
-// arguments for which NaN and infinite values are allowed, if 
+// I'll probably want to change the idl type of attributes or
+// arguments for which NaN and infinite values are allowed, if
 // there are any
 function toDouble(x) {
     var v = Number(x)
@@ -44,6 +44,14 @@ function StringOrEmpty(x) {
 
 function StringOrNull(x) {
     return (x === null) ? null : String(x);
+}
+
+function OptionalStringOrNull(x) {
+    return x === null || x === undefined ? null : String(x);
+}
+
+function OptionaltoLong(x){
+    return x === undefined ? undefined : toLong(x);
 }
 
 function OptionalBoolean(x) {
@@ -72,7 +80,7 @@ function toCallbackOrNull(x) {
 //    proxyHandler // The proxy handler constructor, if one is needed
 //    constants    // constants defined by the interface
 //    members      // interface attributes and methods
-//    constructor  // optional public constructor. 
+//    constructor  // optional public constructor.
 //
 // It returns a new object with the following properties:
 //   publicInterface // The public interface to be placed in the global scope
@@ -96,10 +104,10 @@ function IDLInterface(o) {
         interfaceObject = o.constructor;
     }
     else {
-        // The interface object is supposed to work with instanceof, but is 
+        // The interface object is supposed to work with instanceof, but is
         // not supposed to be callable.  We can't conform to both requirements
         // so we make the interface object a function that throws when called.
-        interfaceObject = function() { 
+        interfaceObject = function() {
             throw new TypeError(name + " is not (supposed to be) a function");
         };
     }
@@ -140,7 +148,7 @@ function IDLInterface(o) {
 
     // If the interface does not already define a toString method, add one.
     // This will help to make debugging easier.
-    // 
+    //
     // XXX: I'm not sure if this is legal according to WebIDL and DOM Core.
     // XXX Maybe I could move it down to an object on the prototype chain
     // above Object.prototype.  But then I'd need some way to determine
