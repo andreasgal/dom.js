@@ -17,14 +17,14 @@ URLDecompositionAttributes.prototype = {
     get host() {
         var url = new URL(this.getInput());
         if (url.isAbsolute() && url.isAuthorityBased())
-            return url.host + url.port ? (":" + url.port) : "";
+            return url.host + (url.port ? (":" + url.port) : "");
         else
             return "";
     },
 
     get hostname() {
         var url = new URL(this.getInput());
-        if (url.isAbsolute() && url.isAuthorityBased()) 
+        if (url.isAbsolute() && url.isAuthorityBased())
             return url.host;
         else
             return "";
@@ -32,7 +32,7 @@ URLDecompositionAttributes.prototype = {
 
     get port() {
         var url = new URL(this.getInput());
-        if (url.isAbsolute() && url.isAuthorityBased() && url.port!==undefined) 
+        if (url.isAbsolute() && url.isAuthorityBased() && url.port!==undefined)
             return url.port;
         else
             return "";
@@ -40,15 +40,15 @@ URLDecompositionAttributes.prototype = {
 
     get pathname() {
         var url = new URL(this.getInput());
-        if (url.isAbsolute() && url.isHierarchical()) 
+        if (url.isAbsolute() && url.isHierarchical())
             return url.path;
-        else 
+        else
             return "";
     },
 
     get search() {
         var url = new URL(this.getInput());
-        if (url.isAbsolute() && url.isHierarchical() && url.query!==undefined) 
+        if (url.isAbsolute() && url.isHierarchical() && url.query!==undefined)
             return "?" + url.query;
         else
             return "";
@@ -146,7 +146,7 @@ URLDecompositionAttributes.prototype = {
         }
         this.setOutput(output);
     },
-    
+
     set hash(v) {
         var output = this.getInput();
         var url = new URL(output);
