@@ -162,11 +162,12 @@ defineLazyProperty(impl, "HTMLElement", function() {
                                      false, false, false, false,
                                      0, null)
 
+                // Dispatch this as an untrusted event since it is synthetic
                 var success = this.dispatchEvent(event);
 
                 if (success) {
                     if (this._post_click_activation_steps)
-                        this._post_click_activation_steps();
+                        this._post_click_activation_steps(event);
                 }
                 else {
                     if (this._cancelled_activation_steps)
@@ -284,6 +285,15 @@ defineLazyProperty(impl, "HTMLAnchorElement", function() {
 
     HTMLAnchorElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLAnchorElement"),
+
+        _post_click_activation_steps: constant(function(e) {
+            if (this.href) {
+                // Follow the link
+                // XXX: this is just a quick hack
+                // XXX: the HTML spec probably requires more than this
+                this.ownerDocument.defaultView.location = this.href;
+            }
+        })
     });
 
     // XXX impl.Element.reflectURLAttribute(HTMLAnchorElement, "href");

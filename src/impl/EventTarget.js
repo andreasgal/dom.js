@@ -190,7 +190,90 @@ defineLazyProperty(impl, "EventTarget", function() {
             event.eventPhase = AT_TARGET;
             event.currentTarget = null;
 
+            // Deal with mouse events and figure out when
+            // a click has happened
+            if (trusted &&
+                !event.defaultPrevented &&
+                event instanceof impl.MouseEvent)
+            {
+                switch(event.type) {
+                case "mousedown":
+                    this._armed = {
+                        x: event.clientX,
+                        y: event.clientY,
+                        t: event.timeStamp
+                    };
+                    break;
+                case "mouseout":
+                case "mouseover":
+                    this._armed = null;
+                    break;
+                case "mouseup":
+                    if (this._isClick(event)) this._doClick(event);
+                    this._armed = null;
+                    break;
+                }
+            }
+
+
+
             return !event.defaultPrevented;
+        },
+
+        // Determine whether a click occurred
+        // XXX We don't support double clicks for now
+        _isClick: function(event) {
+            return (this._armed !== null &&
+                    event.type === "mouseup" &&
+                    event.isTrusted &&
+                    event.button === 0 &&
+                    event.timeStamp - this._armed.t < 1000 &&
+                    Math.abs(event.clientX - this._armed.x) < 10 &&
+                    Math.abs(event.clientY - this._armed.Y) < 10);
+        },
+
+        // Clicks are handled like this:
+        // http://www.whatwg.org/specs/web-apps/current-work/multipage/elements.html#interactive-content-0
+        //
+        // Note that this method is similar to the HTMLElement.click() method
+        // The event argument must be the trusted mouseup event
+        _doClick: function(event) {
+            if (this._click_in_progress) return;
+            this._click_in_progress = true;
+
+            // Find the nearest enclosing element that is activatable
+            // An element is activatable if it has a
+            // _post_click_activation_steps hook
+            var activated = this;
+            while(activated && !activated._post_click_activation_steps)
+                activated = activated.parentNode;
+
+            if (activated && activated._pre_click_activation_steps) {
+                activated._pre_click_activation_steps();
+            }
+
+            var click = this.ownerDocument.createEvent("MouseEvent");
+            click.initMouseEvent("click", true, true,
+                                 this.ownerDocument.defaultView, 1,
+                                 event.screenX, event.screenY,
+                                 event.clientX, event.clientY,
+                                 event.ctrlKey, event.altKey,
+                                 event.shiftKey, event.metaKey,
+                                 event.button, null);
+
+            var result = this._dispatchEvent(click, true);
+
+            if (activated) {
+                if (result) {
+                    // This is where hyperlinks get followed, for example.
+                    if (activated._post_click_activation_steps)
+                        activated._post_click_activation_steps(click);
+                }
+                else {
+                    if (activated._cancelled_activation_steps)
+                        activated._cancelled_activation_steps();
+                }
+            }
         },
 
         //
