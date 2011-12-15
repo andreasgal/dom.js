@@ -17,7 +17,7 @@ URLDecompositionAttributes.prototype = {
     get host() {
         var url = new URL(this.getInput());
         if (url.isAbsolute() && url.isAuthorityBased())
-            return url.host + (url.port ? ":" + url.port : "");
+            return url.host + (url.port ? (":" + url.port) : "");
         else
             return "";
     },
