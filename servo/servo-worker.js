@@ -35,7 +35,7 @@ document._setMutationHandler(function(e) { postMessage(["mutation", e]); });
 onmessage = function(event) {
     var cmd = event.data[0];
     var data = event.data[1];
-    
+
     try {
         switch(cmd) {
         case "event":
@@ -45,7 +45,7 @@ onmessage = function(event) {
                 cancelable: data.cancelable
             });
             return;
-            
+
         case "load":
             window.location = data;
             return;

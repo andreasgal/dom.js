@@ -16,8 +16,8 @@ defineLazyProperty(impl, "EventTarget", function() {
         // it).  Each time a capturing listener is added, increment a flag on
         // the target node and each of its ancestors.  Decrement when removed.
         // And update the counter when nodes are added and removed from the
-        // tree as well.  Then, in dispatch event, the capturing phase can 
-        // abort if it sees any node with a zero count.  
+        // tree as well.  Then, in dispatch event, the capturing phase can
+        // abort if it sees any node with a zero count.
         addEventListener: function addEventListener(type, listener, capture) {
             if (!listener) return;
             if (capture === undefined) capture = false;
@@ -31,7 +31,7 @@ defineLazyProperty(impl, "EventTarget", function() {
                 if (l.listener === listener && l.capture === capture)
                     return;
             }
-            
+
             // Add an object to the list of listeners
             var obj = { listener: listener, capture: capture };
             if (typeof listener === "function") obj.f = listener;
@@ -51,7 +51,7 @@ defineLazyProperty(impl, "EventTarget", function() {
                         if (l.listener === listener && l.capture === capture) {
                             if (list.length === 1)
                                 delete this._listeners[type];
-                            else 
+                            else
                                 splice(list, i, 1);
                         }
                     }
@@ -66,22 +66,22 @@ defineLazyProperty(impl, "EventTarget", function() {
             return this._dispatchEvent(event, false);
         },
 
-        // 
+        //
         // See DOMCore §4.4
-        // XXX: I'll probably need another version of this method for 
+        // XXX: I'll probably need another version of this method for
         // internal use, one that does not set isTrusted to false.
         // XXX: see Document._dispatchEvent: perhaps that and this could
         // call a common internal function with different settings of
         // a trusted boolean argument
-        // 
+        //
         // XXX:
         // The spec has changed in how to deal with handlers registered
         // on idl or content attributes rather than with addEventListener.
         // Used to say that they always ran first.  That's how webkit does it
         // Spec now says that they run in a position determined by
-        // when they were first set.  FF does it that way.  See: 
+        // when they were first set.  FF does it that way.  See:
         // http://www.whatwg.org/specs/web-apps/current-work/multipage/webappapis.html#event-handlers
-        // 
+        //
         _dispatchEvent: function _dispatchEvent(event, trusted) {
             if (typeof trusted !== "boolean") trusted = false;
             function invoke(target, event) {
@@ -153,7 +153,7 @@ defineLazyProperty(impl, "EventTarget", function() {
 
             if (!event._initialized || event._dispatching) InvalidStateError();
             event.isTrusted = trusted;
-            
+
             // Begin dispatching the event now
             event._dispatching = true;
             event.target = this;
@@ -202,10 +202,10 @@ defineLazyProperty(impl, "EventTarget", function() {
         // The type argument is the same as in addEventListener().
         // The handler argument is the same as listeners in addEventListener:
         // it can be a function or an object. Pass null to remove any existing
-        // handler.  Handlers are always invoked before any listeners of 
+        // handler.  Handlers are always invoked before any listeners of
         // the same type.  They are not invoked during the capturing phase
         // of event dispatch.
-        // 
+        //
         _setEventHandler: function _setEventHandler(type, handler) {
             if (!this._handlers) this._handlers = {};
 

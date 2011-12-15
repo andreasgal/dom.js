@@ -4,7 +4,7 @@
 // This file is used by ../tools/idl2domjs to generate domcore.js
 //
 // I've removed DOMException, since WebIDL implementation requirements
-// for exceptions are not clear yet.  For now see DOMException.js for a 
+// for exceptions are not clear yet.  For now see DOMException.js for a
 // hand-written implementation.
 //
 // I've also changed the return type of HTMLCollection.namedItem() to
@@ -137,7 +137,7 @@ interface Document : Node {
 
   // This is a private method that the renderer process uses to pass
   // events back to dom.js so that they can be dispatched.  Note that the
-  // target argument is a nid, not a node.  Unlike the public 
+  // target argument is a nid, not a node.  Unlike the public
   // EventTarget.dispatchEvent() method, this one dispatches trusted events
   void _dispatchEvent(unsigned long target, DOMString type, EventInit details);
 
@@ -165,7 +165,7 @@ interface Document : Node {
   Event createEvent(DOMString eventInterfaceName);
 
 
-// 
+//
 // The HTML spec says that all documents have the following members.
 // Currently HTML says "Document implements HTMLDocument", but that may
 // change to "partial interface Document", so I'm putting them directly
@@ -186,7 +186,7 @@ interface Document : Node {
   readonly attribute DOMString readyState;
 
   // DOM tree accessors
-  // XXX The getter is commented out for now, since 
+  // XXX The getter is commented out for now, since
   // I'm not ready to write DocumentProxy yet.
   //  getter any (in DOMString name);
 
@@ -202,7 +202,7 @@ interface Document : Node {
   readonly attribute HTMLCollection forms;
   readonly attribute HTMLCollection scripts;
   NodeList getElementsByName(in DOMString elementName);
-  //  NodeList getItems(in optional DOMString typeNames); // microdata 
+  //  NodeList getItems(in optional DOMString typeNames); // microdata
   //  readonly attribute DOMElementMap cssElementMap;
 
   // dynamic markup insertion

@@ -67,7 +67,7 @@ var DOMSTR = (function() {
             case XMLNS_NAMESPACE: return "n";
             case MATHML_NAMESPACE: return "m";
             case SVG_NAMESPACE: return "s";
-            default: 
+            default:
                 if (ns === lastCustomNS) return "l"
                 else {
                     lastCustomNS = ns;
@@ -148,7 +148,7 @@ var DOMSTR = (function() {
 
         function parseElement(type) {
             var e;
-            if (type === "H") 
+            if (type === "H")
                 e = d.createElement(next());
             else
                 e = d.createElementNS(parseNamespace(), next());
@@ -156,13 +156,13 @@ var DOMSTR = (function() {
             var numattrs = parseLength();
             for(var i = 0; i < numattrs; i++) {
                 var code = s[n++];
-                if (code === "a") 
+                if (code === "a")
                     e.setAttribute(next(), next());
                 else
                     e.setAttributeNS(parseNamespace(), next(), next());
             }
 
-            // XXX 
+            // XXX
             // Quick hack to prevent scripts from being run in the iframe
             if (e.tagName === "SCRIPT")
                 e.setAttribute("type", "dont-run-me");
@@ -202,7 +202,7 @@ var DOMSTR = (function() {
         function parseFragment() {
             var f = d.createDocumentFragment();
             var len = parseLength();
-            for(var i = 0; i < len; i++) 
+            for(var i = 0; i < len; i++)
                 f.appendChild(parseNode());
             return f;
         }

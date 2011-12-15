@@ -3,10 +3,10 @@
 interface UIEvent : Event {
   readonly attribute Window view;
   readonly attribute long            detail;
-  void                               initUIEvent(in DOMString typeArg, 
-                                                 in boolean canBubbleArg, 
-                                                 in boolean cancelableArg, 
-                                                 in Window viewArg, 
+  void                               initUIEvent(in DOMString typeArg,
+                                                 in boolean canBubbleArg,
+                                                 in boolean cancelableArg,
+                                                 in Window viewArg,
                                                  in long detailArg);
 };
 
@@ -19,22 +19,22 @@ interface MouseEvent : UIEvent {
   readonly attribute boolean         shiftKey;
   readonly attribute boolean         altKey;
   readonly attribute boolean         metaKey;
-  readonly attribute unsigned short  button;  
+  readonly attribute unsigned short  button;
   readonly attribute unsigned short  buttons;
   readonly attribute                 EventTarget     relatedTarget;
-  void                               initMouseEvent(in DOMString typeArg, 
-                                                in boolean canBubbleArg, 
-                                                in boolean cancelableArg, 
-                                                in Window viewArg, 
-                                                in long detailArg, 
-                                                in long screenXArg, 
-                                                in long screenYArg, 
-                                                in long clientXArg, 
-                                                in long clientYArg, 
-                                                in boolean ctrlKeyArg, 
-                                                in boolean altKeyArg, 
-                                                in boolean shiftKeyArg, 
-                                                in boolean metaKeyArg, 
+  void                               initMouseEvent(in DOMString typeArg,
+                                                in boolean canBubbleArg,
+                                                in boolean cancelableArg,
+                                                in Window viewArg,
+                                                in long detailArg,
+                                                in long screenXArg,
+                                                in long screenYArg,
+                                                in long clientXArg,
+                                                in long clientYArg,
+                                                in boolean ctrlKeyArg,
+                                                in boolean altKeyArg,
+                                                in boolean shiftKeyArg,
+                                                in boolean metaKeyArg,
                                                 in unsigned short buttonArg,
                                                 in EventTarget relatedTargetArg);
   // Introduced in DOM Level 3:

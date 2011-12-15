@@ -32,12 +32,12 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
 
     // Script elements that are not parser inserted must call _prepare() when:
     // 1) a script is inserted into the document.  (see _roothook below)
-    // 2) the script's children change 
+    // 2) the script's children change
     //   XXX: need to make this one happen
     //   I could use a proxy array for childNodes and handle that here
     //   That might be more efficient than adding hooks in Node.
     //   Also, I sent email to whatwg mailing list about this.
-    //   Firefox actually triggers a script if a text node child 
+    //   Firefox actually triggers a script if a text node child
     //   changes from the empty string to non-empty, and that would
     //   be hard to have a hook for. Or, I could use the modtime thing
     //   to look for any changes on any descendant and then check the
@@ -45,10 +45,10 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
     //   be a _prepare() trigger.  But I'm hoping that the spec will change
     //   so that any child insertion (including an empty text node) \
     //   is enough.
-    // 
+    //
     // 3) when the a src attribute is defined
     //   (See _newattrhook below);
-    // 
+    //
 
 
     HTMLScriptElement.prototype = O.create(impl.HTMLElement.prototype, {
@@ -151,17 +151,17 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // If the element is not in a Document, then the user agent must
             // abort these steps at this point. The script is not executed.
             if (!this.rooted) return;
-            
+
             // If either:
             //     the script element has a type attribute and its value is the
             //     empty string, or the script element has no type attribute
             //     but it has a language attribute and that attribute's value
             //     is the empty string, or the script element has neither a
             //     type attribute nor a language attribute, then
-            // 
+            //
             // ...let the script block's type for this script element be
             // "text/javascript".
-            // 
+            //
             // Otherwise, if the script element has a type attribute, let the
             // script block's type for this script element be the value of that
             // attribute with any leading or trailing sequences of space
@@ -179,7 +179,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             var haslang = this.hasAttribute("language");
             var langattr = haslang ? this.getAttribute("language") : undefined;
             var scripttype;
-            
+
             if ((typeattr === "") ||
                 (!hastype && langattr === "") ||
                 (!hastype && !haslang)) {
@@ -220,12 +220,12 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // created the element, then abort these steps.
             if (this._parser_inserted &&
                 this.ownerDocument !== this._creatorDocument)
-                return;  // Script was moved to a new document 
+                return;  // Script was moved to a new document
 
             // If scripting is disabled for the script element, then the user
             // agent must abort these steps at this point. The script is not
             // executed.
-            // 
+            //
             // The definition of scripting is disabled means that, amongst
             // others, the following scripts will not execute: scripts in
             // XMLHttpRequest's responseXML documents, scripts in
@@ -241,7 +241,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // but we do want to run scripts.  For now, I think I'll have
             // the parser set this, and also set it on the initial
             // global document.
-            // 
+            //
             if (!this.ownerDocument._scripting_enabled) return;
 
             // If the script element has an event attribute and a for
@@ -250,18 +250,18 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             //     Let for be the value of the for attribute.
             //
             //     Let event be the value of the event attribute.
-            // 
+            //
             //     Strip leading and trailing whitespace from event and for.
-            // 
+            //
             //     If for is not an ASCII case-insensitive match for the string
             //     "window", then the user agent must abort these steps at this
             //     point. The script is not executed.
-            // 
+            //
             //     If event is not an ASCII case-insensitive match for either
             //     the string "onload" or the string "onload()", then the user
             //     agent must abort these steps at this point. The script is
             //     not executed.
-            
+
             var forattr = this.getAttribute("for") || "";
             var eventattr = this.getAttribute("event") || "";
             if (forattr || eventattr) {
@@ -280,7 +280,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // Otherwise, let the script block's fallback character encoding
             // for this script element be the same as the encoding of the
             // document itself.
-            // 
+            //
             // Only one of these two pieces of state is set.
             if (this.hasAttribute("charset")) {
                 // XXX: ignoring charset issues for now
@@ -294,7 +294,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // relative to the element, and if that is successful, the
             // specified resource must then be fetched, from the origin of the
             // element's Document.
-            // 
+            //
             // If the src attribute's value is the empty string or if it could
             // not be resolved, then the user agent must queue a task to fire a
             // simple event named error at the element, and abort these steps.
@@ -304,7 +304,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // definition of the fetching algorithm, actually execute the
             // script in the URL; instead the user agent must act as if it had
             // received an empty HTTP 400 response.
-            // 
+            //
             // For performance reasons, user agents may start fetching the
             // script as soon as the attribute is set, instead, in the hope
             // that the element will be inserted into the document. Either way,
@@ -318,7 +318,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                 // XXX
                 // The spec for handling this is really, really complicated.
                 // For now, I'm just going to try to get something basic working
-                
+
                 var url = this.getAttribute("src");
 
                 if (this.ownerDocument._parser) {
@@ -327,9 +327,9 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
 
 /*
                 // XXX: this is a hack
-                // If we're running in node, and the document has an 
+                // If we're running in node, and the document has an
                 // _address, then we can resolve the URL
-                if (this.ownerDocument._address && 
+                if (this.ownerDocument._address &&
                     typeof require === "function") {
                     url = require('url').resolve(this.ownerDocument._address,
                                                  url);
@@ -356,12 +356,12 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                     }
                 }
                 else {
-                    
+
                     var script = this;
                     var xhr = new XMLHttpRequest();
                     xhr.open("GET", url);
                     xhr.send();
-                    
+
                     // Web workers support this handler but not the old
                     // onreadystatechange handler
                     xhr.onloadend = function() {
@@ -387,7 +387,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                             script._execute();
                             delete script._script_text;
                         }
-                        
+
                         // Do this even if we failed
                         if (script.ownerDocument._parser) {
                             script.ownerDocument._parser.resume();
@@ -396,7 +396,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                 }
             }
             else {
-                
+
                 // XXX
                 // Just execute inlines scripts now.
                 // Later, I've got to deal with the all the cases below
@@ -485,7 +485,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             //     completed must execute the script block and then
             //     remove the element from the set of scripts that
             //     will execute as soon as possible.
-            // 
+            //
             // Otherwise The user agent must immediately execute the
             // script block, even if other scripts are already
             // executing.
@@ -501,7 +501,7 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
             // For now, we're just doing inline scripts, so I'm skipping
             // the steps about if the load was not successful.
             var code = this._script_text;
-            
+
             // If the script is from an external file, then increment the
             // ignore-destructive-writes counter of the script element's
             // Document. Let neutralized doc be that Document.

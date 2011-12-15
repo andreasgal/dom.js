@@ -5,7 +5,7 @@ function IFrameRenderer(worker, frame) {
     this.frame = frame;
     this.win = frame.contentWindow;
     this.doc = frame.contentDocument;
-    this.nodes = [null, this.doc];  // Maps nid to node    
+    this.nodes = [null, this.doc];  // Maps nid to node
 
     // Remove the existing children of the document
     while(this.doc.hasChildNodes()) this.doc.removeChild(this.doc.firstChild);
@@ -69,7 +69,7 @@ IFrameRenderer.prototype.handleMutation = function(event) {
     const MUTATE_INSERT = 6;
 
     var message = event.data;
-    
+
     // This class only handles mutation events from the worker
     // It doesn't handle log, warn and error commands, for example.
     if (message[0] !== "mutation") return;
@@ -83,7 +83,7 @@ IFrameRenderer.prototype.handleMutation = function(event) {
     case MUTATE_VALUE:
         target.data = mutation.data;
         break;
-        
+
     case MUTATE_ATTR:
         if (mutation.ns) {
             target.setAttributeNS(mutation.ns,
@@ -107,13 +107,13 @@ IFrameRenderer.prototype.handleMutation = function(event) {
     case MUTATE_REMOVE:
         target.parentNode.removeChild(target);
         break;
-        
+
     case MUTATE_MOVE:
         var parent = this.nodes[mutation.parent];
         var child = parent.childNodes[mutation.index];
         parent.insertBefore(target, child);
         break;
-        
+
     case MUTATE_INSERT:
         var parent = this.nodes[mutation.parent];
         var target = parent.childNodes[mutation.index];
@@ -143,10 +143,10 @@ IFrameRenderer.prototype.setBaseHref = function(url) {
 IFrameRenderer.prototype.assignNid = function assignNid(node, nid) {
     node._nid = nid;
     this.nodes[nid++] = node;
-    
+
     for(var kid = node.firstChild; kid; kid = kid.nextSibling) {
         nid = this.assignNid(kid, nid);
     }
-    
+
     return nid;
 };

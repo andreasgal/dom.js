@@ -17,7 +17,7 @@ defineLazyProperty(impl, "FilteredElementList", function() {
     FilteredElementList.prototype = {
         _idlName: "NodeList",
 
-        get length() { 
+        get length() {
             this.checkcache();
             if (!this.done) this.traverse();
             return this.cache.length;
@@ -40,18 +40,18 @@ defineLazyProperty(impl, "FilteredElementList", function() {
         },
 
         // If n is specified, then traverse the tree until we've found the nth
-        // item (or until we've found all items).  If n is not specified, 
+        // item (or until we've found all items).  If n is not specified,
         // traverse until we've found all items.
         traverse: function(n) {
             // increment n so we can compare to length, and so it is never falsy
-            if (n !== undefined) n++;  
+            if (n !== undefined) n++;
 
             var elt;
             while(elt = this.next()) {
                 push(this.cache, elt);
                 if (n && this.cache.length === n) return;
             }
-            
+
             // no next element, so we've found everything
             this.done = true;
         },

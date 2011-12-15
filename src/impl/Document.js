@@ -29,7 +29,7 @@ defineLazyProperty(impl, "Document", function() {
         // on a rooted element.
         this.byId = O.create(null); // inherit nothing
 
-        // This property holds a monotonically increasing value akin to 
+        // This property holds a monotonically increasing value akin to
         // a timestamp used to record the last modification time of nodes
         // and their subtrees. See the lastModTime attribute and modify()
         // method of the Node class.  And see FilteredElementList for an example
@@ -117,7 +117,7 @@ defineLazyProperty(impl, "Document", function() {
         createElementNS: constant(function(namespace, qualifiedName) {
             if (!xml.isValidName(qualifiedName)) InvalidCharacterError();
             if (!xml.isValidQName(qualifiedName)) NamespaceError();
-            
+
             var pos, prefix, localName;
             if ((pos = S.indexOf(qualifiedName, ":")) !== -1) {
                 prefix = substring(qualifiedName, 0, pos);
@@ -134,7 +134,7 @@ defineLazyProperty(impl, "Document", function() {
 
             if (((qualifiedName === "xmlns" || prefix === "xmlns") &&
                  namespace !== XMLNS_NAMESPACE) ||
-                (namespace === XMLNS_NAMESPACE && 
+                (namespace === XMLNS_NAMESPACE &&
                  qualifiedName !== "xmlns" &&
                  prefix !== "xmlns"))
                 NamespaceError();
@@ -205,7 +205,7 @@ defineLazyProperty(impl, "Document", function() {
                 this.documentElement = child;
             }
             if (child.nodeType === DOCUMENT_TYPE_NODE) {
-                if (this.doctype ||        
+                if (this.doctype ||
                     (this.documentElement &&
                      refChild.index > this.documentElement.index))
                     HierarchyRequestError()
@@ -213,7 +213,7 @@ defineLazyProperty(impl, "Document", function() {
                 this.doctype = child;
             }
             return call(impl.Node.prototype.insertBefore,this, child, refChild);
-        }),        
+        }),
 
         replaceChild: constant(function replaceChild(child, oldChild) {
             if (oldChild.parentNode !== this) NotFoundError();
@@ -272,7 +272,7 @@ defineLazyProperty(impl, "Document", function() {
         }),
 
 
-        // XXX: 
+        // XXX:
         // Tests are currently failing for this function.
         // Awaiting resolution of:
         // http://lists.w3.org/Archives/Public/www-dom/2011JulSep/0016.html
@@ -280,9 +280,9 @@ defineLazyProperty(impl, "Document", function() {
             var filter;
             if (lname === "*")
                 filter = ftrue;
-            else if (this.doc.isHTML) 
+            else if (this.doc.isHTML)
                 filter = htmlLocalNameElementFilter(lname);
-            else 
+            else
                 filter = localNameElementFilter(lname);
 
             return new impl.FilteredElementList(this, filter);
@@ -293,7 +293,7 @@ defineLazyProperty(impl, "Document", function() {
             var filter;
             if (ns === "*" && lname === "*")
                 filter = ftrue;
-            else if (ns === "*") 
+            else if (ns === "*")
                 filter = localNameElementFilter(lname);
             else if (lname === "*")
                 filter = namespaceElementFilter(ns);
@@ -304,14 +304,14 @@ defineLazyProperty(impl, "Document", function() {
         }),
 
         getElementsByClassName: constant(function getElementsByClassName(names){
-            names = names.trim();  
+            names = names.trim();
             if (names === "") {
                 var result = []; // Empty node list
                 result._idlName = "NodeList";
                 return result;
             }
             names = names.split(/\s+/);  // Split on spaces
-            return new impl.FilteredElementList(this, 
+            return new impl.FilteredElementList(this,
                                                 classNamesElementFilter(names));
         }),
 
@@ -384,11 +384,11 @@ defineLazyProperty(impl, "Document", function() {
 
         write: constant(function(args) {
             if (!this.isHTML) InvalidStateError();
-            
+
             // XXX: still have to implement the ignore part
-            if (!this._parser /* && this._ignore_destructive_writes > 0 */ ) 
+            if (!this._parser /* && this._ignore_destructive_writes > 0 */ )
                 return;
-            
+
             if (!this._parser) {
                 // XXX call document.open, etc.
             }
@@ -424,7 +424,7 @@ defineLazyProperty(impl, "Document", function() {
         // Utility methods
         clone: constant(function clone() {
             // Can't clone an entire document
-            DataCloneError();  
+            DataCloneError();
         }),
         isEqual: constant(function isEqual(n) {
             // Any two documents are shallowly equal.
@@ -432,7 +432,7 @@ defineLazyProperty(impl, "Document", function() {
             return true;
         }),
 
-        // Implementation-specific function.  Called when a text, comment, 
+        // Implementation-specific function.  Called when a text, comment,
         // or pi value changes.
         mutateValue: constant(function(node) {
             if (this.mutationHandler) {
@@ -449,7 +449,7 @@ defineLazyProperty(impl, "Document", function() {
         // involve changes to the prefix (and therefore the qualified name)
         mutateAttr: constant(function(attr, oldval) {
             // Manage id->element mapping for getElementsById()
-            // XXX: this special case id handling should not go here, 
+            // XXX: this special case id handling should not go here,
             // but in the attribute declaration for the id attribute
             /*
             if (attr.localName === "id" && attr.namespaceURI === null) {
@@ -473,7 +473,7 @@ defineLazyProperty(impl, "Document", function() {
         mutateRemoveAttr: constant(function(attr) {
 /*
  * This is now handled in Attributes.js
-            // Manage id to element mapping 
+            // Manage id to element mapping
             if (attr.localName === "id" && attr.namespaceURI === null) {
                 this.delId(attr.value, attr.ownerElement);
             }
@@ -489,7 +489,7 @@ defineLazyProperty(impl, "Document", function() {
         }),
 
         // Called by Node.removeChild, etc. to remove a rooted element from
-        // the tree. Only needs to generate a single mutation event when a 
+        // the tree. Only needs to generate a single mutation event when a
         // node is removed, but must recursively mark all descendants as not
         // rooted.
         mutateRemove: constant(function(node) {
@@ -558,11 +558,11 @@ defineLazyProperty(impl, "Document", function() {
         delId: constant(function delId(id, n) {
             var val = this.byId[id];
             assert(val);
-            
+
             if (isArray(val)) {
                 var idx = A.indexOf(val, n);
                 splice(val, idx, 1);
-                
+
                 if (val.length == 1) { // convert back to a single node
                     this.byId[id] = val[0];
                 }
@@ -605,7 +605,7 @@ defineLazyProperty(impl, "Document", function() {
             //     step if it was successful; otherwise it is fallback
             //     base url.
 
-            
+
         }),
     });
 
@@ -641,7 +641,7 @@ defineLazyProperty(impl, "Document", function() {
     function root(n) {
         n._nid = n.ownerDocument._nextnid++;
         n.ownerDocument._nodes[n._nid] = n;
-        // Manage id to element mapping 
+        // Manage id to element mapping
         if (n.nodeType === ELEMENT_NODE) {
             var id = n.getAttribute("id");
             if (id) n.ownerDocument.addId(id, n);
@@ -653,7 +653,7 @@ defineLazyProperty(impl, "Document", function() {
     }
 
     function uproot(n) {
-        // Manage id to element mapping 
+        // Manage id to element mapping
         if (n.nodeType === ELEMENT_NODE) {
             var id = n.getAttribute("id");
             if (id) n.ownerDocument.delId(id, n);
@@ -666,26 +666,26 @@ defineLazyProperty(impl, "Document", function() {
         root(node);
         // XXX:
         // accessing childNodes on a leaf node creates a new array the
-        // first time, so be careful to write this loop so that it 
+        // first time, so be careful to write this loop so that it
         // doesn't do that. node is polymorphic, so maybe this is hard to
         // optimize?  Try switching on nodeType?
 /*
         if (node.hasChildNodes()) {
             var kids = node.childNodes;
-            for(var i = 0, n = kids.length;  i < n; i++) 
+            for(var i = 0, n = kids.length;  i < n; i++)
                 recursivelyRoot(kids[i]);
         }
 */
         if (node.nodeType === ELEMENT_NODE) {
             var kids = node.childNodes;
-            for(var i = 0, n = kids.length;  i < n; i++) 
+            for(var i = 0, n = kids.length;  i < n; i++)
                 recursivelyRoot(kids[i]);
         }
     }
 
     function recursivelyUproot(node) {
         uproot(node);
-        for(var i = 0, n = node.childNodes.length;  i < n; i++) 
+        for(var i = 0, n = node.childNodes.length;  i < n; i++)
             recursivelyUproot(node.childNodes[i]);
     }
 

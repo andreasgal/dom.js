@@ -8,7 +8,7 @@ defineLazyProperty(impl, "UIEvent", function() {
     }
     UIEvent.prototype = O.create(impl.Event.prototype, {
         _idlName: constant("UIEvent"),
-        initUIEvent: constant(function(type, bubbles, cancelable, 
+        initUIEvent: constant(function(type, bubbles, cancelable,
                                        view, detail) {
             this.initEvent(type, bubbles, cancelable);
             this.view = view;

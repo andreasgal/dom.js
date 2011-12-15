@@ -129,11 +129,11 @@ defineLazyProperty(impl, "HTMLElement", function() {
                 parser.parse(v, true);
                 var tmpdoc = parser.document();
                 var root = tmpdoc.firstChild;
-                
+
                 // Remove any existing children of this node
                 while(this.hasChildNodes())
                     this.removeChild(this.firstChild);
-                
+
                 // Now copy newly parsed children from the root to this node
                 while(root.hasChildNodes()) {
                     this.appendChild(root.firstChild);
@@ -155,7 +155,7 @@ defineLazyProperty(impl, "HTMLElement", function() {
                 var event = this.ownerDocument.createEvent("MouseEvent");
                 event.initMouseEvent("click", true, true,
                                      this.ownerDocument.defaultView, 1,
-                                     0, 0, 0, 0, 
+                                     0, 0, 0, 0,
                                      // These 4 should be initialized with
                                      // the actually current keyboard state
                                      // somehow...
@@ -193,12 +193,12 @@ defineLazyProperty(impl, "HTMLElement", function() {
     // XXX: the default value for tabIndex should be 0 if the element is
     // focusable and -1 if it is not.  But the full definition of focusable
     // is actually hard to compute, so for now, I'll follow Firefox and
-    // just base the default value on the type of the element. 
+    // just base the default value on the type of the element.
     var focusableElements = {
         "A":true, "LINK":true, "BUTTON":true, "INPUT":true,
         "SELECT":true, "TEXTAREA":true, "COMMAND":true
     };
-    impl.Element.reflectIntegerAttribute(HTMLElement, "tabindex", 
+    impl.Element.reflectIntegerAttribute(HTMLElement, "tabindex",
                          // compute a default tabIndex value
                          function() {
                              if (this.tagName in focusableElements ||
@@ -206,9 +206,9 @@ defineLazyProperty(impl, "HTMLElement", function() {
                                  return 0;
                              else
                                  return -1;
-                         }, 
+                         },
                                          "tabIndex");
-                                         
+
     // XXX: reflect contextmenu as contextMenu, with element type
 
 
@@ -232,7 +232,7 @@ defineLazyProperty(impl, "HTMLElement", function() {
     // microdata attributes: many are simple reflected attributes, but
     // I'm not going to implement this now.
 
-    
+
     var eventHandlerTypes = [
         "abort", "canplay", "canplaythrough", "change", "click", "contextmenu",
         "cuechange", "dblclick", "drag", "dragend", "dragenter", "dragleave",
@@ -360,10 +360,10 @@ defineLazyProperty(impl, "HTMLBodyElement", function() {
     });
 
 
-    // Certain event handler attributes on a <body> tag actually set 
-    // handlers for the window rather than just that element.  Define 
+    // Certain event handler attributes on a <body> tag actually set
+    // handlers for the window rather than just that element.  Define
     // getters and setters for those here.  Note that some of these override
-    // properties on HTMLElement.prototype.  
+    // properties on HTMLElement.prototype.
     // XXX: If I add support for <frameset>, these have to go there, too
     // XXX
     // When the Window object is implemented, these attribute will have
@@ -422,7 +422,7 @@ defineLazyProperty(impl, "HTMLButtonElement", function() {
 
     impl.Element.reflectStringAttribute(HTMLButtonElement, "value");
     impl.Element.reflectEnumeratedAttribute(HTMLButtonElement, "type", null, {
-        submit: "submit", 
+        submit: "submit",
         reset: "reset",
         button: "button",
     }, "submit");
@@ -660,7 +660,7 @@ defineLazyProperty(impl, "HTMLIFrameElement", function() {
     impl.Element.reflectStringAttribute(HTMLIFrameElement, "height");
     // XXX: sandbox is a reflected settable token list
     impl.Element.reflectBooleanAttribute(HTMLIFrameElement, "seamless");
-    
+
     return HTMLIFrameElement;
 });
 
@@ -682,7 +682,7 @@ defineLazyProperty(impl, "HTMLImageElement", function() {
                                         "crossOrigin");
     impl.Element.reflectStringAttribute(HTMLImageElement, "usemap", "useMap");
     impl.Element.reflectBooleanAttribute(HTMLImageElement, "ismap", "isMap");
-    
+
 
 
     return HTMLImageElement;
@@ -734,8 +734,8 @@ defineLazyProperty(impl, "HTMLInputElement", function() {
                                                 on: "on",
                                                 off: "off"
                                             });
-    
-    impl.Element.reflectEnumeratedAttribute(HTMLInputElement, "type", null, 
+
+    impl.Element.reflectEnumeratedAttribute(HTMLInputElement, "type", null,
                                             {
                                                 hidden: "hidden",
                                                 text: "text",
@@ -857,7 +857,7 @@ defineLazyProperty(impl, "HTMLLinkElement", function() {
     impl.Element.reflectStringAttribute(HTMLLinkElement, "media");
     impl.Element.reflectStringAttribute(HTMLLinkElement, "hreflang");
     impl.Element.reflectStringAttribute(HTMLLinkElement, "type");
-    
+
 
 
     return HTMLLinkElement;
@@ -958,7 +958,7 @@ defineLazyProperty(impl, "HTMLOListElement", function() {
 
     impl.Element.reflectStringAttribute(HTMLOListElement, "type");
     impl.Element.reflectBooleanAttribute(HTMLOListElement, "reversed");
-    impl.Element.reflectIntegerAttribute(HTMLOListElement, "start", 
+    impl.Element.reflectIntegerAttribute(HTMLOListElement, "start",
                                          function() {
                                              // The default value of the
                                              // start attribute is 1 unless
@@ -969,7 +969,7 @@ defineLazyProperty(impl, "HTMLOListElement", function() {
                                              else
                                                  return 1;
                                          });
-    
+
 
     return HTMLOListElement;
 });
@@ -1003,7 +1003,7 @@ defineLazyProperty(impl, "HTMLOptGroupElement", function() {
     HTMLOptGroupElement.prototype = O.create(impl.HTMLElement.prototype, {
         _idlName: constant("HTMLOptGroupElement"),
     });
-    
+
     impl.Element.reflectBooleanAttribute(HTMLOptGroupElement, "disabled");
     impl.Element.reflectStringAttribute(HTMLOptGroupElement, "label");
 
@@ -1124,7 +1124,7 @@ defineLazyProperty(impl, "HTMLSelectElement", function() {
     impl.Element.reflectBooleanAttribute(HTMLSelectElement, "multiple");
     impl.Element.reflectBooleanAttribute(HTMLSelectElement, "required");
     impl.Element.reflectIntegerAttribute(HTMLSelectElement, "size", 0);
-    
+
     return HTMLSelectElement;
 });
 
@@ -1214,7 +1214,7 @@ defineLazyProperty(impl, "HTMLTableColElement", function() {
 
     impl.Element.reflectIntegerAttribute(HTMLTableColElement, "span", 1, null,
                                          1, null, 1);
-    
+
 
     return HTMLTableColElement;
 });
@@ -1339,7 +1339,7 @@ defineLazyProperty(impl, "HTMLTrackElement", function() {
                                                 descriptions: "descriptions",
                                                 chapters: "chapters",
                                                 metadata: "metadata"
-                                            }, 
+                                            },
                                             "subtitles");
 
 
