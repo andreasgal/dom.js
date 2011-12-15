@@ -12,7 +12,7 @@ function assertThrows(func, type, msg) {
         if (type) {
             if ((typeof type === "string" && e.name !== type) ||
                 (typeof type === "number" && e.code != type))
-                throw Error("Threw exception of wrong type. Expected: " + type + 
+                throw Error("Threw exception of wrong type. Expected: " + type +
                             " Got: " + e + " At: " + e.stack);
         }
         return;  // Assertion was successful

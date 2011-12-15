@@ -3,22 +3,22 @@
  * The algorithm and the implementation are complex because HTML
  * explicitly defines how the parser should behave for all possible
  * valid and invalid inputs.
- * 
+ *
  * Usage:
- * 
+ *
  * The file defines a single HTMLParser() function, which dom.js exposes
  * publicly as document.implementation.mozHTMLParser(). This is a
- * factory function, not a constructor. 
- * 
+ * factory function, not a constructor.
+ *
  * When you call document.implementation.mozHTMLParser(), it returns
  * an object that has parse() and document() methods. To parse HTML text,
- * pass the text (in one or more chunks) to the parse() method.  When 
+ * pass the text (in one or more chunks) to the parse() method.  When
  * you've passed all the text (on the last chunk, or afterward) pass
  * true as the second argument to parse() to tell the parser that there
  * is no more coming. Call document() to get the document object that
  * the parser is parsing into.  You can call this at any time, before
  * or after calling parse().
- * 
+ *
  * The first argument to mozHTMLParser is the absolute URL of the document.
  *
  * The second argument is optional and is for internal use only.  Pass an
@@ -27,9 +27,9 @@
  * omit the 2nd argument. See HTMLElement.innerHTML for an example.  Note
  * that if you pass a context element, the end() method will return an
  * unwrapped document instead of a wrapped one.
- * 
+ *
  * Implementation details:
- * 
+ *
  * This is a long file of almost 7000 lines. It is structured as one
  * big function nested within another big function.  The outer
  * function defines a bunch of constant data, utility functions
@@ -39,15 +39,15 @@
  * function that implements the parser and holds all the parser state
  * as local variables.  The HTMLParser function is quite big because
  * it defines many nested functions that use those local variables.
- * 
+ *
  * There are three tightly coupled parser stages: a scanner, a
  * tokenizer and a tree builder. In a (possibly misguided) attempt at
  * efficiency, the stages are not implemented as separate classes:
  * everything shares state and is (mostly) implemented in imperative
  * (rather than OO) style.
- * 
+ *
  * The stages of the parser work like this: When the client code calls
- * the parser's parse() method, the specified string is passed to 
+ * the parser's parse() method, the specified string is passed to
  * scanChars(). The scanner loops through that string and passes characters
  * (sometimes one at a time, sometimes in chunks) to the tokenizer stage.
  * The tokenizer groups the characters into tokens: tags, endtags, runs
@@ -55,7 +55,7 @@
  * token.  These tokens are then passed to the tree building stage via
  * the insertToken() function.  The tree building stage builds up the
  * document tree.
- * 
+ *
  * The tokenizer stage is a finite state machine.  Each state is
  * implemented as a function with a name that ends in "_state".  The
  * initial state is data_state(). The current tokenizer state is stored
@@ -68,12 +68,12 @@
  * Otherwise, scanChars() looks ahead (a given # of characters, or for a
  * matching string, or for a matching regexp) and passes a string of
  * characters to the current tokenizer state function.
- * 
+ *
  * As a shortcut, certain states of the tokenizer use regular expressions
  * to look ahead in the scanner's input buffer for runs of text, simple
  * tags and attributes.  For well-formed input, these shortcuts skip a
  * lot of state transitions and speed things up a bit.
- * 
+ *
  * When a tokenizer state function has consumed a complete token, it
  * emits that token, by calling insertToken(), or by calling a utility
  * function that itself calls insertToken().  These tokens are passed to
@@ -89,7 +89,7 @@
  * DOCTYPES it is the optional public id.  For tags, the 4th argument is
  * true if the tag is self-closing. For doctypes, the 4th argument is the
  * optional system id.
- * 
+ *
  * Search for "***" to find the major sub-divisions in the code.
  */
 const HTMLParser = (function() {
@@ -293,7 +293,7 @@ const HTMLParser = (function() {
         altglyphitem: "altGlyphItem", animatecolor: "animateColor",
         animatemotion: "animateMotion", animatetransform: "animateTransform",
         clippath: "clipPath", feblend: "feBlend",
-        fecolormatrix: "feColorMatrix", 
+        fecolormatrix: "feColorMatrix",
         fecomponenttransfer: "feComponentTransfer", fecomposite: "feComposite",
         feconvolvematrix: "feConvolveMatrix",
         fediffuselighting: "feDiffuseLighting",
@@ -1461,7 +1461,7 @@ const HTMLParser = (function() {
     function isMathmlTextIntegrationPoint(n) {
         return isA(n, mathmlTextIntegrationPointSet);
     }
-    
+
     function isHTMLIntegrationPoint(n) {
         if (isA(n, htmlIntegrationPointSet)) return true;
         if (n.namespaceURI === MATHML_NAMESPACE &&
@@ -1476,9 +1476,9 @@ const HTMLParser = (function() {
     }
 
     function adjustSVGTagName(name) {
-        if (name in svgTagNameAdjustments) 
+        if (name in svgTagNameAdjustments)
             return svgTagNameAdjustments[name];
-        else 
+        else
             return name;
     }
 
@@ -1531,7 +1531,7 @@ const HTMLParser = (function() {
     /*
     // This is for debugging only
     HTMLParser.ElementStack.prototype.toString = function(e) {
-        return "STACK: " + 
+        return "STACK: " +
         this.elements.map(function(e) {return e.localName;}).join("-");
     }
     */
@@ -1546,7 +1546,7 @@ const HTMLParser = (function() {
         this.top = this.elements[this.elements.length-1];
     };
 
-    // Pop elements off the stack up to and including the first 
+    // Pop elements off the stack up to and including the first
     // element with the specified (HTML) tagname
     HTMLParser.ElementStack.prototype.popTag = function(tag) {
         for(var i = this.elements.length-1; i >= 0; i--) {
@@ -1558,7 +1558,7 @@ const HTMLParser = (function() {
         this.top = this.elements[i-1];
     };
 
-    // Pop elements off the stack up to and including the first 
+    // Pop elements off the stack up to and including the first
     // element that is an instance of the specified type
     HTMLParser.ElementStack.prototype.popElementType = function(type) {
         for(var i = this.elements.length-1; i >= 0; i--) {
@@ -1714,7 +1714,7 @@ const HTMLParser = (function() {
         for(var i = this.list.length-1; i >= 0; i--) {
             if (this.list[i] === this.MARKER) break;
             // equal() is defined below
-            if (equal(elt, this.list[i], this.attrs[i])) {  
+            if (equal(elt, this.list[i], this.attrs[i])) {
                 count++;
                 if (count === 3) {
                     splice(this.list, i, 1);
@@ -1737,7 +1737,7 @@ const HTMLParser = (function() {
         push(this.attrs, attrcopy);
 
         // This function defines equality of two elements for the purposes
-        // of the AFE list.  Note that it compares the new elements 
+        // of the AFE list.  Note that it compares the new elements
         // attributes to the saved array of attributes associated with
         // the old element because a script could have changed the
         // old element's set of attributes
@@ -1790,7 +1790,7 @@ const HTMLParser = (function() {
     };
 
     // Find element a in the list and replace it with element b
-    // XXX: Do I need to handle attributes here?  
+    // XXX: Do I need to handle attributes here?
     HTMLParser.ActiveFormattingElements.prototype.replace = function(a, b, attrs) {
         var idx = A.lastIndexOf(this.list, a);
         if (idx !== -1) {
@@ -1815,7 +1815,7 @@ const HTMLParser = (function() {
 
     /***
      * This is the parser factory function. It is the return value of
-     * the outer closure that it is defined within.  Most of the parser 
+     * the outer closure that it is defined within.  Most of the parser
      * implementation details are inside this function.
      */
     function HTMLParser(address, fragmentContext, options) {
@@ -1823,9 +1823,9 @@ const HTMLParser = (function() {
          * These are the parser's state variables
          */
         // Scanner state
-        var chars = null;       
+        var chars = null;
         var numchars = 0;     // Length of chars
-        var nextchar = 0;     // Index of next char 
+        var nextchar = 0;     // Index of next char
         var input_complete = false; // Becomes true when end() called.
         var scanner_skip_newline = false;  // If previous char was CR
         var reentrant_invocations = 0;
@@ -1877,12 +1877,12 @@ const HTMLParser = (function() {
         /***
          * This is the parser object that will be the return value of this
          * factory function, which is some 5000 lines below.
-         * Note that the variable "parser" is the current state of the 
+         * Note that the variable "parser" is the current state of the
          * parser's state machine.  This variable "htmlparser" is the
          * return value and defines the public API of the parser
          */
         var htmlparser = {
-            document: function() { 
+            document: function() {
                 // For the fragment case, return the document unwrapped.
                 // Otherwise, return a wrapped document
                 if (fragment) return doc;
@@ -1912,7 +1912,7 @@ const HTMLParser = (function() {
             // from document.write()
             parse: function(s, end) {
 
-                // If we're paused, remember the text to parse, but 
+                // If we're paused, remember the text to parse, but
                 // don't parse it now.
                 if (paused > 0) {
                     leftovers += s;
@@ -1960,7 +1960,7 @@ const HTMLParser = (function() {
                     // This is the re-entrant case, which we have to
                     // handle a little differently.
                     reentrant_invocations++;
-                    
+
                     // Save current scanner state
                     saved_scanner_state.push(chars, numchars, nextchar);
 
@@ -2122,10 +2122,10 @@ const HTMLParser = (function() {
                     // The only tokenizer states that require fixed lookahead
                     // only consume alphanum characters, so we don't have
                     // to worry about CR and LF in this case
-                    
+
                     // tokenizer wants n chars of lookahead
                     var n = tokenizer.lookahead;
-                    
+
                     if (n < numchars - nextchar) {
                         // If we can look ahead that far
                         s = substring(chars, nextchar, nextchar+n);
@@ -2178,11 +2178,11 @@ const HTMLParser = (function() {
                     // tokenizer wants characters that match a regexp
                     // The only tokenizer states that use regexp lookahead
                     // are for character entities, and the patterns never
-                    // match CR or LF, so we don't need to worry about that 
+                    // match CR or LF, so we don't need to worry about that
                     // here.
 
                     // XXX
-                    // Ideally, I'd use the non-standard y modifier on 
+                    // Ideally, I'd use the non-standard y modifier on
                     // these regexps and set pattern.lastIndex to nextchar.
                     // But v8 and Node don't support /y, so I have to do
                     // the substring below
@@ -2210,7 +2210,7 @@ const HTMLParser = (function() {
                         s = "";
                         eof = true;
                     }
-                    
+
                     tokenizer(codepoint, s, eof);
                     break;
                 }
@@ -2230,7 +2230,7 @@ const HTMLParser = (function() {
             for(var i = 0; i < attributes.length; i++) {
                 if (attributes[i][0] === name) return;
             }
-            
+
             if (valuebuf) {
                 push(attributes, [name, buf2str(valuebuf)]);
             }
@@ -2251,7 +2251,7 @@ const HTMLParser = (function() {
             case "'":
                 value = substring(value, 1, len-1);
                 nextchar += (matched[0].length-1);
-                tokenizer = after_attribute_value_quoted_state;            
+                tokenizer = after_attribute_value_quoted_state;
                 break;
             default:
                 tokenizer = before_attribute_name_state;
@@ -2340,7 +2340,7 @@ const HTMLParser = (function() {
             return true;
         }
 
-        // This is used by CDATA sections 
+        // This is used by CDATA sections
         function emitCharString(s) {
             if (textrun.length > 0) flushText();
 
@@ -2349,7 +2349,7 @@ const HTMLParser = (function() {
                 if (s[0] === "\n") s = substring(s, 1);
                 if (s.length === 0) return;
             }
-            
+
             insertToken(TEXT, s);
         }
 
@@ -2393,7 +2393,7 @@ const HTMLParser = (function() {
 
         function emitDoctype() {
             insertToken(DOCTYPE,
-                        buf2str(doctypenamebuf), 
+                        buf2str(doctypenamebuf),
                         doctypepublicbuf ? buf2str(doctypepublicbuf) : undefined,
                         doctypesystembuf ? buf2str(doctypesystembuf) : undefined);
         }
@@ -2430,7 +2430,7 @@ const HTMLParser = (function() {
                          current.localName === "annotation-xml") ||
                         isHTMLIntegrationPoint(current)) {
 
-                        // XXX: the text_integration_mode stuff is an 
+                        // XXX: the text_integration_mode stuff is an
                         // attempted bug workaround of mine
                         text_integration_mode = true;
                         parser(t, value, arg3, arg4);
@@ -2446,10 +2446,10 @@ const HTMLParser = (function() {
 
 
         /***
-         * Tree building utility functions 
+         * Tree building utility functions
          */
         function insertComment(data) {
-            stack.top.appendChild(doc.createComment(data)); 
+            stack.top.appendChild(doc.createComment(data));
         }
 
         function insertText(s) {
@@ -2468,7 +2468,7 @@ const HTMLParser = (function() {
         }
 
         function createHTMLElt(name, attrs) {
-            // Create the element this way, rather than with 
+            // Create the element this way, rather than with
             // doc.createElement because createElement() does error
             // checking on the element name that we need to avoid here.
             var interfaceName = tagNameToInterfaceName[name] ||
@@ -2487,7 +2487,7 @@ const HTMLParser = (function() {
             // run its reset algorithm now
             return elt;
         }
-        
+
         // The in_table insertion mode turns on this flag, and that makes
         // insertHTMLElement use the foster parenting algorithm for elements
         // tags inside a table
@@ -2520,7 +2520,7 @@ const HTMLParser = (function() {
             if (attrs) {
                 for(var i = 0, n = attrs.length; i < n; i++) {
                     var attr = attrs[i];
-                    if (attr.length == 2) 
+                    if (attr.length == 2)
                         elt._setAttribute(attr[0], attr[1]);
                     else {
                         elt._setAttributeNS(attr[2], attr[0], attr[1]);
@@ -2539,9 +2539,9 @@ const HTMLParser = (function() {
                     parent = stack.elements[i].parentElement;
                     if (parent)
                         before = stack.elements[i];
-                    else 
+                    else
                         parent = stack.elements[i-1];
-                    
+
                     break;
                 }
             }
@@ -2617,7 +2617,7 @@ const HTMLParser = (function() {
                 }
             }
         }
-        
+
 
         function parseRawText(name, attrs) {
             insertHTMLElement(name, attrs);
@@ -2658,7 +2658,7 @@ const HTMLParser = (function() {
             }
 
             // Now loop forward, starting from the element after the current
-            // one, recreating formatting elements and pushing them back onto 
+            // one, recreating formatting elements and pushing them back onto
             // the list of open elements
             for(i = i+1; i < afe.list.length; i++) {
                 var newelt = afeclone(i);
@@ -2668,7 +2668,7 @@ const HTMLParser = (function() {
         };
 
         // Used by the adoptionAgency() function
-        const BOOKMARK = {localName:"BM"};  
+        const BOOKMARK = {localName:"BM"};
 
         function adoptionAgency(tag) {
             // Let outer loop counter be zero.
@@ -2743,15 +2743,15 @@ const HTMLParser = (function() {
                     // relative to the elements on either side of it in the
                     // list.
                     afe.insertAfter(fmtelt, BOOKMARK);
-                    
-                    // Let node and last node be the furthest block. 
+
+                    // Let node and last node be the furthest block.
                     var node = furthestblock;
                     var lastnode = furthestblock;
                     var nodeindex = furthestblockindex;
                     var nodeafeindex;
 
                     // Let inner loop counter be zero.
-                    var inner = 0; 
+                    var inner = 0;
 
                     // Inner loop: If inner loop counter is greater than
                     // or equal to three, then abort these steps.
@@ -2800,7 +2800,7 @@ const HTMLParser = (function() {
                             afe.remove(BOOKMARK);
                             afe.insertAfter(newelt, BOOKMARK);
                         }
-                        
+
                         // Insert last node into node, first removing it from
                         // its previous parent node if any.
                         node.appendChild(lastnode);
@@ -2861,7 +2861,7 @@ const HTMLParser = (function() {
             // XXX:
             // This is just a stub implementation right now and doesn't run scripts.
             // Getting this method right involves the event loop, URL resolution
-            // script fetching etc. For now I just want to be able to parse 
+            // script fetching etc. For now I just want to be able to parse
             // documents and test the parser.
 
             var script = stack.top;
@@ -2912,7 +2912,7 @@ const HTMLParser = (function() {
 
             //     The tree construction stage of this particular parser is
             //     being called reentrantly, say from a call to
-            //     document.write().  
+            //     document.write().
 
             // Otherwise:
 
@@ -2966,7 +2966,7 @@ const HTMLParser = (function() {
             // Remove the link from document to parser.
             // This is instead of "set the insertion point to undefined".
             // It means that document.write() can't write into the doc anymore.
-            delete doc._parser; 
+            delete doc._parser;
 
             stack.elements.length = 0;  // pop everything off
 
@@ -2979,18 +2979,18 @@ const HTMLParser = (function() {
         }
 
         /****
-         * Tokenizer states 
+         * Tokenizer states
          */
 
         /**
-         * This file was partially mechanically generated from 
+         * This file was partially mechanically generated from
          * http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html
          *
          * After mechanical conversion, it was further converted from
          * prose to JS by hand, but the intent is that it is a very
          * faithful rendering of the HTML tokenization spec in
          * JavaScript.
-         * 
+         *
          * It is not a goal of this tokenizer to detect or report
          * parse errors.
          *
@@ -3008,7 +3008,7 @@ const HTMLParser = (function() {
          * consumes the character.  If the state function can't process
          * the character it can call pushback() to push it back to the
          * scanner.
-         * 
+         *
          * Some states require lookahead, though.  If a state function has
          * a lookahead property, then it is invoked differently.  In this
          * case, the scanner invokes the function with 3 arguments: 1) the
@@ -3023,7 +3023,7 @@ const HTMLParser = (function() {
          * characters up to and including that sequence, or up to EOF.  If
          * the lookahead property is a regexp, then the scanner will match
          * the regexp at the current point and return the matching string.
-         * 
+         *
          * States that require lookahead are responsible for explicitly
          * consuming the characters they process. They do this by
          * incrementing nextchar by the number of processed characters.
@@ -3031,32 +3031,32 @@ const HTMLParser = (function() {
 
         function data_state(c) {
             switch(c) {
-            case 0x0026: //  AMPERSAND 
+            case 0x0026: //  AMPERSAND
                 tokenizer = character_reference_in_data_state;
-                break; 
-            case 0x003C: //  LESS-THAN SIGN 
+                break;
+            case 0x003C: //  LESS-THAN SIGN
                 if (emitSimpleTag()) // Shortcut for <p>, <dl>, </div> etc.
                     break;
                 tokenizer = tag_open_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 // Usually null characters emitted by the tokenizer will be
-                // ignored by the tree builder, but sometimes they'll be 
+                // ignored by the tree builder, but sometimes they'll be
                 // converted to \uFFFD.  I don't want to have the search every
                 // string emitted to replace NULs, so I'll set a flag
                 // if I've emitted a NUL.
                 push(textrun,c);
                 textIncludesNUL = true;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 emitEOF();
-                break; 
-            default: 
+                break;
+            default:
                 // Instead of just pushing a single character and then
                 // coming back to the very same place, lookahead and
                 // emit everything we can at once.
                 emitCharsWhile(DATATEXT) || push(textrun, c);
-                break; 
+                break;
             }
         }
 
@@ -3076,22 +3076,22 @@ const HTMLParser = (function() {
         function rcdata_state(c) {
             // Save the open tag so we can find a matching close tag
             switch(c) {
-            case 0x0026: //  AMPERSAND 
+            case 0x0026: //  AMPERSAND
                 tokenizer = character_reference_in_rcdata_state;
-                break; 
-            case 0x003C: //  LESS-THAN SIGN 
+                break;
+            case 0x003C: //  LESS-THAN SIGN
                 tokenizer = rcdata_less_than_sign_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
                 textIncludesNUL = true;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 emitEOF();
-                break; 
-            default: 
+                break;
+            default:
                 push(textrun,c);
-                break; 
+                break;
             }
         }
 
@@ -3110,60 +3110,60 @@ const HTMLParser = (function() {
 
         function rawtext_state(c) {
             switch(c) {
-            case 0x003C: //  LESS-THAN SIGN 
+            case 0x003C: //  LESS-THAN SIGN
                 tokenizer = rawtext_less_than_sign_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 emitEOF();
-                break; 
-            default: 
+                break;
+            default:
                 emitCharsWhile(RAWTEXT) || push(textrun, c);
-                break; 
+                break;
             }
         }
 
         function script_data_state(c) {
             switch(c) {
-            case 0x003C: //  LESS-THAN SIGN 
+            case 0x003C: //  LESS-THAN SIGN
                 tokenizer = script_data_less_than_sign_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 emitEOF();
-                break; 
-            default: 
+                break;
+            default:
                 emitCharsWhile(RAWTEXT) || push(textrun, c);
-                break; 
+                break;
             }
         }
 
         function plaintext_state(c) {
             switch(c) {
-            case 0x0000: //  NULL 
+            case 0x0000: //  NULL
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 emitEOF();
-                break; 
-            default: 
+                break;
+            default:
                 emitCharsWhile(PLAINTEXT) || push(textrun, c);
-                break; 
+                break;
             }
         }
 
         function tag_open_state(c) {
             switch(c) {
-            case 0x0021: //  EXCLAMATION MARK 
+            case 0x0021: //  EXCLAMATION MARK
                 tokenizer = markup_declaration_open_state;
-                break; 
-            case 0x002F: //  SOLIDUS 
+                break;
+            case 0x002F: //  SOLIDUS
                 tokenizer = end_tag_open_state;
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -3181,17 +3181,17 @@ const HTMLParser = (function() {
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
                 beginTagName();
                 appendChar(tagnamebuf, c);
-                tokenizer = tag_name_state; 
-                break; 
-            case 0x003F: //  QUESTION MARK 
+                tokenizer = tag_name_state;
+                break;
+            case 0x003F: //  QUESTION MARK
                 nextchar--;  // pushback
                 tokenizer = bogus_comment_state;
-                break; 
-            default: 
+                break;
+            default:
                 push(textrun,0x003C); // LESS-THAN SIGN
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
+                break;
             }
         }
 
@@ -3214,39 +3214,39 @@ const HTMLParser = (function() {
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
                 beginEndTagName();
                 appendChar(tagnamebuf, c);
-                tokenizer = tag_name_state; 
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                tokenizer = tag_name_state;
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 tokenizer = data_state;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 push(textrun,0x003C); // LESS-THAN SIGN
                 push(textrun,0x002F); // SOLIDUS
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 nextchar--;  // pushback
                 tokenizer = bogus_comment_state;
-                break; 
+                break;
             }
         }
 
         function tag_name_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
             case 0x000C: //  FORM FEED (FF)
-            case 0x0020: //  SPACE 
+            case 0x0020: //  SPACE
                 tokenizer = before_attribute_name_state;
-                break; 
+                break;
             case 0x002F: //  SOLIDUS
                 tokenizer = self_closing_start_tag_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 emitTag();
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -3254,18 +3254,18 @@ const HTMLParser = (function() {
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
                 appendChar(tagnamebuf, c + 0x0020);
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(tagnamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 appendChar(tagnamebuf, c);
                 // appendCharsWhile(tagnamebuf, TAGNAMECHARS) || appendChar(tagnamebuf, c);
-                break; 
+                break;
             }
         }
 
@@ -3283,7 +3283,7 @@ const HTMLParser = (function() {
         }
 
         function rcdata_end_tag_open_state(c) {
-            /* identical to the RAWTEXT (and Script data) end tag open state, except s/RAWTEXT/RCDATA/g */    
+            /* identical to the RAWTEXT (and Script data) end tag open state, except s/RAWTEXT/RCDATA/g */
             switch(c) {
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
@@ -3293,9 +3293,9 @@ const HTMLParser = (function() {
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
                 beginEndTagName();
                 appendChar(tagnamebuf, c + 0x0020);
-                appendChar(tempbuf, c); 
-                tokenizer = rcdata_end_tag_name_state; 
-                break; 
+                appendChar(tempbuf, c);
+                tokenizer = rcdata_end_tag_name_state;
+                break;
             case 0x0061:  // [a-z]
             case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
             case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
@@ -3304,43 +3304,43 @@ const HTMLParser = (function() {
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
                 beginEndTagName();
                 appendChar(tagnamebuf, c);
-                appendChar(tempbuf, c); 
-                tokenizer = rcdata_end_tag_name_state; 
-                break; 
-            default: 
+                appendChar(tempbuf, c);
+                tokenizer = rcdata_end_tag_name_state;
+                break;
+            default:
                 push(textrun,0x003C); // LESS-THAN SIGN
-                push(textrun,0x002F); // SOLIDUS 
+                push(textrun,0x002F); // SOLIDUS
                 nextchar--;  // pushback
                 tokenizer = rcdata_state;
-                break; 
+                break;
             }
         }
 
         function rcdata_end_tag_name_state(c) {
             /* identical to the RAWTEXT (and Script data) end tag name state, except s/RAWTEXT/RCDATA/g */
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
             case 0x0020: //  SPACE
                 if (appropriateEndTag(tagnamebuf)) {
                     tokenizer = before_attribute_name_state;
                     return;
                 }
                 break;
-            case 0x002F: //  SOLIDUS 
+            case 0x002F: //  SOLIDUS
                 if (appropriateEndTag(tagnamebuf)) {
                     tokenizer = self_closing_start_tag_state;
                     return;
                 }
                 break;
-            case 0x003E: //  GREATER-THAN SIGN 
+            case 0x003E: //  GREATER-THAN SIGN
                 if (appropriateEndTag(tagnamebuf)) {
                     tokenizer = data_state;
                     emitTag();
                     return;
                 }
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -3348,7 +3348,7 @@ const HTMLParser = (function() {
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
 
-                appendChar(tagnamebuf, c + 0x0020); 
+                appendChar(tagnamebuf, c + 0x0020);
                 appendChar(tempbuf, c);
                 return;
             case 0x0061:  // [a-z]
@@ -3358,14 +3358,14 @@ const HTMLParser = (function() {
             case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
 
-                appendChar(tagnamebuf, c); 
+                appendChar(tagnamebuf, c);
                 appendChar(tempbuf, c);
                 return;
-            default: 
+            default:
                 break;
             }
 
-            // If we don't return in one of the cases above, then this was not 
+            // If we don't return in one of the cases above, then this was not
             // an appropriately matching close tag, so back out by emitting all
             // the characters as text
             push(textrun,0x003C); // LESS-THAN SIGN
@@ -3376,9 +3376,9 @@ const HTMLParser = (function() {
         }
 
         function rawtext_less_than_sign_state(c) {
-            /* identical to the RCDATA less-than sign state, except s/RCDATA/RAWTEXT/g 
-             */    
-            if (c === 0x002F) { //  SOLIDUS 
+            /* identical to the RCDATA less-than sign state, except s/RCDATA/RAWTEXT/g
+             */
+            if (c === 0x002F) { //  SOLIDUS
                 beginTempBuf();
                 tokenizer = rawtext_end_tag_open_state;
             }
@@ -3400,9 +3400,9 @@ const HTMLParser = (function() {
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
                 beginEndTagName();
                 appendChar(tagnamebuf, c + 0x0020);
-                appendChar(tempbuf, c); 
-                tokenizer = rawtext_end_tag_name_state; 
-                break; 
+                appendChar(tempbuf, c);
+                tokenizer = rawtext_end_tag_name_state;
+                break;
             case 0x0061:  // [a-z]
             case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
             case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
@@ -3411,23 +3411,23 @@ const HTMLParser = (function() {
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
                 beginEndTagName();
                 appendChar(tagnamebuf, c);
-                appendChar(tempbuf, c); 
-                tokenizer = rawtext_end_tag_name_state; 
-                break; 
-            default: 
+                appendChar(tempbuf, c);
+                tokenizer = rawtext_end_tag_name_state;
+                break;
+            default:
                 push(textrun,0x003C); // LESS-THAN SIGN
-                push(textrun,0x002F); // SOLIDUS 
+                push(textrun,0x002F); // SOLIDUS
                 nextchar--;  // pushback
                 tokenizer = rawtext_state;
-                break; 
+                break;
             }
         }
 
         function rawtext_end_tag_name_state(c) {
-            /* identical to the RCDATA (and Script data) end tag name state, except s/RCDATA/RAWTEXT/g */    
+            /* identical to the RCDATA (and Script data) end tag name state, except s/RCDATA/RAWTEXT/g */
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
             case 0x000C: //  FORM FEED (FF)
             case 0x0020: //  SPACE
                 if (appropriateEndTag(tagnamebuf)) {
@@ -3435,26 +3435,26 @@ const HTMLParser = (function() {
                     return;
                 }
                 break;
-            case 0x002F: //  SOLIDUS 
+            case 0x002F: //  SOLIDUS
                 if (appropriateEndTag(tagnamebuf)) {
                     tokenizer = self_closing_start_tag_state;
                     return;
                 }
                 break;
-            case 0x003E: //  GREATER-THAN SIGN 
+            case 0x003E: //  GREATER-THAN SIGN
                 if (appropriateEndTag(tagnamebuf)) {
                     tokenizer = data_state;
                     emitTag();
                     return;
                 }
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
             case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-                appendChar(tagnamebuf, c + 0x0020); 
+                appendChar(tagnamebuf, c + 0x0020);
                 appendChar(tempbuf, c);
                 return;
             case 0x0061:  // [a-z]
@@ -3463,14 +3463,14 @@ const HTMLParser = (function() {
             case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
             case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-                appendChar(tagnamebuf, c); 
+                appendChar(tagnamebuf, c);
                 appendChar(tempbuf, c);
                 return;
-            default: 
+            default:
                 break;
             }
 
-            // If we don't return in one of the cases above, then this was not 
+            // If we don't return in one of the cases above, then this was not
             // an appropriately matching close tag, so back out by emitting all
             // the characters as text
             push(textrun,0x003C); // LESS-THAN SIGN
@@ -3482,25 +3482,25 @@ const HTMLParser = (function() {
 
         function script_data_less_than_sign_state(c) {
             switch(c) {
-            case 0x002F: //  SOLIDUS  
+            case 0x002F: //  SOLIDUS
                 beginTempBuf();
                 tokenizer = script_data_end_tag_open_state;
-                break; 
-            case 0x0021: //  EXCLAMATION MARK 
-                tokenizer = script_data_escape_start_state; 
+                break;
+            case 0x0021: //  EXCLAMATION MARK
+                tokenizer = script_data_escape_start_state;
                 push(textrun,0x003C); // LESS-THAN SIGN
                 push(textrun,0x0021); // EXCLAMATION MARK
-                break; 
-            default: 
+                break;
+            default:
                 push(textrun,0x003C); // LESS-THAN SIGN
                 nextchar--;  // pushback
                 tokenizer = script_data_state;
-                break; 
+                break;
             }
         }
 
         function script_data_end_tag_open_state(c) {
-            /* identical to the RCDATA (and RAWTEXT) end tag open state, except s/RCDATA/Script data/g */    
+            /* identical to the RCDATA (and RAWTEXT) end tag open state, except s/RCDATA/Script data/g */
             switch(c) {
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
@@ -3510,9 +3510,9 @@ const HTMLParser = (function() {
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
                 beginEndTagName();
                 appendChar(tagnamebuf, c + 0x0020);
-                appendChar(tempbuf, c); 
-                tokenizer = script_data_end_tag_name_state; 
-                break; 
+                appendChar(tempbuf, c);
+                tokenizer = script_data_end_tag_name_state;
+                break;
             case 0x0061:  // [a-z]
             case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
             case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
@@ -3521,43 +3521,43 @@ const HTMLParser = (function() {
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
                 beginEndTagName();
                 appendChar(tagnamebuf, c);
-                appendChar(tempbuf, c); 
-                tokenizer = script_data_end_tag_name_state; 
-                break; 
-            default: 
+                appendChar(tempbuf, c);
+                tokenizer = script_data_end_tag_name_state;
+                break;
+            default:
                 push(textrun,0x003C); // LESS-THAN SIGN
-                push(textrun,0x002F); // SOLIDUS 
+                push(textrun,0x002F); // SOLIDUS
                 nextchar--;  // pushback
                 tokenizer = script_data_state;
-                break; 
+                break;
             }
         }
 
         function script_data_end_tag_name_state(c) {
-            /* identical to the RCDATA (and RAWTEXT) end tag name state, except s/RCDATA/Script data/g */    
+            /* identical to the RCDATA (and RAWTEXT) end tag name state, except s/RCDATA/Script data/g */
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
             case 0x0020: //  SPACE
                 if (appropriateEndTag(tagnamebuf)) {
                     tokenizer = before_attribute_name_state;
                     return;
                 }
                 break;
-            case 0x002F: //  SOLIDUS 
+            case 0x002F: //  SOLIDUS
                 if (appropriateEndTag(tagnamebuf)) {
                     tokenizer = self_closing_start_tag_state;
                     return;
                 }
                 break;
-            case 0x003E: //  GREATER-THAN SIGN 
+            case 0x003E: //  GREATER-THAN SIGN
                 if (appropriateEndTag(tagnamebuf)) {
                     tokenizer = data_state;
                     emitTag();
                     return;
                 }
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -3565,7 +3565,7 @@ const HTMLParser = (function() {
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
 
-                appendChar(tagnamebuf, c + 0x0020); 
+                appendChar(tagnamebuf, c + 0x0020);
                 appendChar(tempbuf, c);
                 return;
             case 0x0061:  // [a-z]
@@ -3575,14 +3575,14 @@ const HTMLParser = (function() {
             case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
 
-                appendChar(tagnamebuf, c); 
+                appendChar(tagnamebuf, c);
                 appendChar(tempbuf, c);
                 return;
-            default: 
+            default:
                 break;
             }
 
-            // If we don't return in one of the cases above, then this was not 
+            // If we don't return in one of the cases above, then this was not
             // an appropriately matching close tag, so back out by emitting all
             // the characters as text
             push(textrun,0x003C); // LESS-THAN SIGN
@@ -3593,8 +3593,8 @@ const HTMLParser = (function() {
         }
 
         function script_data_escape_start_state(c) {
-            if (c === 0x002D) { //  HYPHEN-MINUS 
-                tokenizer = script_data_escape_start_dash_state; 
+            if (c === 0x002D) { //  HYPHEN-MINUS
+                tokenizer = script_data_escape_start_dash_state;
                 push(textrun,0x002D); // HYPHEN-MINUS
             }
             else {
@@ -3604,8 +3604,8 @@ const HTMLParser = (function() {
         }
 
         function script_data_escape_start_dash_state(c) {
-            if (c === 0x002D) { //  HYPHEN-MINUS 
-                tokenizer = script_data_escaped_dash_dash_state; 
+            if (c === 0x002D) { //  HYPHEN-MINUS
+                tokenizer = script_data_escaped_dash_dash_state;
                 push(textrun,0x002D); // HYPHEN-MINUS
             }
             else {
@@ -3616,83 +3616,83 @@ const HTMLParser = (function() {
 
         function script_data_escaped_state(c) {
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
-                tokenizer = script_data_escaped_dash_state; 
+            case 0x002D: //  HYPHEN-MINUS
+                tokenizer = script_data_escaped_dash_state;
                 push(textrun,0x002D); // HYPHEN-MINUS
-                break; 
-            case 0x003C: //  LESS-THAN SIGN 
+                break;
+            case 0x003C: //  LESS-THAN SIGN
                 tokenizer = script_data_escaped_less_than_sign_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 push(textrun,c);
-                break; 
+                break;
             }
         }
 
         function script_data_escaped_dash_state(c) {
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
-                tokenizer = script_data_escaped_dash_dash_state; 
+            case 0x002D: //  HYPHEN-MINUS
+                tokenizer = script_data_escaped_dash_dash_state;
                 push(textrun,0x002D); // HYPHEN-MINUS
-                break; 
-            case 0x003C: //  LESS-THAN SIGN 
+                break;
+            case 0x003C: //  LESS-THAN SIGN
                 tokenizer = script_data_escaped_less_than_sign_state;
-                break; 
-            case 0x0000: //  NULL 
-                tokenizer = script_data_escaped_state; 
+                break;
+            case 0x0000: //  NULL
+                tokenizer = script_data_escaped_state;
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
-                tokenizer = script_data_escaped_state; 
+                break;
+            default:
+                tokenizer = script_data_escaped_state;
                 push(textrun,c);
-                break; 
+                break;
             }
         }
 
         function script_data_escaped_dash_dash_state(c) {
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
+            case 0x002D: //  HYPHEN-MINUS
                 push(textrun,0x002D); // HYPHEN-MINUS
-                break; 
-            case 0x003C: //  LESS-THAN SIGN 
+                break;
+            case 0x003C: //  LESS-THAN SIGN
                 tokenizer = script_data_escaped_less_than_sign_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = script_data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = script_data_state;
                 push(textrun,0x003E); // GREATER-THAN SIGN
-                break; 
-            case 0x0000: //  NULL 
-                tokenizer = script_data_escaped_state; 
+                break;
+            case 0x0000: //  NULL
+                tokenizer = script_data_escaped_state;
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
-                tokenizer = script_data_escaped_state; 
+                break;
+            default:
+                tokenizer = script_data_escaped_state;
                 push(textrun,c);
-                break; 
+                break;
             }
         }
 
         function script_data_escaped_less_than_sign_state(c) {
             switch(c) {
-            case 0x002F: //  SOLIDUS  
+            case 0x002F: //  SOLIDUS
                 beginTempBuf();
                 tokenizer = script_data_escaped_end_tag_open_state;
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -3700,11 +3700,11 @@ const HTMLParser = (function() {
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
                 beginTempBuf();
-                appendChar(tempbuf, c + 0x0020); 
-                tokenizer = script_data_double_escape_start_state; 
+                appendChar(tempbuf, c + 0x0020);
+                tokenizer = script_data_double_escape_start_state;
                 push(textrun,0x003C); // LESS-THAN SIGN
                 push(textrun,c);
-                break; 
+                break;
             case 0x0061:  // [a-z]
             case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
             case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
@@ -3712,16 +3712,16 @@ const HTMLParser = (function() {
             case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
                 beginTempBuf();
-                appendChar(tempbuf, c); 
-                tokenizer = script_data_double_escape_start_state; 
+                appendChar(tempbuf, c);
+                tokenizer = script_data_double_escape_start_state;
                 push(textrun,0x003C); // LESS-THAN SIGN
                 push(textrun,c);
-                break; 
-            default: 
+                break;
+            default:
                 push(textrun,0x003C); // LESS-THAN SIGN
                 nextchar--;  // pushback
                 tokenizer = script_data_escaped_state;
-                break; 
+                break;
             }
         }
 
@@ -3735,9 +3735,9 @@ const HTMLParser = (function() {
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
                 beginEndTagName();
                 appendChar(tagnamebuf, c + 0x0020);
-                appendChar(tempbuf, c); 
-                tokenizer = script_data_escaped_end_tag_name_state; 
-                break; 
+                appendChar(tempbuf, c);
+                tokenizer = script_data_escaped_end_tag_name_state;
+                break;
             case 0x0061:  // [a-z]
             case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
             case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
@@ -3746,49 +3746,49 @@ const HTMLParser = (function() {
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
                 beginEndTagName();
                 appendChar(tagnamebuf, c);
-                appendChar(tempbuf, c); 
-                tokenizer = script_data_escaped_end_tag_name_state; 
-                break; 
-            default: 
+                appendChar(tempbuf, c);
+                tokenizer = script_data_escaped_end_tag_name_state;
+                break;
+            default:
                 push(textrun,0x003C); // LESS-THAN SIGN
-                push(textrun,0x002F); // SOLIDUS 
+                push(textrun,0x002F); // SOLIDUS
                 nextchar--;  // pushback
                 tokenizer = script_data_escaped_state;
-                break; 
+                break;
             }
         }
 
         function script_data_escaped_end_tag_name_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
             case 0x000C: //  FORM FEED (FF)
-            case 0x0020: //  SPACE 
+            case 0x0020: //  SPACE
                 if (appropriateEndTag(tagnamebuf)) {
-                    tokenizer = before_attribute_name_state; 
+                    tokenizer = before_attribute_name_state;
                     return;
                 }
-                break; 
-            case 0x002F: //  SOLIDUS  
+                break;
+            case 0x002F: //  SOLIDUS
                 if (appropriateEndTag(tagnamebuf)) {
-                    tokenizer = self_closing_start_tag_state; 
+                    tokenizer = self_closing_start_tag_state;
                     return;
                 }
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 if (appropriateEndTag(tagnamebuf)) {
-                    tokenizer = data_state; 
+                    tokenizer = data_state;
                     emitTag();
                     return;
                 }
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
             case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-                appendChar(tagnamebuf, c + 0x0020); 
+                appendChar(tagnamebuf, c + 0x0020);
                 appendChar(tempbuf, c);
                 return;
             case 0x0061:  // [a-z]
@@ -3797,17 +3797,17 @@ const HTMLParser = (function() {
             case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
             case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-                appendChar(tagnamebuf, c); 
+                appendChar(tagnamebuf, c);
                 appendChar(tempbuf, c);
                 return;
-            default: 
+            default:
                 break;
             }
 
             // We get here in the default case, and if the closing tagname
             // is not an appropriate tagname.
             push(textrun,0x003C); // LESS-THAN SIGN
-            push(textrun,0x002F); // SOLIDUS 
+            push(textrun,0x002F); // SOLIDUS
             pushAll(textrun,tempbuf);
             nextchar--;  // pushback
             tokenizer = script_data_escaped_state;
@@ -3815,125 +3815,125 @@ const HTMLParser = (function() {
 
         function script_data_double_escape_start_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
-            case 0x002F: //  SOLIDUS  
-            case 0x003E: //  GREATER-THAN SIGN  
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
+            case 0x002F: //  SOLIDUS
+            case 0x003E: //  GREATER-THAN SIGN
                 if (buf2str(tempbuf) === "script") {
                     tokenizer = script_data_double_escaped_state;
                 }
                 else {
-                    tokenizer = script_data_escaped_state; 
+                    tokenizer = script_data_escaped_state;
                 }
                 push(textrun,c);
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
             case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-                appendChar(tempbuf, c + 0x0020); 
+                appendChar(tempbuf, c + 0x0020);
                 push(textrun,c);
-                break; 
+                break;
             case 0x0061:  // [a-z]
             case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
             case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
             case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
             case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-                appendChar(tempbuf, c); 
+                appendChar(tempbuf, c);
                 push(textrun,c);
-                break; 
-            default: 
+                break;
+            default:
                 nextchar--;  // pushback
                 tokenizer = script_data_escaped_state;
-                break; 
+                break;
             }
         }
 
         function script_data_double_escaped_state(c) {
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
-                tokenizer = script_data_double_escaped_dash_state; 
+            case 0x002D: //  HYPHEN-MINUS
+                tokenizer = script_data_double_escaped_dash_state;
                 push(textrun,0x002D); // HYPHEN-MINUS
-                break; 
-            case 0x003C: //  LESS-THAN SIGN 
-                tokenizer = script_data_double_escaped_less_than_sign_state; 
+                break;
+            case 0x003C: //  LESS-THAN SIGN
+                tokenizer = script_data_double_escaped_less_than_sign_state;
                 push(textrun,0x003C); // LESS-THAN SIGN
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 push(textrun,c);
-                break; 
+                break;
             }
         }
 
         function script_data_double_escaped_dash_state(c) {
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
-                tokenizer = script_data_double_escaped_dash_dash_state; 
+            case 0x002D: //  HYPHEN-MINUS
+                tokenizer = script_data_double_escaped_dash_dash_state;
                 push(textrun,0x002D); // HYPHEN-MINUS
-                break; 
-            case 0x003C: //  LESS-THAN SIGN 
-                tokenizer = script_data_double_escaped_less_than_sign_state; 
+                break;
+            case 0x003C: //  LESS-THAN SIGN
+                tokenizer = script_data_double_escaped_less_than_sign_state;
                 push(textrun,0x003C); // LESS-THAN SIGN
-                break; 
-            case 0x0000: //  NULL 
-                tokenizer = script_data_double_escaped_state; 
+                break;
+            case 0x0000: //  NULL
+                tokenizer = script_data_double_escaped_state;
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
-                tokenizer = script_data_double_escaped_state; 
+                break;
+            default:
+                tokenizer = script_data_double_escaped_state;
                 push(textrun,c);
-                break; 
+                break;
             }
         }
 
         function script_data_double_escaped_dash_dash_state(c) {
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
+            case 0x002D: //  HYPHEN-MINUS
                 push(textrun,0x002D); // HYPHEN-MINUS
-                break; 
-            case 0x003C: //  LESS-THAN SIGN 
-                tokenizer = script_data_double_escaped_less_than_sign_state; 
+                break;
+            case 0x003C: //  LESS-THAN SIGN
+                tokenizer = script_data_double_escaped_less_than_sign_state;
                 push(textrun,0x003C); // LESS-THAN SIGN
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = script_data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = script_data_state;
                 push(textrun,0x003E); // GREATER-THAN SIGN
-                break; 
-            case 0x0000: //  NULL 
-                tokenizer = script_data_double_escaped_state; 
+                break;
+            case 0x0000: //  NULL
+                tokenizer = script_data_double_escaped_state;
                 push(textrun,0xFFFD); // REPLACEMENT CHARACTER
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
-                tokenizer = script_data_double_escaped_state; 
+                break;
+            default:
+                tokenizer = script_data_double_escaped_state;
                 push(textrun,c);
-                break; 
+                break;
             }
         }
 
         function script_data_double_escaped_less_than_sign_state(c) {
-            if (c === 0x002F) { //  SOLIDUS  
+            if (c === 0x002F) { //  SOLIDUS
                 beginTempBuf();
-                tokenizer = script_data_double_escape_end_state; 
+                tokenizer = script_data_double_escape_end_state;
                 push(textrun,0x002F); // SOLIDUS
             }
             else {
@@ -3944,60 +3944,60 @@ const HTMLParser = (function() {
 
         function script_data_double_escape_end_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
-            case 0x002F: //  SOLIDUS  
-            case 0x003E: //  GREATER-THAN SIGN  
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
+            case 0x002F: //  SOLIDUS
+            case 0x003E: //  GREATER-THAN SIGN
                 if (buf2str(tempbuf) === "script") {
                     tokenizer = script_data_escaped_state;
                 }
                 else {
-                    tokenizer = script_data_double_escaped_state; 
+                    tokenizer = script_data_double_escaped_state;
                 }
                 push(textrun,c);
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
             case 0x004C:case 0x004D:case 0x004E:case 0x004F:case 0x0050:
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
-                appendChar(tempbuf, c + 0x0020); 
+                appendChar(tempbuf, c + 0x0020);
                 push(textrun,c);
-                break; 
+                break;
             case 0x0061:  // [a-z]
             case 0x0062:case 0x0063:case 0x0064:case 0x0065:case 0x0066:
             case 0x0067:case 0x0068:case 0x0069:case 0x006A:case 0x006B:
             case 0x006C:case 0x006D:case 0x006E:case 0x006F:case 0x0070:
             case 0x0071:case 0x0072:case 0x0073:case 0x0074:case 0x0075:
             case 0x0076:case 0x0077:case 0x0078:case 0x0079:case 0x007A:
-                appendChar(tempbuf, c); 
+                appendChar(tempbuf, c);
                 push(textrun,c);
-                break; 
-            default: 
+                break;
+            default:
                 nextchar--;  // pushback
                 tokenizer = script_data_double_escaped_state;
-                break; 
+                break;
             }
         }
 
         function before_attribute_name_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 /* Ignore the character. */
-                break; 
-            case 0x002F: //  SOLIDUS  
+                break;
+            case 0x002F: //  SOLIDUS
                 tokenizer = self_closing_start_tag_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 emitTag();
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -4007,51 +4007,51 @@ const HTMLParser = (function() {
                 beginAttrName();
                 appendChar(attrnamebuf, c + 0x0020);
                 tokenizer = attribute_name_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 beginAttrName();
                 appendChar(attrnamebuf, 0xFFFD);
                 tokenizer = attribute_name_state;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            case 0x0022: //  QUOTATION MARK  
-            case 0x0027: //  APOSTROPHE  
-            case 0x003C: //  LESS-THAN SIGN 
-            case 0x003D: //  EQUALS SIGN 
+                break;
+            case 0x0022: //  QUOTATION MARK
+            case 0x0027: //  APOSTROPHE
+            case 0x003C: //  LESS-THAN SIGN
+            case 0x003D: //  EQUALS SIGN
                 /* falls through */
-            default: 
+            default:
                 if (handleSimpleAttribute()) break;
                 beginAttrName();
                 appendChar(attrnamebuf, c);
                 tokenizer = attribute_name_state;
-                break; 
+                break;
             }
         }
 
         function attribute_name_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 tokenizer = after_attribute_name_state;
-                break; 
-            case 0x002F: //  SOLIDUS  
+                break;
+            case 0x002F: //  SOLIDUS
                 addAttribute(attrnamebuf);
                 tokenizer = self_closing_start_tag_state;
-                break; 
-            case 0x003D: //  EQUALS SIGN 
+                break;
+            case 0x003D: //  EQUALS SIGN
                 beginAttrValue();
                 tokenizer = before_attribute_value_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 addAttribute(attrnamebuf);
-                tokenizer = data_state; 
+                tokenizer = data_state;
                 emitTag();
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -4059,45 +4059,45 @@ const HTMLParser = (function() {
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
                 appendChar(attrnamebuf, c + 0x0020);
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(attrnamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            case 0x0022: //  QUOTATION MARK  
-            case 0x0027: //  APOSTROPHE  
-            case 0x003C: //  LESS-THAN SIGN 
+                break;
+            case 0x0022: //  QUOTATION MARK
+            case 0x0027: //  APOSTROPHE
+            case 0x003C: //  LESS-THAN SIGN
                 /* falls through */
-            default: 
+            default:
                 appendChar(attrnamebuf, c);
-                break; 
+                break;
             }
         }
 
         function after_attribute_name_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 /* Ignore the character. */
-                break; 
-            case 0x002F: //  SOLIDUS  
+                break;
+            case 0x002F: //  SOLIDUS
                 addAttribute(attrnamebuf);
                 tokenizer = self_closing_start_tag_state;
-                break; 
-            case 0x003D: //  EQUALS SIGN 
+                break;
+            case 0x003D: //  EQUALS SIGN
                 beginAttrValue();
                 tokenizer = before_attribute_value_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 addAttribute(attrnamebuf);
                 emitTag();
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -4108,155 +4108,155 @@ const HTMLParser = (function() {
                 beginAttrName();
                 appendChar(attrnamebuf, c + 0x0020);
                 tokenizer = attribute_name_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 addAttribute(attrnamebuf);
                 beginAttrName();
                 appendChar(attrnamebuf, 0xFFFD);
                 tokenizer = attribute_name_state;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            case 0x0022: //  QUOTATION MARK  
-            case 0x0027: //  APOSTROPHE  
-            case 0x003C: //  LESS-THAN SIGN 
+                break;
+            case 0x0022: //  QUOTATION MARK
+            case 0x0027: //  APOSTROPHE
+            case 0x003C: //  LESS-THAN SIGN
                 /* falls through */
-            default: 
+            default:
                 addAttribute(attrnamebuf);
                 beginAttrName();
                 appendChar(attrnamebuf, c);
                 tokenizer = attribute_name_state;
-                break; 
+                break;
             }
         }
 
         function before_attribute_value_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 /* Ignore the character. */
-                break; 
-            case 0x0022: //  QUOTATION MARK  
+                break;
+            case 0x0022: //  QUOTATION MARK
                 tokenizer = attribute_value_double_quoted_state;
-                break; 
+                break;
             case 0x0026: //  AMPERSAND
                 nextchar--;  // pushback
                 tokenizer = attribute_value_unquoted_state;
-                break; 
-            case 0x0027: //  APOSTROPHE  
+                break;
+            case 0x0027: //  APOSTROPHE
                 tokenizer = attribute_value_single_quoted_state;
-                break; 
-            case 0x0000: //  NULL 
-                appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */); 
+                break;
+            case 0x0000: //  NULL
+                appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
                 tokenizer = attribute_value_unquoted_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 addAttribute(attrnamebuf);
                 emitTag();
-                tokenizer = data_state; 
-                break; 
-            case EOF: 
+                tokenizer = data_state;
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            case 0x003C: //  LESS-THAN SIGN 
-            case 0x003D: //  EQUALS SIGN 
-            case 0x0060: //  GRAVE ACCENT 
+                break;
+            case 0x003C: //  LESS-THAN SIGN
+            case 0x003D: //  EQUALS SIGN
+            case 0x0060: //  GRAVE ACCENT
                 /* falls through */
-            default: 
-                appendChar(attrvaluebuf, c); 
+            default:
+                appendChar(attrvaluebuf, c);
                 tokenizer = attribute_value_unquoted_state;
-                break; 
+                break;
             }
         }
 
         function attribute_value_double_quoted_state(c) {
             switch(c) {
-            case 0x0022: //  QUOTATION MARK  
+            case 0x0022: //  QUOTATION MARK
                 addAttribute(attrnamebuf, attrvaluebuf);
                 tokenizer = after_attribute_value_quoted_state;
-                break; 
-            case 0x0026: //  AMPERSAND 
+                break;
+            case 0x0026: //  AMPERSAND
                 pushState();
                 tokenizer = character_reference_in_attribute_value_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 appendChar(attrvaluebuf, c);
                 // appendCharsWhile(attrvaluebuf, DBLQUOTEATTRVAL);
-                break; 
+                break;
             }
         }
 
         function attribute_value_single_quoted_state(c) {
             switch(c) {
-            case 0x0027: //  APOSTROPHE  
+            case 0x0027: //  APOSTROPHE
                 addAttribute(attrnamebuf, attrvaluebuf);
                 tokenizer = after_attribute_value_quoted_state;
-                break; 
-            case 0x0026: //  AMPERSAND 
+                break;
+            case 0x0026: //  AMPERSAND
                 pushState();
                 tokenizer = character_reference_in_attribute_value_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 appendChar(attrvaluebuf, c);
                 // appendCharsWhile(attrvaluebuf, SINGLEQUOTEATTRVAL);
-                break; 
+                break;
             }
         }
 
         function attribute_value_unquoted_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 addAttribute(attrnamebuf, attrvaluebuf);
                 tokenizer = before_attribute_name_state;
-                break; 
-            case 0x0026: //  AMPERSAND 
+                break;
+            case 0x0026: //  AMPERSAND
                 pushState();
                 tokenizer = character_reference_in_attribute_value_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 addAttribute(attrnamebuf, attrvaluebuf);
-                tokenizer = data_state; 
+                tokenizer = data_state;
                 emitTag();
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(attrvaluebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            case 0x0022: //  QUOTATION MARK  
-            case 0x0027: //  APOSTROPHE  
-            case 0x003C: //  LESS-THAN SIGN 
-            case 0x003D: //  EQUALS SIGN 
-            case 0x0060: //  GRAVE ACCENT 
+                break;
+            case 0x0022: //  QUOTATION MARK
+            case 0x0027: //  APOSTROPHE
+            case 0x003C: //  LESS-THAN SIGN
+            case 0x003D: //  EQUALS SIGN
+            case 0x0060: //  GRAVE ACCENT
                 /* falls through */
-            default: 
+            default:
                 appendChar(attrvaluebuf, c);
                 // appendCharsWhile(attrvaluebuf, UNQUOTEDATTRVAL);
-                break; 
+                break;
             }
         }
 
@@ -4282,45 +4282,45 @@ const HTMLParser = (function() {
 
         function after_attribute_value_quoted_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 tokenizer = before_attribute_name_state;
-                break; 
-            case 0x002F: //  SOLIDUS  
+                break;
+            case 0x002F: //  SOLIDUS
                 tokenizer = self_closing_start_tag_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 emitTag();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 nextchar--;  // pushback
                 tokenizer = before_attribute_name_state;
-                break; 
+                break;
             }
         }
 
         function self_closing_start_tag_state(c) {
             switch(c) {
-            case 0x003E: //  GREATER-THAN SIGN  
-                // Set the <i>self-closing flag</i> of the current tag token. 
-                tokenizer = data_state; 
-                emitSelfClosingTag(true); 
-                break; 
-            case EOF: 
+            case 0x003E: //  GREATER-THAN SIGN
+                // Set the <i>self-closing flag</i> of the current tag token.
+                tokenizer = data_state;
+                emitSelfClosingTag(true);
+                break;
+            case EOF:
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 nextchar--;  // pushback
                 tokenizer = before_attribute_name_state;
-                break; 
+                break;
             }
         }
 
@@ -4335,7 +4335,7 @@ const HTMLParser = (function() {
             }
 
             var comment = substring(lookahead, 0, len-1);
-            
+
             comment = replace(comment, /\u0000/g,"\uFFFD");
             comment = replace(comment, /\u000D\u000A/g,"\u000A");
             comment = replace(comment, /\u000D/g,"\u000A");
@@ -4362,7 +4362,7 @@ const HTMLParser = (function() {
                 tokenizer = cdata_section_state;
             }
             else {
-                tokenizer = bogus_comment_state;        
+                tokenizer = bogus_comment_state;
             }
         }
         markup_declaration_open_state.lookahead = 7;
@@ -4370,26 +4370,26 @@ const HTMLParser = (function() {
         function comment_start_state(c) {
             beginComment();
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
+            case 0x002D: //  HYPHEN-MINUS
                 tokenizer = comment_start_dash_state;
-                break; 
-            case 0x0000: //  NULL 
-                appendChar(commentbuf, 0xFFFD /* REPLACEMENT CHARACTER */); 
+                break;
+            case 0x0000: //  NULL
+                appendChar(commentbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
                 tokenizer = comment_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 insertToken(COMMENT, buf2str(commentbuf));
-                break; /* see comment in comment end state */ 
-            case EOF: 
+                break; /* see comment in comment end state */
+            case EOF:
                 insertToken(COMMENT, buf2str(commentbuf));
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
-                appendChar(commentbuf, c); 
+                break;
+            default:
+                appendChar(commentbuf, c);
                 tokenizer = comment_state;
-                break; 
+                break;
             }
         }
 
@@ -4397,167 +4397,167 @@ const HTMLParser = (function() {
             switch(c) {
             case 0x002D: //  HYPHEN-MINUS
                 tokenizer = comment_end_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
                 appendChar(commentbuf, 0xFFFD);
                 tokenizer = comment_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 insertToken(COMMENT, buf2str(commentbuf));
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 insertToken(COMMENT, buf2str(commentbuf));
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; /* see comment in comment end state */ 
-            default: 
+                break; /* see comment in comment end state */
+            default:
                 appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
                 appendChar(commentbuf, c);
                 tokenizer = comment_state;
-                break; 
+                break;
             }
         }
 
         function comment_state(c) {
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
+            case 0x002D: //  HYPHEN-MINUS
                 tokenizer = comment_end_dash_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(commentbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 insertToken(COMMENT, buf2str(commentbuf));
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; /* see comment in comment end state */ 
-            default: 
+                break; /* see comment in comment end state */
+            default:
                 appendChar(commentbuf, c);
-                break; 
+                break;
             }
         }
 
         function comment_end_dash_state(c) {
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
+            case 0x002D: //  HYPHEN-MINUS
                 tokenizer = comment_end_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
                 appendChar(commentbuf, 0xFFFD);
                 tokenizer = comment_state;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 insertToken(COMMENT, buf2str(commentbuf));
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; /* see comment in comment end state */ 
-            default: 
+                break; /* see comment in comment end state */
+            default:
                 appendChar(commentbuf, 0x002D /* HYPHEN-MINUS */);
                 appendChar(commentbuf, c);
                 tokenizer = comment_state;
-                break; 
+                break;
             }
         }
 
         function comment_end_state(c) {
             switch(c) {
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 insertToken(COMMENT, buf2str(commentbuf));
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, 0xFFFD);
                 tokenizer = comment_state;
-                break; 
-            case 0x0021: //  EXCLAMATION MARK 
+                break;
+            case 0x0021: //  EXCLAMATION MARK
                 tokenizer = comment_end_bang_state;
-                break; 
-            case 0x002D: //  HYPHEN-MINUS 
+                break;
+            case 0x002D: //  HYPHEN-MINUS
                 appendChar(commentbuf, 0x002D);
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 insertToken(COMMENT, buf2str(commentbuf));
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; /* For security reasons: otherwise, hostile user could put a script in a comment e.g. in a blog comment and then DOS the server so that the end tag isn't read, and then the commented script tag would be treated as live code */ 
-            default: 
+                break; /* For security reasons: otherwise, hostile user could put a script in a comment e.g. in a blog comment and then DOS the server so that the end tag isn't read, and then the commented script tag would be treated as live code */
+            default:
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, c);
                 tokenizer = comment_state;
-                break; 
+                break;
             }
         }
 
         function comment_end_bang_state(c) {
             switch(c) {
-            case 0x002D: //  HYPHEN-MINUS 
+            case 0x002D: //  HYPHEN-MINUS
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, 0x0021);
                 tokenizer = comment_end_dash_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 tokenizer = data_state;
                 insertToken(COMMENT, buf2str(commentbuf));
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, 0x0021);
                 appendChar(commentbuf, 0xFFFD);
                 tokenizer = comment_state;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 insertToken(COMMENT, buf2str(commentbuf));
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; /* see comment in comment end state */ 
-            default: 
+                break; /* see comment in comment end state */
+            default:
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, 0x002D);
                 appendChar(commentbuf, 0x0021);
                 appendChar(commentbuf, c);
                 tokenizer = comment_state;
-                break; 
+                break;
             }
         }
 
         function doctype_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 tokenizer = before_doctype_name_state;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 beginDoctype();
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 nextchar--;  // pushback
                 tokenizer = before_doctype_name_state;
-                break; 
+                break;
             }
         }
 
         function before_doctype_name_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 /* Ignore the character. */
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -4567,45 +4567,45 @@ const HTMLParser = (function() {
                 beginDoctype();
                 appendChar(doctypenamebuf, c + 0x0020);
                 tokenizer = doctype_name_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 beginDoctype();
                 appendChar(doctypenamebuf, 0xFFFD);
                 tokenizer = doctype_name_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 beginDoctype();
                 tokenizer = data_state;
                 forcequirks();
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 beginDoctype();
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 beginDoctype();
                 appendChar(doctypenamebuf, c);
                 tokenizer = doctype_name_state;
-                break; 
+                break;
             }
         }
 
         function doctype_name_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 tokenizer = after_doctype_name_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 emitDoctype();
-                break; 
+                break;
             case 0x0041:  // [A-Z]
             case 0x0042:case 0x0043:case 0x0044:case 0x0045:case 0x0046:
             case 0x0047:case 0x0048:case 0x0049:case 0x004A:case 0x004B:
@@ -4613,42 +4613,42 @@ const HTMLParser = (function() {
             case 0x0051:case 0x0052:case 0x0053:case 0x0054:case 0x0055:
             case 0x0056:case 0x0057:case 0x0058:case 0x0059:case 0x005A:
                 appendChar(doctypenamebuf, c + 0x0020);
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(doctypenamebuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 appendChar(doctypenamebuf, c);
-                break; 
+                break;
             }
         }
 
         function after_doctype_name_state(c, lookahead, eof) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 /* Ignore the character. */
                 nextchar += 1;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 tokenizer = data_state;
                 nextchar += 1;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 tokenizer = data_state;
-                break; 
-            default:  
+                break;
+            default:
                 lookahead = toUpperCase(lookahead);
                 if (lookahead === "PUBLIC") {
                     nextchar += 6;
@@ -4662,350 +4662,350 @@ const HTMLParser = (function() {
                     forcequirks();
                     tokenizer = bogus_doctype_state;
                 }
-                break; 
+                break;
             }
         }
         after_doctype_name_state.lookahead = 6;
 
         function after_doctype_public_keyword_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 tokenizer = before_doctype_public_identifier_state;
-                break; 
-            case 0x0022: //  QUOTATION MARK  
+                break;
+            case 0x0022: //  QUOTATION MARK
                 beginDoctypePublicId();
                 tokenizer = doctype_public_identifier_double_quoted_state;
-                break; 
-            case 0x0027: //  APOSTROPHE  
+                break;
+            case 0x0027: //  APOSTROPHE
                 beginDoctypePublicId();
                 tokenizer = doctype_public_identifier_single_quoted_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 forcequirks();
-                tokenizer = data_state; 
+                tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 forcequirks();
                 tokenizer = bogus_doctype_state;
-                break; 
+                break;
             }
         }
 
         function before_doctype_public_identifier_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 /* Ignore the character. */
-                break; 
-            case 0x0022: //  QUOTATION MARK  
+                break;
+            case 0x0022: //  QUOTATION MARK
                 beginDoctypePublicId();
                 tokenizer = doctype_public_identifier_double_quoted_state;
-                break; 
-            case 0x0027: //  APOSTROPHE  
+                break;
+            case 0x0027: //  APOSTROPHE
                 beginDoctypePublicId();
                 tokenizer = doctype_public_identifier_single_quoted_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 forcequirks();
-                tokenizer = data_state; 
+                tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 forcequirks();
                 tokenizer = bogus_doctype_state;
-                break; 
+                break;
             }
         }
 
         function doctype_public_identifier_double_quoted_state(c) {
             switch(c) {
-            case 0x0022: //  QUOTATION MARK  
+            case 0x0022: //  QUOTATION MARK
                 tokenizer = after_doctype_public_identifier_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(doctypepublicbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 forcequirks();
-                tokenizer = data_state; 
+                tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 appendChar(doctypepublicbuf, c);
-                break; 
+                break;
             }
         }
 
         function doctype_public_identifier_single_quoted_state(c) {
             switch(c) {
-            case 0x0027: //  APOSTROPHE  
+            case 0x0027: //  APOSTROPHE
                 tokenizer = after_doctype_public_identifier_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(doctypepublicbuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 forcequirks();
                 tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 appendChar(doctypepublicbuf, c);
-                break; 
+                break;
             }
         }
 
         function after_doctype_public_identifier_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 tokenizer = between_doctype_public_and_system_identifiers_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case 0x0022: //  QUOTATION MARK  
+                break;
+            case 0x0022: //  QUOTATION MARK
                 beginDoctypeSystemId();
                 tokenizer = doctype_system_identifier_double_quoted_state;
-                break; 
-            case 0x0027: //  APOSTROPHE  
+                break;
+            case 0x0027: //  APOSTROPHE
                 beginDoctypeSystemId();
                 tokenizer = doctype_system_identifier_single_quoted_state;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 forcequirks();
                 tokenizer = bogus_doctype_state;
-                break; 
+                break;
             }
         }
 
         function between_doctype_public_and_system_identifiers_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
             case 0x000C: //  FORM FEED (FF)
             case 0x0020: //  SPACE Ignore the character.
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case 0x0022: //  QUOTATION MARK  
+                break;
+            case 0x0022: //  QUOTATION MARK
                 beginDoctypeSystemId();
                 tokenizer = doctype_system_identifier_double_quoted_state;
-                break; 
-            case 0x0027: //  APOSTROPHE  
+                break;
+            case 0x0027: //  APOSTROPHE
                 beginDoctypeSystemId();
                 tokenizer = doctype_system_identifier_single_quoted_state;
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 forcequirks();
                 tokenizer = bogus_doctype_state;
-                break; 
+                break;
             }
         }
 
         function after_doctype_system_keyword_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
-            case 0x0020: //  SPACE 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
+            case 0x0020: //  SPACE
                 tokenizer = before_doctype_system_identifier_state;
-                break; 
-            case 0x0022: //  QUOTATION MARK  
+                break;
+            case 0x0022: //  QUOTATION MARK
                 beginDoctypeSystemId();
                 tokenizer = doctype_system_identifier_double_quoted_state;
-                break; 
-            case 0x0027: //  APOSTROPHE  
+                break;
+            case 0x0027: //  APOSTROPHE
                 beginDoctypeSystemId();
                 tokenizer = doctype_system_identifier_single_quoted_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 forcequirks();
-                tokenizer = data_state; 
+                tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 forcequirks();
                 tokenizer = bogus_doctype_state;
-                break; 
+                break;
             }
         }
 
         function before_doctype_system_identifier_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
-            case 0x000C: //  FORM FEED (FF) 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
+            case 0x000C: //  FORM FEED (FF)
             case 0x0020: //  SPACE Ignore the character.
-                break; 
-            case 0x0022: //  QUOTATION MARK  
+                break;
+            case 0x0022: //  QUOTATION MARK
                 beginDoctypeSystemId();
                 tokenizer = doctype_system_identifier_double_quoted_state;
-                break; 
-            case 0x0027: //  APOSTROPHE 
+                break;
+            case 0x0027: //  APOSTROPHE
                 beginDoctypeSystemId();
                 tokenizer = doctype_system_identifier_single_quoted_state;
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 forcequirks();
                 tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 forcequirks();
                 tokenizer = bogus_doctype_state;
-                break; 
+                break;
             }
         }
 
         function doctype_system_identifier_double_quoted_state(c) {
             switch(c) {
-            case 0x0022: //  QUOTATION MARK  
+            case 0x0022: //  QUOTATION MARK
                 tokenizer = after_doctype_system_identifier_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(doctypesystembuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 forcequirks();
                 tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 appendChar(doctypesystembuf, c);
-                break; 
+                break;
             }
         }
 
         function doctype_system_identifier_single_quoted_state(c) {
             switch(c) {
-            case 0x0027: //  APOSTROPHE  
+            case 0x0027: //  APOSTROPHE
                 tokenizer = after_doctype_system_identifier_state;
-                break; 
-            case 0x0000: //  NULL 
+                break;
+            case 0x0000: //  NULL
                 appendChar(doctypesystembuf, 0xFFFD /* REPLACEMENT CHARACTER */);
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 forcequirks();
                 tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 appendChar(doctypesystembuf, c);
-                break; 
+                break;
             }
         }
 
         function after_doctype_system_identifier_state(c) {
             switch(c) {
-            case 0x0009: //  CHARACTER TABULATION (tab) 
-            case 0x000A: //  LINE FEED (LF) 
+            case 0x0009: //  CHARACTER TABULATION (tab)
+            case 0x000A: //  LINE FEED (LF)
             case 0x000C: //  FORM FEED (FF)
-            case 0x0020: //  SPACE 
+            case 0x0020: //  SPACE
                 /* Ignore the character. */
-                break; 
-            case 0x003E: //  GREATER-THAN SIGN  
+                break;
+            case 0x003E: //  GREATER-THAN SIGN
                 tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 forcequirks();
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 tokenizer = bogus_doctype_state;
                 /* This does *not* set the DOCTYPE token's force-quirks flag. */
-                break; 
+                break;
             }
         }
 
         function bogus_doctype_state(c) {
             switch(c) {
-            case 0x003E: //  GREATER-THAN SIGN  
-                tokenizer = data_state; 
+            case 0x003E: //  GREATER-THAN SIGN
+                tokenizer = data_state;
                 emitDoctype();
-                break; 
-            case EOF: 
+                break;
+            case EOF:
                 emitDoctype();
                 nextchar--;  // pushback
                 tokenizer = data_state;
-                break; 
-            default: 
+                break;
+            default:
                 /* Ignore the character. */
-                break; 
+                break;
             }
         }
 
@@ -5022,7 +5022,7 @@ const HTMLParser = (function() {
             }
 
             if (output.length > 0) {
-                if (output.indexOf("\u0000") !== -1) 
+                if (output.indexOf("\u0000") !== -1)
                     textIncludesNUL = true;
 
                 // XXX Have to deal with CR and CRLF here?
@@ -5056,15 +5056,15 @@ const HTMLParser = (function() {
                 var name = value;
                 var publicid = arg3;
                 var systemid = arg4;
-                // Use the constructor directly instead of 
+                // Use the constructor directly instead of
                 // implementation.createDocumentType because the create
-                // function throws errors on invalid characters, and 
+                // function throws errors on invalid characters, and
                 // we don't want the parser to throw them.
                 doc.appendChild(new impl.DocumentType(name,publicid, systemid));
 
                 // Note that there is no public API for setting quirks mode We can
                 // do this here because we have access to implementation details
-                if (force_quirks || 
+                if (force_quirks ||
                     toLowerCase(name) !== "html" ||
                     test(quirkyPublicIds, publicid) ||
                     (systemid && toLowerCase(systemid) === quirkySystemId) ||
@@ -5162,7 +5162,7 @@ const HTMLParser = (function() {
                 case "body":
                 case "br":
                     break;
-                default: 
+                default:
                     return; // ignore most end tags
                 }
             }
@@ -5193,7 +5193,7 @@ const HTMLParser = (function() {
                     in_body_mode(t, value, arg3, arg4);
                     return;
                 case "meta":
-                    // XXX: 
+                    // XXX:
                     // May need to change the encoding based on this tag
                     /* falls through */
                 case "base":
@@ -5245,7 +5245,7 @@ const HTMLParser = (function() {
                 case "html":
                 case "br":
                     break; // handle these at the bottom of the function
-                default: 
+                default:
                     // ignore any other end tag
                     return;
                 }
@@ -5383,7 +5383,7 @@ const HTMLParser = (function() {
                     if (value.length === 0) return;
                 }
                 // If any non-space characters
-                if (frameset_ok && test(NONWS, value))  
+                if (frameset_ok && test(NONWS, value))
                     frameset_ok = false;
                 afereconstruct();
                 insertText(value);
@@ -5469,7 +5469,7 @@ const HTMLParser = (function() {
                         stack.pop();
                     insertHTMLElement(value, arg3);
                     return;
-                    
+
                 case "pre":
                 case "listing":
                     if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
@@ -5492,7 +5492,7 @@ const HTMLParser = (function() {
                             in_body_mode(ENDTAG, "li");
                             break;
                         }
-                        if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
+                        if (isA(node, specialSet) && !isA(node, addressdivpSet))
                             break;
                     }
                     if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
@@ -5508,19 +5508,19 @@ const HTMLParser = (function() {
                             in_body_mode(ENDTAG, node.localName);
                             break;
                         }
-                        if (isA(node, specialSet) && !isA(node, addressdivpSet)) 
+                        if (isA(node, specialSet) && !isA(node, addressdivpSet))
                             break;
                     }
                     if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
                     insertHTMLElement(value, arg3);
                     return;
-                    
+
                 case "plaintext":
                     if (stack.inButtonScope("p")) in_body_mode(ENDTAG, "p");
                     insertHTMLElement(value, arg3);
                     tokenizer = plaintext_state;
                     return;
-                    
+
                 case "button":
                     if (stack.inScope("button")) {
                         in_body_mode(ENDTAG, "button");
@@ -5597,7 +5597,7 @@ const HTMLParser = (function() {
                     stack.pop();
                     frameset_ok = false;
                     return;
-                    
+
                 case "input":
                     afereconstruct();
                     var elt = insertHTMLElement(value,arg3);
@@ -5643,7 +5643,7 @@ const HTMLParser = (function() {
                                 push(newattrs, a);
                             }
                         }
-                        
+
                         // This default prompt presumably needs localization.
                         // The space after the colon in this prompt is required
                         // by the html5lib test cases
@@ -5661,7 +5661,7 @@ const HTMLParser = (function() {
                         parser(ENDTAG, "form");
                     }(arg3));
                     return;
-                    
+
                 case "textarea":
                     insertHTMLElement(value,arg3);
                     ignore_linefeed = true;
@@ -5693,7 +5693,7 @@ const HTMLParser = (function() {
                         return;
                     }
                     break;  // XXX Otherwise treat it as any other open tag?
-                    
+
                 case "select":
                     afereconstruct();
                     insertHTMLElement(value,arg3);
@@ -5742,7 +5742,7 @@ const HTMLParser = (function() {
                     if (arg4) // self-closing flag
                         stack.pop();
                     return;
-                    
+
                 case "caption":
                 case "col":
                 case "colgroup":
@@ -5848,7 +5848,7 @@ const HTMLParser = (function() {
                     stack.generateImpliedEndTags();
                     stack.popElementType(impl.HTMLHeadingElement);
                     return;
-                    
+
                 case "a":
                 case "b":
                 case "big":
@@ -5912,14 +5912,14 @@ const HTMLParser = (function() {
                 return;
             case ENDTAG:
                 if (value === "script") {
-                    handleScriptEnd();  
+                    handleScriptEnd();
                 }
                 else {
                     stack.pop();
                     parser = originalInsertionMode;
                 }
                 return;
-            default: 
+            default:
                 // We should never get any other token types
                 return;
             }
@@ -5936,10 +5936,10 @@ const HTMLParser = (function() {
 
             switch(t) {
             case TEXT:
-                // XXX the text_integration_mode stuff is 
+                // XXX the text_integration_mode stuff is
                 // just a hack I made up
                 if (text_integration_mode) {
-                    in_body_mode(t, value, arg3, arg4) 
+                    in_body_mode(t, value, arg3, arg4)
                 }
                 else {
                     pending_table_text = [];
@@ -5948,7 +5948,7 @@ const HTMLParser = (function() {
                     parser(t, value, arg3, arg4);
                 }
                 return;
-            case COMMENT: 
+            case COMMENT:
                 insertComment(value);
                 return;
             case DOCTYPE:
@@ -6178,8 +6178,8 @@ const HTMLParser = (function() {
         function in_table_body_mode(t, value, arg3, arg4) {
             function endsect() {
                 if (!stack.inTableScope("tbody") &&
-                    !stack.inTableScope("thead") && 
-                    !stack.inTableScope("tfoot")) 
+                    !stack.inTableScope("thead") &&
+                    !stack.inTableScope("tfoot"))
                     return;
                 stack.clearToContext(impl.HTMLTableSectionElement);
                 in_table_body_mode(ENDTAG, stack.top.localName, null);
@@ -6384,14 +6384,14 @@ const HTMLParser = (function() {
                     in_body_mode(t, value, arg3, arg4);
                     return;
                 case "option":
-                    if (stack.top instanceof impl.HTMLOptionElement) 
+                    if (stack.top instanceof impl.HTMLOptionElement)
                         in_select_mode(ENDTAG, value);
                     insertHTMLElement(value, arg3);
                     return;
                 case "optgroup":
-                    if (stack.top instanceof impl.HTMLOptionElement) 
+                    if (stack.top instanceof impl.HTMLOptionElement)
                         in_select_mode(ENDTAG, "option");
-                    if (stack.top instanceof impl.HTMLOptGroupElement) 
+                    if (stack.top instanceof impl.HTMLOptGroupElement)
                         in_select_mode(ENDTAG, value);
                     insertHTMLElement(value, arg3);
                     return;
@@ -6406,7 +6406,7 @@ const HTMLParser = (function() {
                     in_select_mode(ENDTAG, "select");
                     parser(t, value, arg3, arg4);
                     return;
-                    
+
                 case "script":
                     in_head_mode(t, value, arg3, arg4);
                     return;
@@ -6420,7 +6420,7 @@ const HTMLParser = (function() {
                         impl.HTMLOptGroupElement) {
                         in_select_mode(ENDTAG, "option");
                     }
-                    if (stack.top instanceof impl.HTMLOptGroupElement) 
+                    if (stack.top instanceof impl.HTMLOptGroupElement)
                         stack.pop();
 
                     return;
@@ -6475,7 +6475,7 @@ const HTMLParser = (function() {
             switch(t) {
             case TEXT:
                 // If any non-space chars, handle below
-                if (test(NONWS, value)) break; 
+                if (test(NONWS, value)) break;
                 in_body_mode(t, value);
                 return;
             case COMMENT:
@@ -6595,7 +6595,7 @@ const HTMLParser = (function() {
             switch(t) {
             case TEXT:
                 // If any non-space chars, handle below
-                if (test(NONWS, value)) break; 
+                if (test(NONWS, value)) break;
                 in_body_mode(t, value, arg3, arg4);
                 return;
             case COMMENT:
@@ -6625,7 +6625,7 @@ const HTMLParser = (function() {
             case TEXT:
                 // Ignore any non-space characters
                 value = replace(value, ALLNONWS, "");
-                if (value.length > 0) 
+                if (value.length > 0)
                     in_body_mode(t, value, arg3, arg4);
                 return;
             case COMMENT:
@@ -6655,7 +6655,7 @@ const HTMLParser = (function() {
 
         // 13.2.5.5 The rules for parsing tokens in foreign content
         //
-        // This is like one of the insertion modes above, but is 
+        // This is like one of the insertion modes above, but is
         // invoked somewhat differently when the current token is not HTML.
         // See the insertToken() function.
         function insertForeignToken(t, value, arg3, arg4) {
@@ -6823,7 +6823,7 @@ const HTMLParser = (function() {
                     // Decimal
                     codepoint = parseInt(substring(s,1), 10);
                 }
-                
+
                 if (s[len-1] === ";")  // If the string ends with a semicolon
                     nextchar += len;   // Consume all the chars
                 else
@@ -6840,12 +6840,12 @@ const HTMLParser = (function() {
                 if (codepoint <= 0xFFFF) return codepoint;
 
                 codepoint = codepoint - 0x10000;
-                return [0xD800 + (codepoint >> 10), 
+                return [0xD800 + (codepoint >> 10),
                         0xDC00 + (codepoint & 0x03FF)];
             }
             else {                           // Named character reference
                 // We have to be able to parse some named char refs even when
-                // the semicolon is omitted, but have to match the longest one 
+                // the semicolon is omitted, but have to match the longest one
                 // possible.  So if the lookahead doesn't end with semicolon
                 // then we have to loop backward looking for longest to shortest
                 // matches.  Fortunately, the names that don't require semis
@@ -6859,7 +6859,7 @@ const HTMLParser = (function() {
                     }
                 }
 
-                // If it didn't end with a semicolon, see if we can match 
+                // If it didn't end with a semicolon, see if we can match
                 // everything but the terminating character
                 len--;  // Ignore whatever the terminating character is
                 rv = namedCharRefsNoSemi[substring(s,0, len)];
@@ -6867,9 +6867,9 @@ const HTMLParser = (function() {
                     nextchar += len;
                     return rv;
                 }
-                
+
                 // If it still didn't match, and we're not parsing a
-                // character reference in an attribute value, then try 
+                // character reference in an attribute value, then try
                 // matching shorter substrings.
                 if (!isattr) {
                     len--;
@@ -6897,10 +6897,10 @@ const HTMLParser = (function() {
 
         // Sneak another method into the htmlparser object to allow us to run
         // tokenizer tests.  This can be commented out in production code.
-        // This is a hook for testing the tokenizer. It has to be here 
+        // This is a hook for testing the tokenizer. It has to be here
         // because the tokenizer details are all hidden away within the closure.
         // It should return an array of tokens generated while parsing the
-        // input string.  
+        // input string.
         htmlparser.testTokenizer = function(input, initialState,
                                             lastStartTag, charbychar)
         {
@@ -6968,7 +6968,7 @@ const HTMLParser = (function() {
                 }
             }
 
-            if (!charbychar) { 
+            if (!charbychar) {
                 this.parse(input, true);
             }
             else {
@@ -6983,7 +6983,7 @@ const HTMLParser = (function() {
         // Return the parser object from the HTMLParser() factory function
         return htmlparser;
     }
-    
+
     // Return the HTMLParser factory function from the containing
     // closure that holds all the details.
     return HTMLParser;

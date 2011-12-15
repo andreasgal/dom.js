@@ -12,7 +12,7 @@ const XLINK_NAMESPACE = "http://www.w3.org/1999/xlink";
 
 // Anything I want to define lazily using defineLazyProperty above has
 // to be a property of something; it can't just be a local variable.
-// So these objects are holders for lazy properties.  
+// So these objects are holders for lazy properties.
 const impl = {}; // implementation construtors defined here
 const idl = {};  // interface constructors defined here
 

@@ -12,13 +12,13 @@ defineLazyProperty(impl, "Node", function() {
         // Node that are not inserted into the tree inherit a null parent
         // XXX
         // Can't use constant(null) here because then I couldn't set a non-null
-        // value that would override the inherited constant.  Perhaps that 
+        // value that would override the inherited constant.  Perhaps that
         // means I shouldn't use the prototype and should just set the
         // value in each node constructor?
         parentNode: { value: null, writable: true },
-        
-        // XXX: the baseURI attribute is defined by dom core, but 
-        // a correct implementation of it requires HTML features, so 
+
+        // XXX: the baseURI attribute is defined by dom core, but
+        // a correct implementation of it requires HTML features, so
         // we'll come back to this later.
         baseURI: attribute(nyi),
 
@@ -27,7 +27,7 @@ defineLazyProperty(impl, "Node", function() {
                 ? this.parentNode
                 : null
         }),
-        
+
         hasChildNodes: constant(function() {  // Overridden in leaf.js
             return this.childNodes.length > 0;
         }),
@@ -37,7 +37,7 @@ defineLazyProperty(impl, "Node", function() {
                 ? null
                 : this.childNodes[0];
         }),
-        
+
         lastChild: attribute(function() {
             return this.childNodes.length === 0
                 ? null
@@ -102,7 +102,7 @@ defineLazyProperty(impl, "Node", function() {
 
         compareDocumentPosition:constant(function compareDocumentPosition(that){
             // Basic algorithm for finding the relative position of two nodes.
-            // Make a list the ancestors of each node, starting with the 
+            // Make a list the ancestors of each node, starting with the
             // document element and proceeding down to the nodes themselves.
             // Then, loop through the lists, looking for the first element
             // that differs.  The order of those two elements give the
@@ -119,7 +119,7 @@ defineLazyProperty(impl, "Node", function() {
                         DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC);
 
             // Get arrays of ancestors for this and that
-            var these = [], those = []; 
+            var these = [], those = [];
             for(var n = this; n !== null; n = n.parentNode) push(these, n);
             for(var n = that; n !== null; n = n.parentNode) push(those, n);
             these.reverse();  // So we start with the outermost
@@ -143,18 +143,18 @@ defineLazyProperty(impl, "Node", function() {
 
             // If we get to here, then one of the nodes (the one with the
             // shorter list of ancestors) contains the other one.
-            if (these.length < those.length) 
-                return (DOCUMENT_POSITION_FOLLOWING + 
+            if (these.length < those.length)
+                return (DOCUMENT_POSITION_FOLLOWING +
                         DOCUMENT_POSITION_CONTAINED_BY);
             else
-                return (DOCUMENT_POSITION_PRECEDING + 
+                return (DOCUMENT_POSITION_PRECEDING +
                         DOCUMENT_POSITION_CONTAINS);
         }),
 
         isSameNode: constant(function isSameNode(node) {
             return this === node;
         }),
-        
+
 
         // This method implements the generic parts of node equality testing
         // and defers to the (non-recursive) type-specific isEqual() method
@@ -184,7 +184,7 @@ defineLazyProperty(impl, "Node", function() {
                 var c1 = this.childNodes[i], c2 = node.childNodes[i];
                 if (!c1.isEqualNode(c2)) return false;
             }
-            
+
             return true;
         }),
 
@@ -216,7 +216,7 @@ defineLazyProperty(impl, "Node", function() {
             case DOCUMENT_TYPE_NODE:
             case DOCUMENT_FRAGMENT_NODE:
                 return null;
-            default: 
+            default:
                 e = this.parentElement;
                 return e ? e.locateNamespacePrefix(ns) : null;
             }
@@ -234,7 +234,7 @@ defineLazyProperty(impl, "Node", function() {
             case DOCUMENT_TYPE_NODE:
             case DOCUMENT_FRAGMENT_NODE:
                 return null;
-            default: 
+            default:
                 e = this.parentElement;
                 return e ? e.locateNamespace(prefix) : null;
             }
@@ -310,7 +310,7 @@ defineLazyProperty(impl, "Node", function() {
                 if (that.ownerDocument !== ownerdoc)
                     ownerdoc.adoptNode(that);
             }
-            
+
             // XXX: this step does not seem necessary.
             // If mutation events are added, however, it becomes necessary
             if (that.ownerDocument !== ownerdoc) HierarchyRequestError();
@@ -331,7 +331,7 @@ defineLazyProperty(impl, "Node", function() {
             if (this.rooted) this.ownerDocument.mutateRemove(this);
         }),
 
-        // Remove all of this node's children.  This is a minor 
+        // Remove all of this node's children.  This is a minor
         // optimization that only calls modify() once.
         removeChildren: constant(function removeChildren() {
             var root = this.rooted ? this.ownerDocument : null;
@@ -396,13 +396,13 @@ defineLazyProperty(impl, "Node", function() {
                 // If the child already has a parent, it needs to be
                 // removed from that parent, which may also uproot it
                 if (child.parentNode) child.remove();
-                
+
                 // Now insert the child into the parent's array of children
                 child.parentNode = parent;
                 splice(kids, index, 0, child);
                 parent.modify();
                 child._index = index;              // Optimization
-                
+
                 // And root the child if necessary
                 if (parent.rooted) parent.ownerDocument.mutateInsert(child);
             }
@@ -422,7 +422,7 @@ defineLazyProperty(impl, "Node", function() {
             if (!this._lastModTime) {
                 this._lastModTime = this.doc.modclock;
             }
-                
+
             return this._lastModTime;
         }),
 
@@ -481,9 +481,9 @@ defineLazyProperty(impl, "Node", function() {
                 case CDATA_SECTION_NODE:
                     var parenttag;
                     if (this.nodeType === ELEMENT_NODE &&
-                        this.namespaceURI === HTML_NAMESPACE) 
+                        this.namespaceURI === HTML_NAMESPACE)
                         parenttag = this.tagName;
-                    else 
+                    else
                         parenttag = "";
                     switch(parenttag) {
                     case "STYLE":
@@ -535,7 +535,7 @@ defineLazyProperty(impl, "Node", function() {
 
                 var htmltag = html?tagname:"";
                 switch(htmltag) {
-                    
+
                 case "area":
                 case "base":
                 case "basefont":
@@ -579,7 +579,7 @@ defineLazyProperty(impl, "Node", function() {
                     }
                 });
             }
-            
+
             function escapeAttr(s) {
                 return s.replace(/[&"\u00A0]/g, function(c) {
                     switch(c) {
@@ -595,7 +595,7 @@ defineLazyProperty(impl, "Node", function() {
                 case null: return a.localName;
                 case XML_NAMESPACE: return "xml:" + a.localName;
                 case XLINK_NAMESPACE: return "xlink:" + a.localName;
-                case XMLNS_NAMESPACE: 
+                case XMLNS_NAMESPACE:
                     if (a.localName === "xmlns") return "xmlns";
                     else return "xmlns:" + a.localName;
                 default:

@@ -1,7 +1,7 @@
 defineLazyProperty(impl, "CharacterData", function() {
     function CharacterData() {
     }
-    
+
     CharacterData.prototype = O.create(impl.Leaf.prototype, {
         _idlName: constant("CharacterData"),
 
@@ -46,11 +46,11 @@ defineLazyProperty(impl, "CharacterData", function() {
         insertData: constant(function insertData(offset, data) {
             var curtext = this.data;
             if (offset > curtext.length) IndexSizeError();
-            var prefix = substring(curtext, 0, offset), 
+            var prefix = substring(curtext, 0, offset),
             suffix = substring(curtext, offset);
             this.data = prefix + data + suffix;
         }),
-        
+
 
         // void deleteData(unsigned long offset, unsigned long count);
         // The deleteData(offset, count) method must run these steps:
@@ -68,7 +68,7 @@ defineLazyProperty(impl, "CharacterData", function() {
             var curtext = this.data, len = curtext.length;
 
             if (offset > len) IndexSizeError();
-            
+
             if (offset+count > len)
                 count = len - offset;
 
@@ -81,7 +81,7 @@ defineLazyProperty(impl, "CharacterData", function() {
 
         // void replaceData(unsigned long offset, unsigned long count,
         //                  DOMString data);
-        // 
+        //
         // The replaceData(offset, count, data) method must act as
         // if the deleteData() method is invoked with offset and
         // count as arguments followed by the insertData() method
@@ -91,7 +91,7 @@ defineLazyProperty(impl, "CharacterData", function() {
             var curtext = this.data, len = curtext.length;
 
             if (offset > len) IndexSizeError();
-            
+
             if (offset+count > len)
                 count = len - offset;
 

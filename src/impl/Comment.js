@@ -6,12 +6,12 @@ defineLazyProperty(impl, "Comment", function() {
     }
 
     var nodeValue = attribute(function() { return this._data; },
-                              function(v) { 
+                              function(v) {
                                   this._data = v;
                                   if (this.rooted)
                                       this.ownerDocument.mutateValue(this);
                               });
-    
+
     Comment.prototype = O.create(impl.CharacterData.prototype, {
         _idlName: constant("Comment"),
 //        nodeType: constant(COMMENT_NODE),
@@ -20,12 +20,12 @@ defineLazyProperty(impl, "Comment", function() {
         textContent: nodeValue,
         data: nodeValue,
         length: attribute(function() { return this._data.length; }),
-   
+
         // Utility methods
         clone: constant(function clone() {
             return new impl.Comment(this.ownerDocument, this._data);
         }),
     });
-    
+
     return Comment;
 });

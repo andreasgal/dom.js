@@ -4,7 +4,7 @@ defineLazyProperty(impl, "DocumentType", function() {
         // until inserted
         this.nodeType = DOCUMENT_TYPE_NODE;
         this.ownerDocument = null;
-        this.name = name;  
+        this.name = name;
         this.publicId = publicId || "";
         this.systemId = systemId || "";
     }

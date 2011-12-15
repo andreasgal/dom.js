@@ -105,16 +105,16 @@ URL.prototype = {
             }
         }
         t.fragment = r.fragment;
-        
+
         return t.toString();
 
 
         function merge(basepath, refpath) {
             if (base.host !== undefined && !base.path)
                 return "/" + refpath;
-            
+
             var lastslash = basepath.lastIndexOf("/");
-            if (lastslash === -1) 
+            if (lastslash === -1)
                 return refpath;
             else
                 return basepath.substring(0, lastslash+1) + refpath;

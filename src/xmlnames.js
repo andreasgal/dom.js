@@ -1,6 +1,6 @@
 // This grammar is from the XML and XML Namespace specs. It specifies whether
 // a string (such as an element or attribute name) is a valid Name or QName.
-// 
+//
 // Name            ::=          NameStartChar (NameChar)*
 // NameStartChar   ::=          ":" | [A-Z] | "_" | [a-z] |
 //                              [#xC0-#xD6] | [#xD8-#xF6] | [#xF8-#x2FF] |
@@ -18,8 +18,8 @@
 // UnprefixedName  ::=          LocalPart
 // Prefix          ::=          NCName
 // LocalPart       ::=          NCName
-// NCName          ::=          Name - (Char* ':' Char*) 
-//                              # An XML Name, minus the ":"        
+// NCName          ::=          Name - (Char* ':' Char*)
+//                              # An XML Name, minus the ":"
 //
 const xml = (function() {
 
@@ -45,7 +45,7 @@ const xml = (function() {
     // target string includes surrogates, then try the following
     // patterns that allow surrogates and then run an extra validation
     // step to make sure that the surrogates are in valid pairs and in
-    // the right range.  Note that since the characters \uf0000 to \u1f0000 
+    // the right range.  Note that since the characters \uf0000 to \u1f0000
     // are not allowed, it means that the high surrogate can only go up to
     // \uDB7f instead of \uDBFF.
     var hassurrogates = /[\uD800-\uDB7F\uDC00-\uDFFF]/;
@@ -85,7 +85,7 @@ const xml = (function() {
     function isValidQName(s) {
         if (test(simpleqname, s)) return true;  // Plain ASCII
         if (test(qname, s)) return true;        // Unicode BMP
-        
+
         if (!test(hassurrogates, s)) return false;
         if (!test(surrogateqname, s)) return false;
         var chars = match(s, surrogatechars), pairs = match(s, surrogatepairs);

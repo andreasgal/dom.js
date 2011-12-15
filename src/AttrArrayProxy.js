@@ -2,7 +2,7 @@
 // This class is mostly the same as ArrayProxy, but it uses the item() method
 // of the Attributes object instead of directly indexing an array.  Maybe
 // it could be merged into a more general Array-like Proxy type.
-// 
+//
 
 // A factory function for AttrArray proxy objects
 function AttrArrayProxy(attributes) {
@@ -16,7 +16,7 @@ function AttrArrayProxy(attributes) {
 }
 
 // This is the prototype object for the proxy handler object
-// 
+//
 // For now, while the Proxy spec is still in flux, this handler
 // defines only the fundamental traps.  We can add the derived traps
 // later if there is a performance bottleneck.
@@ -36,7 +36,7 @@ AttrArrayProxy.handler = {
             if (name < this.element._numattrs) {
                 var v = this.element._attr(name);
                 if (v) {
-                    return { 
+                    return {
                         value: wrap(v),
                         writable: false,
                         enumerable: true,
@@ -93,7 +93,7 @@ AttrArrayProxy.handler = {
     // indexed or named properties defy being fixed; if Object.freeze,
     // Object.seal or Object.preventExtensions is called on one, these
     // the function MUST throw a TypeError.
-    // 
+    //
     // Proxy proposal: When handler.fix() returns undefined, the
     // corresponding call to Object.freeze, Object.seal, or
     // Object.preventExtensions will throw a TypeError.

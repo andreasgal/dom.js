@@ -21,7 +21,7 @@ defineLazyProperty(impl, "Event", function() {
         // Now initialize based on the constructor arguments (if any)
         if (type) this.type = type;
         if (dictionary) {
-            for(var p in dictionary) 
+            for(var p in dictionary)
                 this[p] = dictionary[p];
         }
     }

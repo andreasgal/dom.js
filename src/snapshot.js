@@ -2,7 +2,7 @@
  * We want to be sure that we only use the built-in versions of standard
  * functions and methods like Object.create and Array.prototype.pop.
  * So here we make snapshots of all the system objects, and then define
- * utility functions that use them.  
+ * utility functions that use them.
  *
  * It is an error if any of the built-in methods are used anywhere else
  * in dom.js after this initial snapshot.
@@ -10,7 +10,7 @@
  * The utilities defined here use a functional syntax rather than the
  * OO syntax of the JS builtins.  Instead of a.map(f), we call map(a, f)
  * for example.
- * 
+ *
  * See ../test/monkey.js for code that patches all the built-in
  * functions and methods to test whether we avoid using them.
  */
@@ -43,13 +43,18 @@ const undefined = void 0,
     WeakMap = global.WeakMap;
 
 
+// callbind parameterizes the binding of `this`
+// [].map(callback) -> map([], callback)
+const callbind = Function.prototype.call.bind.bind(Function.prototype.call);
+
+
 // String and array generics are not defined in Node, so define them now
 // if needed
 if (!String.indexOf) {
     Object.getOwnPropertyNames(String.prototype).forEach(function(m) {
         if (typeof String.prototype[m] !== "function") return;
         if (m === "length" || m === "constructor") return;
-        String[m] = Function.prototype.call.bind(String.prototype[m]);
+        String[m] = callbind(String.prototype[m]);
     });
 }
 
@@ -57,7 +62,7 @@ if (!Array.forEach) {
     Object.getOwnPropertyNames(Array.prototype).forEach(function(m) {
         if (typeof Array.prototype[m] !== "function") return;
         if (m === "length" || m === "constructor") return;
-        Array[m] = Function.prototype.call.bind(Array.prototype[m]);
+        Array[m] = callbind(Array.prototype[m]);
     });
 }
 
@@ -83,10 +88,10 @@ const
     Math = shallow_frozen_copy(global.Math),
     Proxy = shallow_frozen_copy(global.Proxy),
     O = shallow_frozen_copy(Object),
-    A = shallow_frozen_copy(Array), 
+    A = shallow_frozen_copy(Array),
     S = shallow_frozen_copy(String),
 
-    // Copy some individual static methods from types that don't 
+    // Copy some individual static methods from types that don't
     // define very many.
     now = Date.now,
 
@@ -97,66 +102,79 @@ const
 
     // Functions
     // call(f, o, args...)
-    call = Function.prototype.call.bind(Function.prototype.call),
+    call = callbind(Function.prototype.call),
     // apply(f, o, [args])
-    apply = Function.prototype.call.bind(Function.prototype.apply),
+    apply = callbind(Function.prototype.apply),
     // bind(f, o)
-    bind = Function.prototype.call.bind(Function.prototype.bind),   
+    bind = callbind(Function.prototype.bind),
 
     // WeakMap functions
-    wmget = Function.prototype.call.bind(WeakMap.prototype.get),
-    wmset = Function.prototype.call.bind(WeakMap.prototype.set),
+    wmget = callbind(WeakMap.prototype.get),
+    wmset = callbind(WeakMap.prototype.set),
 
     // Object functions
-    hasOwnProperty =
-      Function.prototype.call.bind(Object.prototype.hasOwnProperty),
+    hasOwnProperty = callbind(Object.prototype.hasOwnProperty),
 
     // Array functions are all defined as generics like A.pop, but its
     // convenient to give the most commonly-used ones unqualified
     // names.  The less-commonly used functions (and those that have
     // name collisions like indexOf, lastIndexOf and slice) can be
     // accessed on the A or S objects.
-    concat = A.concat || Function.prototype.call.bind(Array.prototype.concat),
-    every = A.every || Function.prototype.call.bind(Array.prototype.every),
+    concat = A.concat || callbind(Array.prototype.concat),
+    every = A.every || callbind(Array.prototype.every),
     // Note lowercase e
-    foreach = A.forEach || Function.prototype.call.bind(Array.prototype.forEach),
-    isArray = A.isArray || Function.prototype.call.bind(Array.prototype.isArray),
-    join = A.join || Function.prototype.call.bind(Array.prototype.join),
-    map = A.map || Function.prototype.call.bind(Array.prototype.map),
-    push = A.push || Function.prototype.call.bind(Array.prototype.push),
-    pop = A.pop || Function.prototype.call.bind(Array.prototype.pop),
-    reduce = A.reduce || Function.prototype.call.bind(Array.prototype.reduce),
-    sort = A.sort || Function.prototype.call.bind(Array.prototype.sort),
-    splice = A.splice || Function.prototype.call.bind(Array.prototype.splice),
+    foreach = A.forEach || callbind(Array.prototype.forEach),
+    isArray = A.isArray || callbind(Array.prototype.isArray),
+    join = A.join || callbind(Array.prototype.join),
+    map = A.map || callbind(Array.prototype.map),
+    push = A.push || callbind(Array.prototype.push),
+    pop = A.pop || callbind(Array.prototype.pop),
+    unshift = A.unshift || callbind(Array.prototype.unshift),
+    reduce = A.reduce || callbind(Array.prototype.reduce),
+    sort = A.sort || callbind(Array.prototype.sort),
+    filter = A.filter || callbind(Array.prototype.filter),
+    splice = A.splice || callbind(Array.prototype.splice),
 
     // Ditto for the String generic functions
-    fromCharCode = S.fromCharCode || Function.prototype.call.bind(String.prototype.fromCharCode),
-    match = S.match || Function.prototype.call.bind(String.prototype.match),
-    replace = S.replace || Function.prototype.call.bind(String.prototype.replace),
-    search = S.search || Function.prototype.call.bind(String.prototype.search),
-    split = S.split || Function.prototype.call.bind(String.prototype.split),
-    substring = S.substring || Function.prototype.call.bind(String.prototype.substring),
-    toLowerCase = S.toLowerCase || Function.prototype.call.bind(String.prototype.toLowerCase),
-    toUpperCase = S.toUpperCase || Function.prototype.call.bind(String.prototype.toUpperCase),
-    trim = S.trim || Function.prototype.call.bind(String.prototype.trim),
+    fromCharCode = S.fromCharCode || callbind(String.prototype.fromCharCode),
+    match = S.match || callbind(String.prototype.match),
+    replace = S.replace || callbind(String.prototype.replace),
+    search = S.search || callbind(String.prototype.search),
+    split = S.split || callbind(String.prototype.split),
+    substring = S.substring || callbind(String.prototype.substring),
+    toLowerCase = S.toLowerCase || callbind(String.prototype.toLowerCase),
+    toUpperCase = S.toUpperCase || callbind(String.prototype.toUpperCase),
+    trim = S.trim || callbind(String.prototype.trim),
 
     // One more array-related function
     pushAll = Function.prototype.apply.bind(Array.prototype.push),
 
     // RegExp functions, too
-    exec = Function.prototype.call.bind(RegExp.prototype.exec),
-    test = Function.prototype.call.bind(RegExp.prototype.test)
+    exec = callbind(RegExp.prototype.exec),
+    test = callbind(RegExp.prototype.test)
 
     ;
 
-/*
-// If the generics are not defined, define these methods
-if (!S.indexOf) {
-    S.indexOf = Function.prototype.call.bind(String.prototype.indexOf);
-    A.indexOf = Function.prototype.call.bind(Array.prototype.indexOf);
-    S.lastIndexOf = Function.prototype.call.bind(String.prototype.lastIndexOf);
-    A.lastIndexOf = Function.prototype.call.bind(Array.prototype.lastIndexOf);
-    S.slice = Function.prototype.call.bind(String.prototype.slice);
-    A.slice = Function.prototype.call.bind(Array.prototype.slice);
-}
-*/
+// These are all unique and have their uses, particularly for formatting.
+// Also, only when accessing directly from primitive wrapper (string/number) is
+// the native version assured to be used.
+const toString = Object.freeze({
+    // `[].join(',')`
+    Array: callbind(Array.prototype.toString),
+    // 'true' or 'false'
+    Boolean: callbind(Boolean.prototype.toString),
+    // "Sat Dec 10 2011 23:40:56 GMT-0500 (US Eastern Standard Time)"
+    Date: callbind(Date.prototype.toString),
+    // Works generically, `e.name + ' ' + e.message`
+    Error: callbind(Error.prototype.toString),
+    // unmodified source in V8, normalized in spidermonkey
+    Function: callbind(Function.prototype.toString),
+    // Works generically, '[object InternalClass]'
+    Object: callbind(Object.prototype.toString),
+    // input must be number, has optional radix parameter
+    Number: callbind(Number.prototype.toString),
+    // RegExp('^\s+', 'g').toString() -> '/\s+/g'
+    RegExp: callbind(RegExp.prototype.toString),
+    // input must be string
+    String: callbind(String.prototype.toString)
+});

@@ -13,7 +13,7 @@ var TreeRenderer = (function() {
 
     TreeRenderer.prototype.handleMutation = function(event) {
         var message = event.data;
-        
+
         // This class only handles mutation events from the worker
         // It doesn't handle log, warn and error commands, for example.
         if (message[0] !== "mutation") return;
@@ -32,7 +32,7 @@ var TreeRenderer = (function() {
                 document.createTextNode(text));
             target.replaceChild(textnode, target.lastChild);
             break;
-            
+
         case MUTATE_ATTR:
             // NOT IMPLEMENTED YET
             if (mutation.ns) {
@@ -64,14 +64,14 @@ var TreeRenderer = (function() {
             var oldclass = target.getAttribute('class') || '';
             target.setAttribute('class', oldclass + ' removed');
             break;
-            
+
         case MUTATE_MOVE:
             var target = document.getElementById("n" + mutation.target);
             var parent = document.getElementById("n" + mutation.parent);
             var child = parent.childNodes[mutation.index];
             parent.insertBefore(target, child);
             break;
-            
+
         case MUTATE_INSERT:
             var parsed = DOMSTR.parse(mutation.child, fakedocument);
             assign_nid(parsed, mutation.nid);

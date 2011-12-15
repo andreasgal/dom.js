@@ -59,7 +59,7 @@ global.DOMException = (function() {
     // Code to message
     // These strings are from the 13 May 2011 Editor's Draft of DOM Core.
     // http://dvcs.w3.org/hg/domcore/raw-file/tip/Overview.html
-    // Copyright © 2011 W3C® (MIT, ERCIM, Keio), All Rights Reserved. 
+    // Copyright © 2011 W3C® (MIT, ERCIM, Keio), All Rights Reserved.
     // Used under the terms of the W3C Document License:
     // http://www.w3.org/Consortium/Legal/2002/copyright-documents-20021231
     const messages = [
@@ -139,7 +139,7 @@ global.DOMException = (function() {
         A.shift(frames);
         e.stack = join(frames,"\n");
         var parts = match(frames[0], /[^@]*[@(]([^:]*):(\d*)/);
-        
+
         if (parts) {
             e.fileName = parts[1];
             e.lineNumber = parts[2];
@@ -164,9 +164,9 @@ global.DOMException = (function() {
     return DOMException;
 }());
 
-// 
+//
 // Shortcut functions for throwing errors of various types.
-// 
+//
 function IndexSizeError() { throw DOMException(INDEX_SIZE_ERR); }
 function HierarchyRequestError() { throw DOMException(HIERARCHY_REQUEST_ERR); }
 function WrongDocumentError() { throw DOMException(WRONG_DOCUMENT_ERR); }
