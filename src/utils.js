@@ -8,9 +8,10 @@ function assert(expr, msg) {
 
 // For stuff that I haven't implemented yet
 function nyi() {
-    var e = Error();
+    var e = new Error();
+    var where = split(e.stack, "\n")[1];
     e.name = "NotYetImplemented";
-    e.message = trim(split(e.stack, "\n")[3]);
+    e.message = where;
     throw e;
 }
 
@@ -48,10 +49,12 @@ function ftrue() { return true; }
 function ffalse() { return false; }
 function fnoop() { /* do nothing */ }
 
-const readonlyPropDesc = { configurable: true, enumerable: true };
-const hiddenPropDesc   = { configurable: true, writable: true };
-const constantPropDesc = { enumerable: true };
-const hiddenConstantPropDesc = {};
+const readonlyPropDesc = {writable:false,enumerable:true,configurable: true};
+const hiddenPropDesc = {writable: true,enumerable: false,configurable: true};
+const constantPropDesc = {writable: false,enumerable: true,configurable: false};
+const hiddenConstantPropDesc = {
+    writable: false, enumerable: false, configurable: false
+};
 
 // Set o.p to v, but make the property read-only
 function defineReadonlyProp(o,p,v) {
