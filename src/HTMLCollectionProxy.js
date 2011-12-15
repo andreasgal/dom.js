@@ -2,11 +2,11 @@
 // Expects an object with a length property and item() and namedItem() methods.
 // That object must also have a namedItems property that returns an object
 // that maps element names to some value.
-// 
+//
 // XXX: bug I can't define an expando property if there is a named property
 // with the same name. I think it is a bug in the Proxy itself.  Looks like
 // define property is not even being called.
-// 
+//
 function HTMLCollectionProxy(collection) {
     var handler = O.create(HTMLCollectionProxy.handler);
     handler.collection = collection;
@@ -80,7 +80,7 @@ HTMLCollectionProxy.handler = {
         var names = [];
         for (var i = 0, n = this.collection.length; i < n; i++)
             push(names, String(i));
-        for(var n in this.collection.namedItems) 
+        for(var n in this.collection.namedItems)
             push(names, n);
         return concat(r, O.getOwnPropertyNames(this.localprops));
     },
@@ -89,12 +89,12 @@ HTMLCollectionProxy.handler = {
         // XXX
         // For now, we "Reject" by throwing TypeError.  Proxies may change
         // so we only have to return false.
-        if (this.isArrayIndex(name)) 
+        if (this.isArrayIndex(name))
             throw new TypeError(
                 "can't set or create indexed property '" + name + "'");
 
         // Don't allow named properties to overridden by expando properties,
-        // even with an explicit Object.defineProperty() call.  
+        // even with an explicit Object.defineProperty() call.
         // XXX
         // The resolution of this issue is still pending on the mailing list.
         if (name in this.collection.namedItems)
@@ -112,7 +112,7 @@ HTMLCollectionProxy.handler = {
             return idx >= this.collection.length;
         }
 
-        // Can't delete named properties 
+        // Can't delete named properties
         if (this.isVisible(name)) {
             return false;
         }
@@ -130,7 +130,7 @@ HTMLCollectionProxy.handler = {
         var names = [];
         for (var i = 0, n = this.collection.length; i < n; i++)
             push(names, String(i));
-        for(var n in this.collection.namedItems) 
+        for(var n in this.collection.namedItems)
             push(names, n);
         for(var name in this.localprops)
             push(names, name);

@@ -156,7 +156,7 @@ interface CSSStyleDeclaration {
   attribute DOMString width;
   attribute DOMString wordSpacing;
   attribute DOMString zIndex;
-  
+
 
 };
 
@@ -175,7 +175,7 @@ interface HTMLElement : Element {
   readonly attribute DOMTokenList classList;
   readonly attribute DOMStringMap dataset;
 
-  // microdata 
+  // microdata
            attribute boolean itemScope;
            attribute DOMString itemType;
            attribute DOMString itemId;
@@ -785,7 +785,7 @@ interface HTMLSelectElement : HTMLElement {
   readonly attribute HTMLOptionsCollection options;
            attribute unsigned long length;
   // XXX Temporarily comment out this getter since the
-  // proxy it requires is NYI and without the proxy, I can't even call 
+  // proxy it requires is NYI and without the proxy, I can't even call
   // document.createElement("select")
   //  getter any item(in unsigned long index);
   any namedItem(in DOMString name);

@@ -1,12 +1,12 @@
 // A factory function for NodeList proxy objects
 function NodeListProxy(list) {
-    // This function expects an object with a length property and an item() 
+    // This function expects an object with a length property and an item()
     // method.  If we pass it a plain array, it will add the item() method
-    // 
+    //
     // We should avoid reading the length property of the list when possible
-    // because in lazy implementations such as impl/FilteredElementList, 
+    // because in lazy implementations such as impl/FilteredElementList,
     // reading the length forces the filter to process the entire document
-    // tree undoing the laziness.  
+    // tree undoing the laziness.
     if (isArray(list)) {
         if (!hasOwnProperty(list, "item"))
             list.item = function(n) { return list[n]; };
@@ -21,7 +21,7 @@ function NodeListProxy(list) {
 }
 
 // This is the prototype object for the proxy handler object
-// 
+//
 // For now, while the Proxy spec is still in flux, this handler
 // defines only the fundamental traps.  We can add the derived traps
 // later if there is a performance bottleneck.
@@ -51,7 +51,7 @@ NodeListProxy.handler = {
             // than testing length.
             var v = this.list.item(name);
             if (v) {
-                return { 
+                return {
                     value: wrap(v, idl.Node),
                     writable: false,
                     enumerable: true,
@@ -87,7 +87,7 @@ NodeListProxy.handler = {
         // is usually strict-mode dependent.  While this is being clarified
         // I'll just throw here.  May need to change this to return false
         // instead.
-        if (this.isArrayIndex(name)) 
+        if (this.isArrayIndex(name))
             throw new TypeError(
                 "can't set or create indexed properties '" + name + "'");
 
@@ -108,7 +108,7 @@ NodeListProxy.handler = {
     // indexed or named properties defy being fixed; if Object.freeze,
     // Object.seal or Object.preventExtensions is called on one, these
     // the function MUST throw a TypeError.
-    // 
+    //
     // Proxy proposal: When handler.fix() returns undefined, the
     // corresponding call to Object.freeze, Object.seal, or
     // Object.preventExtensions will throw a TypeError.
