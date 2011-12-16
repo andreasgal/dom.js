@@ -215,7 +215,8 @@ interface Document : Node {
   void writeln(in DOMString... text);
 
   // user interaction
-  //  readonly attribute WindowProxy? defaultView;
+  readonly attribute Window? defaultView;
+
   //  readonly attribute Element? activeElement;
   //  boolean hasFocus();
   //           attribute DOMString designMode;

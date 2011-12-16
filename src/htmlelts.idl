@@ -122,6 +122,7 @@ interface CSSStyleDeclaration {
   attribute DOMString maxWidth;
   attribute DOMString minHeight;
   attribute DOMString minWidth;
+  attribute DOMString opacity;
   attribute DOMString orphans;
   attribute DOMString outline;
   attribute DOMString outlineColor;

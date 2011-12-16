@@ -203,6 +203,7 @@ defineLazyProperty(impl, "CSSStyleDeclaration", function() {
         maxWidth: "max-width",
         minHeight: "min-height",
         minWidth: "min-width",
+        opacity: "opacity",
         orphans: "orphans",
         outline: "outline",
         outlineColor: "outline-color",

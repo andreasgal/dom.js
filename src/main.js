@@ -76,3 +76,11 @@ global.removeEventListener = function addEventListener(type, listener, capture){
         toCallbackOrNull(listener),
         OptionalBoolean(capture));
 };
+
+// XXX
+// This is a completely broken implementation put here just to see if we
+// can get jQuery animations to work
+//
+global.getComputedStyle = function getComputedStyle(elt) {
+    return elt.style;
+};
