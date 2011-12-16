@@ -210,8 +210,10 @@ var TreeRenderer = (function() {
             wrapper.setAttribute('class', 'element');
         }
 
-        var nodeid = document.createElement('span');
+        var nodeid = document.createElement('a');
         wrapper.appendChild(nodeid);
+        nodeid.setAttribute('id', "a" + tree.nid);
+        nodeid.setAttribute('href', "#a" + tree.nid);
         nodeid.setAttribute('class', 'node-id');
         nodeid.appendChild(
             document.createTextNode(tree.nid));

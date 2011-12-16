@@ -16,6 +16,10 @@ body {
     width: 50%;
 }
 
+#new-element {
+    border: 1px solid black;
+}
+
 .element {
     display: block;
     padding: 0.5em;
@@ -39,6 +43,7 @@ body {
     padding-right: 0.5em;
     color: #cccccc;
     cursor: pointer;
+    text-decoration: none;
 }
 
 .collapsed:after {
