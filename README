@@ -20,6 +20,9 @@ visible. Publicly-visible objects are wrappers around this internal
 implementation and we use a WeakMap to create a private mapping from
 each public DOM object to its the internal implementation object.
 
+Many more details of the architecture and code organization are below.
+
+
 Installing
 ======
 
@@ -54,3 +57,78 @@ Run 'make coverage'.  If you've got a debug build of Spidermonkey, it
 will run slowly but display code coverage information. If you're using
 a non-debug build, the tests will run quickly but display some error
 messages about not being able to display coverage information.
+
+Directory Structure
+===================
+
+This repo includes the following important files and directories:
+
+LICENSE
+
+   dom.js is open-source, licensed under the BSD license
+
+Makefile
+
+   Type 'make' to build dom.js from the files in src/
+
+deps/
+
+   Other git repos that dom.js depends on.
+   In addition to these, it also requires node (for tools)
+   and spidermonkey (to run standalone and to run tests)
+         
+deps/CoverMonkey/
+        
+   A code-coverage tool for SpiderMonkey.
+   Required for the 'make coverage' target in the Makefile
+
+deps/webidl.js/
+
+   A parser for WebIDL files. This is required to convert the .idl
+   files in src/idl/ (which describe public DOM APIs) into .js files
+   in src/
+
+deps/parser-lib/
+
+   A css parser that dom.js uses to implement the HTMLElement.style 
+   property.
+
+src/
+
+   The source code for dom.js
+
+src/idl/
+
+   WebIDL files that describe public DOM interfaces. The files in this
+   directory are automatically converted into JavaScript code in src/
+
+src/impl/
+
+   An internal DOM implementation with implementation details hanging
+   out everywhere.
+
+tools/
+
+   Programs to convert idl files to js files and to run tests.
+   These tools require Node
+
+tests/
+
+   An incomplete set of DOM tests. The most complete set is in
+   tests/newtests, and these are the ones that are run by the 'make
+   coverage' target in the Makefile
+   
+servo/
+
+   dom.js is part of a larger Mozilla experimental browser engine
+   called Project Servo.  This directory contains code that runs
+   dom.js in a Web Worker, and then uses the browser's native DOM to
+   fake a layout engine for dom.js
+
+nodeservo/
+
+   A Node-based version of servo, using web sockets to communicate
+   between dom.js running in node and a native DOM fake layout engine
+   running in a browser.  Currently unstable.
+
+
