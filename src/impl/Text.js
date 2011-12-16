@@ -4,9 +4,9 @@ defineLazyProperty(impl, "Text", function() {
         this.ownerDocument = doc;
         this._data = data;
     }
-    
+
     var nodeValue = attribute(function() { return this._data; },
-                              function(v) { 
+                              function(v) {
                                   if (v === this._data) return;
                                   this._data = v;
                                   if (this.rooted)
@@ -15,7 +15,7 @@ defineLazyProperty(impl, "Text", function() {
                                       this.parentNode._textchangehook)
                                       this.parentNode._textchangehook(this);
                               });
-    
+
     Text.prototype = O.create(impl.CharacterData.prototype, {
         _idlName: constant("Text"),
 //        nodeType: constant(TEXT_NODE),
@@ -47,12 +47,12 @@ defineLazyProperty(impl, "Text", function() {
         // the DOMCore specification is considering removing or altering them.
         wholeText: attribute(nyi),
         replaceWholeText: constant(nyi),
-   
+
         // Utility methods
         clone: constant(function clone() {
             return new impl.Text(this.ownerDocument, this._data);
         }),
-     
+
     });
 
     return Text;

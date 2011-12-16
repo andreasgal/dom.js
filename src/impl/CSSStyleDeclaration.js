@@ -42,7 +42,7 @@ defineLazyProperty(impl, "CSSStyleDeclaration", function() {
         _serialize: constant(function() {
             var styles = this._parsed;
             var s = "";
-            
+
             for(var name in styles) {
                 if (s) s += "; ";
                 s += name + ":" + styles[name]
@@ -61,20 +61,20 @@ defineLazyProperty(impl, "CSSStyleDeclaration", function() {
                 return this._element.getAttribute("style");
             },
             function(value) {
-                // XXX: I should parse and serialize the value to 
+                // XXX: I should parse and serialize the value to
                 // normalize it and remove errors. FF and chrome do that.
                 this._element.setAttribute("style", value);
             }
         ),
 
         length: attribute(function() {
-            if (!this._names) 
+            if (!this._names)
                 this._names = Object.getOwnPropertyNames(this._parsed);
             return this._names.length;
         }),
 
         item: constant(function(n) {
-            if (!this._names) 
+            if (!this._names)
                 this._names = Object.getOwnPropertyNames(this._parsed);
             return this._names[n];
         }),
@@ -97,9 +97,9 @@ defineLazyProperty(impl, "CSSStyleDeclaration", function() {
             }
 
             // XXX are there other legal priority values?
-            if (priority !== undefined && priority !== "important") 
+            if (priority !== undefined && priority !== "important")
                 return;
-            
+
             // We don't just accept the property value.  Instead
             // we parse it to ensure that it is something valid.
             // If it contains a semicolon it is invalid

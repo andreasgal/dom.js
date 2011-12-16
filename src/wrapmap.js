@@ -3,7 +3,7 @@
 // document data. They are implemented by the files in impl/* Nodes
 // (with a capital N) are the public objects that implement DOM
 // interfaces and do not have any properties other than the accessor
-// properties and methods defined by the DOM.  They are implemented by 
+// properties and methods defined by the DOM.  They are implemented by
 // the files in idl/*
 //
 // Every Node must have a node to hold its actual data.
@@ -15,7 +15,7 @@
 // if a Node exists for the node, it is simply set on a property of the node.
 //
 // The methods in this file manage the mapping between nodes and Nodes
-// 
+//
 
 var idlToImplMap = new WeakMap(), lastkey = {}, lastvalue = undefined;
 
@@ -34,8 +34,8 @@ function unwrap(n) {
     try {
         var impl = wmget(idlToImplMap, n);
 
-        // This happens if someone passes a bogus object to 
-        // appendChild, for example. 
+        // This happens if someone passes a bogus object to
+        // appendChild, for example.
         if (!impl) NotFoundError();
 
         lastkey = n;
@@ -60,7 +60,7 @@ function unwrapOrNull(n) {
 // Return the interface object (a DOM node) for the implementation object n,
 // creating it if necessary. Implementation objects define the type
 // of wrapper they require by defining an _idlName property. Most classes
-// do this on their prototype.  For childNodes and attributes arrays, 
+// do this on their prototype.  For childNodes and attributes arrays,
 // we have to define _idlName directly on the array objects, however.
 function wrap(n) {
     if (n === null) return null;
@@ -74,7 +74,7 @@ function wrap(n) {
         if (!typename)
             throw Error("Implementation object does not define _idlName");
         var type = idl[typename];
-        if (!type) 
+        if (!type)
             throw Error("Unknown idl type " + typename);
 
         n._idl = type.factory(n);       // Create the wrapper

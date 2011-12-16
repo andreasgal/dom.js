@@ -10,7 +10,9 @@ function assert(expr, msg) {
 function nyi() {
     var e = new Error();
     var where = split(e.stack, "\n")[1];
-    throw new Error("Not Yet Implemented at " + where);
+    e.name = "NotYetImplemented";
+    e.message = where;
+    throw e;
 }
 
 // Called by deprecated functions, etc.
@@ -33,15 +35,15 @@ function error(msg) {
 // Utility functions that return property descriptors
 function constant(v) { return { value: v }; }
 function attribute(get, set) {
-    if (set) 
+    if (set)
         return { get: get, set: set};
-    else 
+    else
         return { get: get };
 }
 
 // some functions that do very simple stuff
 // Note that their names begin with f.
-// This is good for things like attribute(fnull,fnoop) 
+// This is good for things like attribute(fnull,fnoop)
 function fnull() { return null; }
 function ftrue() { return true; }
 function ffalse() { return false; }
@@ -85,7 +87,7 @@ function defineHiddenConstantProp(o,p,v) {
 // If the property is made read-only before it is used, then it will throw
 // an exception when used.
 // Based on Andreas's AddResolveHook function.
-// 
+//
 function defineLazyProperty(o, p, f, hidden, readonly) {
     O.defineProperty(o, p, {
         get: function() {            // When the property is first retrieved
@@ -103,7 +105,7 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
             // just replace the value and f() will never be invoked
 
             // Remove the line below when this bug is fixed:
-            // https://bugzilla.mozilla.org/show_bug.cgi?id=703157 
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=703157
             delete o[p];
 
             O.defineProperty(o, p, {
@@ -124,7 +126,7 @@ function defineLazyProperty(o, p, f, hidden, readonly) {
 // contain duplicates.  And that all nodes are connected and comparable.
 // Clever code by ppk via jeresig.
 function documentOrder(n,m) {
-    return 3 - (n.compareDocumentPosition(m) & 6); 
+    return 3 - (n.compareDocumentPosition(m) & 6);
 }
 
 // Like String.trim(), but uses HTML's definition of whitespace

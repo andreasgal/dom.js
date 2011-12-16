@@ -27,7 +27,7 @@ defineLazyProperty(impl, "Element", function() {
             a.push(node._data);
         }
         else {
-            for(var i = 0, n = node.childNodes.length;  i < n; i++) 
+            for(var i = 0, n = node.childNodes.length;  i < n; i++)
                 recursiveGetText(node.childNodes[i], a);
         }
     }
@@ -111,8 +111,8 @@ defineLazyProperty(impl, "Element", function() {
         // Return the next element, in source order, after this one or
         // null if there are no more.  If root element is specified,
         // then don't traverse beyond its subtree.
-        // 
-        // This is not a DOM method, but is convenient for 
+        //
+        // This is not a DOM method, but is convenient for
         // lazy traversals of the tree.
         nextElement: constant(function(root) {
             var next = this.firstElementChild || this.nextElementSibling;
@@ -123,7 +123,7 @@ defineLazyProperty(impl, "Element", function() {
             // If we can't go down or across, then we have to go up
             // and across to the parent sibling or another ancestor's
             // sibling.  Be careful, though: if we reach the root
-            // element, or if we reach the documentElement, then 
+            // element, or if we reach the documentElement, then
             // the traversal ends.
             for(var parent = this.parentElement;
                 parent && parent !== root;
@@ -146,10 +146,10 @@ defineLazyProperty(impl, "Element", function() {
         getElementsByClassName:
             constant(impl.Document.prototype.getElementsByClassName),
 
-        
+
         // Utility methods used by the public API methods above
 
-        isHTML: attribute(function() { 
+        isHTML: attribute(function() {
             return this.namespaceURI === HTML_NAMESPACE &&
                 this.ownerDocument.isHTML;
         }),
@@ -157,11 +157,11 @@ defineLazyProperty(impl, "Element", function() {
         clone: constant(function clone() {
             var e;
 
-            // XXX: 
-            // Modify this to use the constructor directly or 
+            // XXX:
+            // Modify this to use the constructor directly or
             // avoid error checking in some other way. In case we try
             // to clone an invalid node that the parser inserted.
-            // 
+            //
             if (this.namespaceURI !== HTML_NAMESPACE || this.prefix)
                 e = this.ownerDocument.createElementNS(this.namespaceURI,
                                                        this.tagName);
@@ -202,7 +202,7 @@ defineLazyProperty(impl, "Element", function() {
         // This is the "locate a namespace prefix" algorithm from the
         // DOMCore specification.  It is used by Node.lookupPrefix()
         locateNamespacePrefix: constant(function locateNamespacePrefix(ns) {
-            if (this.namespaceURI === ns && this.prefix !== null) 
+            if (this.namespaceURI === ns && this.prefix !== null)
                 return this.prefix;
 
             for(var i = 0, n = this._numattrs; i < n; i++) {
@@ -233,20 +233,20 @@ defineLazyProperty(impl, "Element", function() {
             return parent ? parent.locateNamespace(prefix) : null;
         }),
 
-        // 
+        //
         // Attribute handling methods and utilities
         //
-        
+
         /*
          * Attributes in the DOM are tricky:
-         * 
+         *
          * - there are the 8 basic get/set/has/removeAttribute{NS} methods
-         * 
+         *
          * - but many HTML attributes are also "reflected" through IDL
          *   attributes which means that they can be queried and set through
          *   regular properties of the element.  There is just one attribute
          *   value, but two ways to get and set it.
-         * 
+         *
          * - Different HTML element types have different sets of reflected
              attributes.
          *
@@ -254,7 +254,7 @@ defineLazyProperty(impl, "Element", function() {
          *   property of an element.  This property behaves like an array of
          *   Attr objects.  The value property of each Attr is writeable, so
          *   this is a third way to read and write attributes.
-         * 
+         *
          * - for efficiency, we really want to store attributes in some kind
          *   of name->attr map.  But the attributes[] array is an array, not a
          *   map, which is kind of unnatural.
@@ -266,49 +266,49 @@ defineLazyProperty(impl, "Element", function() {
          *   the first attribute with such a name.  So for these methods, an
          *   inefficient array-like data structure would be easier to
          *   implement.
-         * 
+         *
          * - The attributes[] array is live, not a snapshot, so changes to the
          *   attributes must be immediately visible through existing arrays.
-         * 
+         *
          * - When attributes are queried and set through IDL properties
          *   (instead of the get/setAttributes() method or the attributes[]
          *   array) they may be subject to type conversions, URL
          *   normalization, etc., so some extra processing is required in that
          *   case.
-         * 
+         *
          * - But access through IDL properties is probably the most common
          *   case, so we'd like that to be as fast as possible.
-         * 
+         *
          * - We can't just store attribute values in their parsed idl form,
          *   because setAttribute() has to return whatever string is passed to
          *   getAttribute even if it is not a legal, parseable value. So
          *   attribute values must be stored in unparsed string form.
-         * 
+         *
          * - We need to be able to send change notifications or mutation
          *   events of some sort to the renderer whenever an attribute value
          *   changes, regardless of the way in which it changes.
-         * 
+         *
          * - Some attributes, such as id and class affect other parts of the
          *   DOM API, like getElementById and getElementsByClassName and so
          *   for efficiency, we need to specially track changes to these
          *   special attributes.
-         * 
+         *
          * - Some attributes like class have different names (className) when
          *   reflected.
-         * 
+         *
          * - Attributes whose names begin with the string "data-" are treated
              specially.
-         * 
+         *
          * - Reflected attributes that have a boolean type in IDL have special
          *   behavior: setting them to false (in IDL) is the same as removing
          *   them with removeAttribute()
-         * 
+         *
          * - numeric attributes (like HTMLElement.tabIndex) can have default
          *   values that must be returned by the idl getter even if the
          *   content attribute does not exist. (The default tabIndex value
          *   actually varies based on the type of the element, so that is a
          *   tricky one).
-         * 
+         *
          * See
          * http://www.whatwg.org/specs/web-apps/current-work/multipage/urls.html#reflect
          * for rules on how attributes are reflected.
@@ -330,7 +330,7 @@ defineLazyProperty(impl, "Element", function() {
             var attr = this._attrsByLName[ns + "|" + lname];
             return attr ? attr.value : null;
         }),
-        
+
         hasAttribute: constant(function hasAttribute(qname) {
             if (this.isHTML) qname = toLowerCase(qname);
             return qname in this._attrsByQName;
@@ -343,7 +343,7 @@ defineLazyProperty(impl, "Element", function() {
 
         // Set the attribute without error checking. The parser uses this.
         _setAttribute: constant(function _setAttribute(qname, value) {
-            // XXX: the spec says that this next search should be done 
+            // XXX: the spec says that this next search should be done
             // on the local name, but I think that is an error.
             // email pending on www-dom about it.
             var attr = this._attrsByQName[qname];
@@ -370,7 +370,7 @@ defineLazyProperty(impl, "Element", function() {
             if (substring(qname, 0, 5) === "xmlns") NamespaceError();
             this._setAttribute(qname, value);
         }),
-        
+
 
         // The version with no error checking used by the parser
         _setAttributeNS: constant(function _setAttributeNS(ns, qname, value) {
@@ -401,7 +401,7 @@ defineLazyProperty(impl, "Element", function() {
                 this._addQName(attr);
             }
             else {
-                // Calling setAttributeNS() can change the prefix of an 
+                // Calling setAttributeNS() can change the prefix of an
                 // existing attribute!
                 if (attr.prefix !== prefix) {
                     // Unbind the old qname
@@ -431,7 +431,7 @@ defineLazyProperty(impl, "Element", function() {
                 (prefix === "xml" && ns !== XML_NAMESPACE) ||
                 ((qname === "xmlns" || prefix === "xmlns") &&
                  (ns !== XMLNS_NAMESPACE)) ||
-                (ns === XMLNS_NAMESPACE && 
+                (ns === XMLNS_NAMESPACE &&
                  !(qname === "xmlns" || prefix === "xmlns")))
                 NamespaceError();
 
@@ -488,7 +488,7 @@ defineLazyProperty(impl, "Element", function() {
             this._removeQName(attr);
 
             // Onchange handler for the attribute
-            if (attr.onchange) 
+            if (attr.onchange)
                 attr.onchange(this, attr.localName, attr.value, null);
             // Mutation event
             if (this.rooted) this.ownerDocument.mutateRemoveAttr(attr);
@@ -501,15 +501,15 @@ defineLazyProperty(impl, "Element", function() {
             // Assume that qname is already lowercased, so don't do it here.
             // Also don't check whether attr is an array: a qname with no
             // prefix will never have two matching Attr objects (because
-            // setAttributeNS doesn't allow a non-null namespace with a 
+            // setAttributeNS doesn't allow a non-null namespace with a
             // null prefix.
-            var attr = this._attrsByQName[qname];  
+            var attr = this._attrsByQName[qname];
             return attr ? attr.value : null;
         }),
 
         // The raw version of setAttribute for reflected idl attributes.
         _setattr: constant(function _setattr(qname, value) {
-            var attr = this._attrsByQName[qname];  
+            var attr = this._attrsByQName[qname];
             var isnew;
             if (!attr) {
                 attr = this._newattr(qname);
@@ -529,8 +529,8 @@ defineLazyProperty(impl, "Element", function() {
             return attr;
         }),
 
-        // Add a qname->Attr mapping to the _attrsByQName object, taking into 
-        // account that there may be more than one attr object with the 
+        // Add a qname->Attr mapping to the _attrsByQName object, taking into
+        // account that there may be more than one attr object with the
         // same qname
         _addQName: constant(function(attr) {
             var qname = attr.name;
@@ -546,8 +546,8 @@ defineLazyProperty(impl, "Element", function() {
             }
         }),
 
-        // Remove a qname->Attr mapping to the _attrsByQName object, taking into 
-        // account that there may be more than one attr object with the 
+        // Remove a qname->Attr mapping to the _attrsByQName object, taking into
+        // account that there may be more than one attr object with the
         // same qname
         _removeQName: constant(function(attr) {
             var qname = attr.name;
@@ -590,7 +590,7 @@ defineLazyProperty(impl, "Element", function() {
     // argument.  Pass the content attribute name as the second argument.
     // And pass the idl attribute name as the third, if it is different.
     Element.reflectStringAttribute = function(c, name, idlname) {
-        defineAttribute(c, idlname || name, 
+        defineAttribute(c, idlname || name,
                         function() { return this._getattr(name) || ""; },
                         function(v) { this._setattr(name, v); });
     };
@@ -602,10 +602,10 @@ defineLazyProperty(impl, "Element", function() {
     // canonical value that it should convert to. Usually the name and
     // value of most properties in the object will be the same.
     Element.reflectEnumeratedAttribute = function(c, name, idlname, legalvals,
-                                                  missing_default, 
+                                                  missing_default,
                                                   invalid_default)
     {
-        defineAttribute(c, idlname || name, 
+        defineAttribute(c, idlname || name,
                         function() {
                             var v = this._getattr(name);
                             if (v === null) return missing_default || "";
@@ -623,7 +623,7 @@ defineLazyProperty(impl, "Element", function() {
     };
 
     Element.reflectBooleanAttribute = function(c, name, idlname) {
-        defineAttribute(c, idlname || name, 
+        defineAttribute(c, idlname || name,
                         function() {
                             return this.hasAttribute(name);
                         },
@@ -638,21 +638,21 @@ defineLazyProperty(impl, "Element", function() {
     };
 
     // See http://www.whatwg.org/specs/web-apps/current-work/#reflect
-    // 
+    //
     // defval is the default value. If it is a function, then that function
     // will be invoked as a method of the element to obtain the default.
     // If no default is specified for a given attribute, then the default
     // depends on the type of the attribute, but since this function handles
     // 4 integer cases, you must specify the default value in each call
-    // 
+    //
     // min and max define a valid range for getting the attribute.
-    // 
+    //
     // setmin defines a minimum value when setting.  If the value is less
     // than that, then throw INDEX_SIZE_ERR.
     //
     // Conveniently, JavaScript's parseInt function appears to be
     // compatible with HTML's "rules for parsing integers"
-    Element.reflectIntegerAttribute = function(c, name, defval, idlname, 
+    Element.reflectIntegerAttribute = function(c, name, defval, idlname,
                                                min, max, setmin)
     {
         var getter, setter;
@@ -672,7 +672,7 @@ defineLazyProperty(impl, "Element", function() {
                     default: assert(false);
                     }
                 }
-            
+
                 return n;
             };
         }
@@ -703,7 +703,7 @@ defineLazyProperty(impl, "Element", function() {
     };
 
     Element.reflectFloatAttribute = function(c, name, defval, idlname) {
-        defineAttribute(c, idlname || name, 
+        defineAttribute(c, idlname || name,
                         function() {
                             var s = this._getattr(name), x;
                             if (s) x = parseFloat();
@@ -715,7 +715,7 @@ defineLazyProperty(impl, "Element", function() {
     };
 
     Element.reflectPositiveFloatAttribute = function(c, name, defval, idlname) {
-        defineAttribute(c, idlname || name, 
+        defineAttribute(c, idlname || name,
                         function() {
                             var s = this._getattr(name), x;
                             if (s) x = parseFloat(s);
@@ -732,7 +732,7 @@ defineLazyProperty(impl, "Element", function() {
     // for attributes like 'id' that require special handling when they change.
     Element.registerAttributeChangeHandler = function(c, name, handler) {
         var p = c.prototype;
-        
+
         // If p does not already have its own _attributeChangeHandlers
         // then create one for it, inheriting from the inherited
         // _attributeChangeHandlers. At the top (for the impl.Element
@@ -776,7 +776,7 @@ defineLazyProperty(impl, "Element", function() {
     Element.reflectStringAttribute(Element, "class", "className");
 
 
-    // The Attr class represents a single attribute.  The values in 
+    // The Attr class represents a single attribute.  The values in
     // _attrsByQName and _attrsByLName are instances of this class.
     function Attr(elt, lname, prefix, namespace) {
         // Always remember what element we're associated with.
@@ -809,12 +809,12 @@ defineLazyProperty(impl, "Element", function() {
             if (this.data === v) return;
             var oldval = this.data;
             this.data = v;
-            
+
             // Run the onchange hook for the attribute
             // if there is one.
             if (this.onchange)
                 this.onchange(this.ownerElement,this.localName, oldval, v);
-            
+
             // Generate a mutation event if the element is rooted
             if (this.ownerElement.rooted)
                 this.ownerElement.ownerDocument.mutateAttr(
@@ -851,7 +851,7 @@ defineLazyProperty(impl, "Element", function() {
 
     ChildrenCollection.prototype = {
         _idlName: "HTMLCollection",
-        get length() { 
+        get length() {
             this.updateCache();
             return this.childrenByNumber.length;
         },
@@ -860,7 +860,7 @@ defineLazyProperty(impl, "Element", function() {
             this.updateCache();
             return this.childrenByNumber[n] || null;
         },
-        
+
         namedItem: function namedItem(name) {
             this.updateCache();
             return this.childrenByName[name] || null;
@@ -885,18 +885,18 @@ defineLazyProperty(impl, "Element", function() {
                     var c = this.element.childNodes[i];
                     if (c.nodeType == ELEMENT_NODE) {
                         push(this.childrenByNumber, c);
-                        
+
                         // XXX Are there any requirements about the namespace
                         // of the id property?
                         var id = c.getAttribute("id");
 
                         // If there is an id that is not already in use...
-                        if (id && !this.childrenByName[id]) 
+                        if (id && !this.childrenByName[id])
                             this.childrenByName[id] = c;
 
                         // For certain HTML elements we check the name attribute
                         var name = c.getAttribute("name");
-                        if (name && 
+                        if (name &&
                             this.element.namespaceURI === HTML_NAMESPACE &&
                             namedElts.test(this.element.localName) &&
                             !this.childrenByName[name])

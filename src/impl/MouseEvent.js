@@ -11,7 +11,7 @@ defineLazyProperty(impl, "MouseEvent", function() {
     }
     MouseEvent.prototype = O.create(impl.UIEvent.prototype, {
         _idlName: constant("MouseEvent"),
-        initMouseEvent: constant(function(type, bubbles, cancelable, 
+        initMouseEvent: constant(function(type, bubbles, cancelable,
                                           view, detail,
                                           screenX, screenY, clientX, clientY,
                                           ctrlKey, altKey, shiftKey, metaKey,

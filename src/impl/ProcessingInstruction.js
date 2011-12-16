@@ -8,7 +8,7 @@ defineLazyProperty(impl, "ProcessingInstruction", function() {
     }
 
     var nodeValue = attribute(function() { return this._data; },
-                              function(v) { 
+                              function(v) {
                                   this._data = v;
                                   if (this.rooted)
                                       this.ownerDocument.mutateValue(this);

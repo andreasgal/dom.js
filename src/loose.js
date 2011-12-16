@@ -8,14 +8,14 @@
 // This is a class with a build() method instead of a simple function because
 // inside of with statements it is hard to refer to the function arguments.
 // By using this class-based design, I can refer to them as properties of this.
-// 
+//
 // The body argument is a string of js code that becomes the body of the
 // event handler function.
-// 
+//
 // The document, form, and element arguments to the constructor must be
 // wrapper objects, not impl objects.  Note that we can't call wrap from
 // this file, so they must be passed in wrapped.
-// 
+//
 
 function EventHandlerBuilder(body, document, form, element) {
     this.body = body;

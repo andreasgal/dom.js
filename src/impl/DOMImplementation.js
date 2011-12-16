@@ -7,7 +7,7 @@ defineLazyProperty(impl, "DOMImplementation", function() {
     // Feature/version pairs that DOMImplementation.hasFeature() returns
     // true for.  It returns false for anything else.
     const supportedFeatures = {
-        "xml": { "": true, "1.0": true, "2.0": true },   // DOM Core 
+        "xml": { "": true, "1.0": true, "2.0": true },   // DOM Core
         "core": { "": true, "2.0": true },               // DOM Core
         "html": { "": true, "1.0": true, "2.0": true} ,  // HTML
         "xhtml": { "": true, "1.0": true, "2.0": true} , // HTML
@@ -26,7 +26,7 @@ defineLazyProperty(impl, "DOMImplementation", function() {
 
             return (f && f[version]) || false;
         },
-        
+
         createDocumentType: function createDocumentType(qualifiedName,
                                                         publicId, systemId) {
             if (!xml.isValidName(qualifiedName)) InvalidCharacterError();
@@ -37,19 +37,19 @@ defineLazyProperty(impl, "DOMImplementation", function() {
 
         createDocument: function createDocument(namespace,
                                                 qualifiedName, doctype) {
-            // 
+            //
             // Note that the current DOMCore spec makes it impossible to
-            // create an HTML document with this function, even if the 
+            // create an HTML document with this function, even if the
             // namespace and doctype are propertly set.  See this thread:
             // http://lists.w3.org/Archives/Public/www-dom/2011AprJun/0132.html
-            // 
+            //
             var address = null;
-            if (currentlyExecutingScript) 
+            if (currentlyExecutingScript)
                 address = currentlyExecutingScript.ownerDocument._address
             var d = new impl.Document(false, address);
             var e;
-            
-            if (qualifiedName) 
+
+            if (qualifiedName)
                 e = d.createElementNS(namespace, qualifiedName);
             else
                 e = null;
@@ -66,7 +66,7 @@ defineLazyProperty(impl, "DOMImplementation", function() {
 
         createHTMLDocument: function createHTMLDocument(titleText) {
             var address = null;
-            if (currentlyExecutingScript) 
+            if (currentlyExecutingScript)
                 address = currentlyExecutingScript.ownerDocument._address
             var d = new impl.Document(true, address);
             d.appendChild(new impl.DocumentType("html"));
