@@ -5,9 +5,8 @@ JavaScript DOM implementations exist, none of them are WebIDL-compliant
 example). Also, all other implementations do not provide proper encapsulation.
 The details of the implementation leak through the API.
 
-The code uses ES5, Proxies and WeakMaps as well as Spidermonkey features
-such as const, let and destructuring assignment.  It should run in
-Firefox 6.
+The code uses ES5 strict mode, and ES6 Proxies and WeakMaps and the
+'const' keyword.
 
 The Makefile generates dom.js from many smaller files in the src/
 directory. dom.js includes all of the smaller files within one large
@@ -16,39 +15,42 @@ not, in fact, leak into the global scope.
 
 The src/impl/ directory contains an implementation of the DOM using
 plain JavaScript objects.  By itself, this is not a conforming
-implementation because its internal properties are visible.
-
-The src/idl/ directory implements WebIDL-compliant DOM
-interfaces on top of the implementation objects.  Each interface
-object has a corresponding implementation object, and a WeakMap
-maintains the mapping from interfaces to implementations so that the
-interface object does not require a property that refers to the
-implementation.
+implementation because its internal properties are
+visible. Publicly-visible objects are wrappers around this internal
+implementation and we use a WeakMap to create a private mapping from
+each public DOM object to its the internal implementation object.
 
 Installing
 ======
 
-Get a copy of the dom.js source.
+Get a copy of the dom.js source:
+    git clone git://github.com/andreasgal/dom.js.git
 
-Install node.js
+Install node.js:
     http://nodejs.org/#download
 
-Install spidermonkey
-    https://developer.mozilla.org/En/SpiderMonkey/Build_Documentation
+Install spidermonkey:
+
+    Look for a jsshell download at
+        http://ftp.mozilla.org/pub/mozilla.org/firefox/nightly/latest-mozilla-aurora/
+
+    Or, build from source following these directions:
+
+        https://developer.mozilla.org/En/SpiderMonkey/Build_Documentation
 
 Building
 ======
 
 1. Run "git submodule init".
-2. Run "git submodule update". This clones the CoverMonkey and webidl.js
-   repos that the dom.js build and tests depends on.
+2. Run "git submodule update". This clones the repos that dom.js
+   depends on
 3. Run "make". This assembles the dom.js, src/domcore.js, and src/htmlelts.js
    files from the other source files in the project.
 
 Testing
 ======
 
-Run either make test-summary or make test-detailed. The JS_PATH environment variable should be set to the directory that contains the spidermonkey "js" executable, and the JSTESTS_PATH environment variable should be set to the directory that contains jstests.py. Example:
-
-JS_PATH=~/Code/mozilla-central/js/src/build-release JSTESTS_PATH=~/Code/mozilla-central/js/src/tests make test-detailed
-
+Run 'make coverage'.  If you've got a debug build of Spidermonkey, it
+will run slowly but display code coverage information. If you're using
+a non-debug build, the tests will run quickly but display some error
+messages about not being able to display coverage information.
