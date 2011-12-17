@@ -28,8 +28,6 @@ var print = console.log;
 
 importScripts('../dom.js');
 
-while(document.hasChildNodes()) document.removeChild(document.firstChild);
-
 document._setMutationHandler(function(e) { postMessage(["mutation", e]); });
 
 onmessage = function(event) {
@@ -48,6 +46,12 @@ onmessage = function(event) {
 
         case "load":
             window.location = data;
+            return;
+
+        case "create":
+            var elt = document.createElement(data);
+            elt.appendChild(document.createTextNode(''));
+            document.body.appendChild(elt);
             return;
         }
     } catch (e) {

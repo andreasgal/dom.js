@@ -6,8 +6,7 @@ var TreeRenderer = (function() {
         this.worker = worker;
         this.root = root;
         root.id = "n1";  // Set the id of the root element to its nid
-
-        root.textContent = "";
+        //root.textContent = "";
         worker.addEventListener("message", this.handleMutation.bind(this), false);
     }
 
@@ -76,6 +75,7 @@ var TreeRenderer = (function() {
             var parsed = DOMSTR.parse(mutation.child, fakedocument);
             assign_nid(parsed, mutation.nid);
             var nodes = create_dom(parsed);
+            console.log('mutation parent', mutation.parent);
             document.getElementById("n" + mutation.parent).appendChild(nodes);
             break;
         }
@@ -205,12 +205,52 @@ var TreeRenderer = (function() {
 
     function create_dom(tree) {
         var wrapper = document.createElement('span');
+
         wrapper.id = "n" + tree.nid;
         if (tree.children !== undefined) {
             wrapper.setAttribute('class', 'element');
         }
 
         var nodeid = document.createElement('a');
+        nodeid.ondragenter = function(ev) {
+            ev.preventDefault();
+            console.log("ondragenter");
+            this.className = this.className + ' dragover';
+            ev.dataTransfer.dropEffect = 'copy';
+            return false;
+        }
+
+        nodeid.ondragleave = function(ev) {
+            ev.preventDefault();
+            var classes = this.className.split(' ');
+            classes = classes.filter(function(cls) {
+                console.log(cls);
+                if (cls === 'dragover') return false;
+                return true;
+            });
+            this.className = classes.join(' ');
+            return false;
+        }
+
+        nodeid.ondragover = function(ev) {
+            ev.preventDefault();
+            return false;
+        }
+
+        nodeid.ondrop = function(ev) {
+            ev.preventDefault();
+            console.log("dropped");
+            ev.preventDefault();
+            var classes = this.className.split(' ');
+            classes = classes.filter(function(cls) {
+                console.log(cls);
+                if (cls === 'dragover') return false;
+                return true;
+            });
+            this.className = classes.join(' ');
+            return false;
+        }
+
         wrapper.appendChild(nodeid);
         nodeid.setAttribute('id', "a" + tree.nid);
         nodeid.setAttribute('href', "#a" + tree.nid);
