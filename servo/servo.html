@@ -14,8 +14,35 @@
                 <input type="text" name="url" value="foo.html" />
                 <input type="submit" value="fetch" />
             </form>
+            <form id="new-element">
+                <input type="text" name="name" value="span" />
+                <input type="submit" value="create" />
+            </form>
         </div>
-        <span id="n1">document</span>
+        <span id="n1">
+            <span id="n2" class="element" style="color: black">
+                <a id="a2" class="node-id" href="#a2">2</a>
+                &lt; !DOCTYPE html &gt;
+            </span>
+            <span id="n3" class="element" style="color: green">
+                <a id="a3" class="node-id" href="#a3">3</a>
+                &lt; html &gt;
+
+                <span id="n4" class="element" style="color: maroon">
+                    <a id="a4" class="node-id" href="#a4">4</a>
+                    &lt; head &gt;
+                    <span id="n5" class="element" style="color: red">
+                        <a id="a5" class="node-id" href="#a5">5</a>
+                        &lt; title &gt;
+                        <span id="n6"><a id="a6" class="node-id" href="#a6">6</a><span class="textnode"></span></span>
+                    </span>
+                </span>
+                <span id="n7" class="element" style="color: orange">
+                    <a id="a7" class="node-id" href="#a7">7</a>
+                    &lt; body &gt;
+                </span>
+            </span>
+        </span>
         <iframe id="renderframe" src="#"></iframe>
     </body>
 </html>

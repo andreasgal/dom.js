@@ -23,12 +23,20 @@ window.onload = function() {
     renderer = new IFrameRenderer(worker, document.getElementById("renderframe"));
 
     var form = document.getElementById("url");
+    form.url.value = window.location.href.split('/').slice(0, -1).join('/') + '/foo.html';
     form.onsubmit = function(e) {
         document.getElementById('n1').innerHTML = '';
         var url = form.url.value;
         renderer.setBaseHref(url);
         worker.postMessage(["load", url]);
+
         e.preventDefault();
+    }
+
+    var create = document.getElementById('new-element');
+    create.onsubmit = function(ev) {
+        worker.postMessage(["create", create.name.value]);
+        ev.preventDefault();
     }
 };
 

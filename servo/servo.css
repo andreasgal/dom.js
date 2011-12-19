@@ -5,7 +5,7 @@ body {
 }
 
 #url>input[type="text"] {
-    width: 20em;
+    width: 40%;
 }
 
 #renderframe {
@@ -16,11 +16,19 @@ body {
     width: 50%;
 }
 
+#new-element {
+}
+
 .element {
+    border-top: 1px solid white;
     display: block;
     padding: 0.5em;
     padding-left: 1em;
     padding-bottom: 0em;
+}
+
+.dragover {
+    border-top: 1px solid black;
 }
 
 .textnode {
@@ -39,6 +47,7 @@ body {
     padding-right: 0.5em;
     color: #cccccc;
     cursor: pointer;
+    text-decoration: none;
 }
 
 .collapsed:after {
