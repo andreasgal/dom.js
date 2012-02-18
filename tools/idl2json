@@ -1,4 +1,4 @@
-#!/usr/local/bin/node
+#!/usr/bin/env node
 var idl = require("fs").readFileSync(process.argv[2],"utf-8");
 try {
     var tree = require("../deps/webidl.js/node/WebIDLParser.js").Parser.parse(idl);
