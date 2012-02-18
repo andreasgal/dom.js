@@ -1,4 +1,4 @@
-#!/usr/local/bin/node
+#!/usr/bin/env node
 
 /*
  * idl2domjs: convert WebIDL interfaces into JavaScript source for dom.js
