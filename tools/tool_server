@@ -1,4 +1,4 @@
-#!/usr/local/bin/node
+#!/usr/bin/env node
 
 // at the moment you have to run this from the dom.js directory, not the tools directory.
 // less hardcoded paths would be good.
