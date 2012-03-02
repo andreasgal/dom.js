@@ -359,8 +359,6 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
 
                     var script = this;
                     var xhr = new XMLHttpRequest();
-                    xhr.open("GET", url);
-                    xhr.send();
 
                     // Web workers support this handler but not the old
                     // onreadystatechange handler
@@ -393,6 +391,9 @@ defineLazyProperty(impl, "HTMLScriptElement", function() {
                             script.ownerDocument._parser.resume();
                         }
                     }
+
+                    xhr.open("GET", url);
+                    xhr.send();
                 }
             }
             else {

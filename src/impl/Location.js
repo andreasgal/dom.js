@@ -35,8 +35,7 @@ Location.prototype = Object.create(URLDecompositionAttributes.prototype, {
         // This is just something hacked together.
         // The real algorithm is: http://www.whatwg.org/specs/web-apps/current-work/multipage/history.html#navigate
         var xhr = new XMLHttpRequest();
-        xhr.open("GET", newurl);
-        xhr.send();
+
         xhr.onload = function() {
             var olddoc = self._window.document;
             var parser = new HTMLParser(newurl);
@@ -56,6 +55,9 @@ Location.prototype = Object.create(URLDecompositionAttributes.prototype, {
             // And parse the new file
             parser.parse(xhr.responseText, true);
         };
+
+        xhr.open("GET", newurl);
+        xhr.send();
 
     }),
 
