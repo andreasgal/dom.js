@@ -519,7 +519,7 @@ defineLazyProperty(impl, "Document", function() {
                     parent: node.parentNode._nid,
                     index: node.index,
                     nid: node._nid,
-                    child: DOMSTR.stringify(node)
+                    child: DOMSTR.serialize(node)
                 });
             }
         }),

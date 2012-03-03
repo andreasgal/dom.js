@@ -13,53 +13,58 @@ var DOMSTR = (function() {
     const charCodeAt = String.charCodeAt;
     const fromCharCode = String.fromCharCode;
 
-    function stringify(n) {
-        function stringifyNode(n) {
+    function serialize(n) {
+        function serializeNode(n) {
             switch (n.nodeType) {
             case Node.TEXT_NODE:
-                return "T" + n.data + NUL;
+                return n.data;
             case Node.COMMENT_NODE:
-                return "C" + n.data + NUL;
+                return {comment: n.data};
             case Node.PROCESSING_INSTRUCTION_NODE:
-                return "P" + n.target + NUL + n.data + NUL;
+                return {pi: n.target, data: n.data};
             case Node.DOCUMENT_TYPE_NODE:
                 // HTML ignores the publicID and systemID when
                 // serializing nodes, so ignore them here, too
-                return "D" + n.name + NUL;
+                return {doctype: n.name};
             case Node.ELEMENT_NODE:
-                return stringifyElement(n);
+                return serializeElement(n);
             case NODE.DOCUMENT_FRAGMENT_NODE:
-                return stringifyFragment(n);
+                return serializeFragment(n);
             }
         }
 
-        function stringifyElement(n) {
-            var s = "";
+        function serializeElement(n) {
+            var elt = {};
             if (n.namespaceURI === HTML_NAMESPACE && !n.prefix) {
-                s = "H" + n.localName + NUL;
+                elt.html = n.localName;
             }
             else {
-                s = "E" + stringifyNamespace(n.namespaceURI) + n.tagName + NUL;
+                elt.ns = serializeNamespace(n.namespaceURI);
+                elt.tag = n.tagName;
             }
 
-            // Number of attributes
-            s += stringifyLength(n.attributes.length);
+            // Handle the attributes
+            if (n.attributes.length) {
+                elt.attr = new Array(n.attributes.length);
+            }
             for(var i = 0, l = n.attributes.length; i < l; i++) {
-                s += stringifyAttr(n.attributes.item(i));
+                elt.attr[i] = serializeAttr(n.attributes.item(i));
             }
 
             // Now the children
-            s += stringifyLength(n.childNodes.length);
+            if (n.childNodes.length) {
+                elt.child = new Array(n.childNodes.length);
+            }
             for(var i = 0, l = n.childNodes.length; i < l; i++) {
-                s += stringifyNode(n.childNodes[i]);
+                elt.child[i] = serializeNode(n.childNodes[i]);
             }
 
-            return s;
+            return elt;
         }
 
         var lastCustomNS = null;
 
-        function stringifyNamespace(ns) {
+        function serializeNamespace(ns) {
             switch(ns) {
             case HTML_NAMESPACE: return "h";
             case null: return "u";
@@ -71,100 +76,93 @@ var DOMSTR = (function() {
                 if (ns === lastCustomNS) return "l"
                 else {
                     lastCustomNS = ns;
-                    return "c" + ns + NUL;
+                    return "c" + ns;
                 }
             }
         }
 
-        function stringifyAttr(a) {
+        function serializeAttr(a) {
             if (a.namespaceURI === null && a.prefix === null) {
                 // set with setAttribute()
-                return "a" + a.name + NUL + a.value + NUL;
+                return {a: a.name, v: a.value};
             }
             else {
                 // set with setAttributeNS()
-                return "A" + stringifyNamespace(a.namespaceURI) +
-                    a.name + NUL + a.value + NUL;
+                return {ns: serializeNamespace(a.namespaceURI),
+                    a: a.name, v: a.value};
             }
         }
 
-        function stringifyLength(n) {
+        function serializeLength(n) {
             if (n < 0) throw new Error("negative length");
             if (n <= 0xD7FF) return fromCharCode(n);
             else return fromCharCode("0xFFFF") + String(n) + NUL;
         }
 
-        function stringifyFragment(n) {
-            var s = "F" + stringifyLength(n.childNodes.length);
+        function serializeFragment(n) {
+            var frag = {frag: new Array(n.childNodes.length)};
             for(var i = 0, l = n.childNodes.length; i < l; i++) {
-                s += stringifyNode(n.childNodes[i]);
+                frag[i] = serializeNode(n.childNodes[i]);
             }
-            return s;
+            return frag;
         }
 
-        return stringifyNode(n);
+        return serializeNode(n);
     }
 
 
-    function parse(s, d) {
-        var n = 0,            // current character in s.
-            eos = s.length;   // end-of-string
-
+    function parse(node, d) {
         if (!d) d = document;
 
-        function parseNode() {
-            switch(s[n++]) {
-            case "T":
-                return d.createTextNode(next());
-            case "C":
-                return d.createComment(next());
-            case "P":
-                return d.createProcessingInstruction(next(), next());
-            case "D":
-                return d.implementation.createDocumentType(next(),"","");
-            case "H":  // create with createElement
-                return parseElement("H");
-            case "E":  // create with createElementNS
-                return parseElement("E");
-            case "F":
-                return parseFragment();
+        function parseNode(n) {
+            if (typeof n === "string") {
+                return d.createTextNode(n);
+            }
+            if (n.comment !== undefined) {
+                return d.createComment(n.comment);
+            }
+            if (n.pi !== undefined) {
+                return d.createProcessingInstruction(n.pi, n.data);
+            }
+            if (n.doctype !== undefined) {
+                return d.implementation.createDocumentType(n.doctype, "", "");
+            }
+            if (n.html !== undefined) {
+                return parseElement("H", n);
+            }
+            if (n.ns !== undefined) {
+                return parseElement("E", n);
+            }
+            if (n.frag !== undefined) {
+                return parseFragment(n);
             }
         }
 
-
-        // Return the characters of s from n up to (but not
-        // including) the next NUL character (or the end of the
-        // string).  Update n to point to the first character
-        // after NUL.  Throw an error if we reach the end of string
-        function next() {
-            if (n >= eos) throw new Error("Unexpected end of string");
-            var end = indexOf(s, NUL, n);
-            if (end === -1) end = eos;
-            var token = substring(s, n, end);
-            n = end+1;
-            return token;
-        }
-
-
-        function parseElement(type) {
+        function parseElement(type, n) {
             var e;
             if (type === "H")
-                e = d.createElement(next());
+                e = d.createElement(n.html);
             else
-                e = d.createElementNS(parseNamespace(), next());
+                e = d.createElementNS(parseNamespace(n.ns), n.tag);
 
-            var numattrs = parseLength();
+            var numattrs = 0;
+            if (n.attr !== undefined) {
+                numattrs = n.attr.length;
+            }
             for(var i = 0; i < numattrs; i++) {
-                var code = s[n++];
-                if (code === "a")
-                    e.setAttribute(next(), next());
+                var attr = n.attr[i];
+                if (attr.a !== undefined)
+                    e.setAttribute(attr.a, attr.v);
                 else
-                    e.setAttributeNS(parseNamespace(), next(), next());
+                    e.setAttributeNS(attr.ns, attr.a, attr.v);
             }
 
-            var numkids = parseLength();
+            var numkids = 0;
+            if (n.child !== undefined) {
+                numkids = n.child.length;
+            }
             for(var i = 0; i < numkids; i++) {
-                e.appendChild(parseNode());
+                e.appendChild(parseNode(n.child[i]));
             }
 
             return e;
@@ -173,8 +171,8 @@ var DOMSTR = (function() {
 
         var lastCustomNS = null;
 
-        function parseNamespace() {
-            switch(s[n++]) {
+        function parseNamespace(n) {
+            switch(n[0]) {
             case 'h': return HTML_NAMESPACE;
             case 'u': return null;
             case 'x': return XML_NAMESPACE;
@@ -183,27 +181,20 @@ var DOMSTR = (function() {
             case 's': return SVG_NAMESPACE;
             case 'l': return lastCustomNS;
             case 'c':
-                lastCustomNS = next();
-                return lastCustomNS;
+                return n.slice(1);
             }
         }
 
-        function parseLength() {
-            var l = charCodeAt(s, n++);
-            if (l === 0xFFFF) l = parseInt(next());
-            return l;
-        }
-
-        function parseFragment() {
+        function parseFragment(n) {
             var f = d.createDocumentFragment();
-            var len = parseLength();
+            var len = n.frag.length;
             for(var i = 0; i < len; i++)
-                f.appendChild(parseNode());
+                f.appendChild(parseNode(n.frag[i]));
             return f;
         }
 
-        return parseNode();
+        return parseNode(node);
     }
 
-    return { stringify: stringify, parse: parse };
+    return { serialize: serialize, parse: parse };
 }());
