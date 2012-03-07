@@ -76,7 +76,7 @@ var TreeRenderer = (function() {
             assign_nid(parsed, mutation.nid);
             var nodes = create_dom(parsed);
             //console.log('mutation parent', mutation.parent);
-            document.getElementById("n" + mutation.parent).appendChild(nodes);
+            document.getElementById("n" + mutation.target).appendChild(nodes);
             break;
         }
 

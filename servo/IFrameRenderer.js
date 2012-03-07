@@ -114,7 +114,7 @@ IFrameRenderer.prototype.handleMutation = function(event) {
         break;
 
     case MUTATE_INSERT:
-        var parent = this.nodes[mutation.parent];
+        var parent = this.nodes[mutation.target];
         var target = parent.childNodes[mutation.index];
         var child = DOMSTR.parse(mutation.child, parent.ownerDocument);
         this.assignNid(child, mutation.nid);

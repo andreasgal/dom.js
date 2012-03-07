@@ -516,7 +516,7 @@ defineLazyProperty(impl, "Document", function() {
             if (this.mutationHandler) {
                 this.mutationHandler({
                     type: MUTATE_INSERT,
-                    parent: node.parentNode._nid,
+                    target: node.parentNode._nid,
                     index: node.index,
                     nid: node._nid,
                     child: DOMSTR.serialize(node)
