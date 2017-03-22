@@ -40,6 +40,9 @@ Install spidermonkey:
     Or, build from source following these directions:
 
         https://developer.mozilla.org/En/SpiderMonkey/Build_Documentation
+        
+Install ant:
+    https://ant.apache.org/
 
 Building
 ======
